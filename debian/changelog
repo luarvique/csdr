@@ -1,3 +1,9 @@
+csdr (0.18.2) bullseye jammy; urgency=low
+
+  * Added noise filtering based on spectral subtraction.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 24 Dec 2022 15:15:00 +0000
+
 csdr (0.18.1) bullseye jammy; urgency=low
 
   * Fix a potential race condition on Csdr::TcpSource shutdown
