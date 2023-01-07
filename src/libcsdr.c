@@ -2670,6 +2670,132 @@ void dbpsk_decoder_c_u8(complexf* input, unsigned char* output, int input_size)
     }
 }
 
+#define CW_QUANTUM_MSEC (10)
+
+static char cw_parse(int signal, int msec)
+{
+    static const char cw2char[] =
+        "##TEMNAIOGKDWRUS" // 00000000
+        "##QZYCXBJP#L#FVH"
+        "09#8#<#7#(###/-6" // <AR>
+        "1######&2###3#45"
+        "#######:####,###" // 01000000
+        "##)#!;########-#"
+        "#'###@####.#####"
+        "###?######{#####" // <SK>
+        "################" // 10000000
+        "################"
+        "################"
+        "################"
+        "################" // 11000000
+        "################"
+        "################"
+        "######$#########";
+
+    static unsigned int data = 1;
+    static unsigned int dit_time = 50;
+    static unsigned int dah_time = 250;
+    static unsigned int cur_signal = 0;
+    static unsigned int cur_time = 0;
+    static unsigned int ini_time = 0;
+
+    char result = '\0';
+
+    if((signal!=cur_signal) && (ini_time+msec<=CW_QUANTUM_MSEC))
+    {
+        ini_time += msec;
+        return(result);
+    }
+    else
+    {
+        msec += ini_time;
+        ini_time = 0;
+    }
+
+    // When signal level is low for a while, decode character
+    if(!cur_signal && (cur_time>dah_time))
+    {
+        if(data>1)
+        {
+            result = data<256? cw2char[data] : '#';
+            cur_time = 0;
+            data = 1;
+        }
+        else if(signal && (cur_time>(4*dah_time)))
+        {
+            result = ' ';
+        }
+    }
+
+    // If signal level changed...
+    if(signal!=cur_signal)
+    {
+        if(cur_signal)
+        {
+            // Parse dit or dah
+            data = (data << 1) | (cur_time<((dit_time+dah_time)>>1)? 1:0);
+
+            if(cur_time<((dit_time+dah_time)>>1))
+            {
+                dit_time = (cur_time + dit_time) >> 1;
+                dah_time = (3 * dit_time) >> 1;
+            }
+            else
+            {
+                dah_time = (dah_time + cur_time) >> 1;
+                dit_time = (dah_time << 1) / 3;
+            }
+        }
+
+        // Reset time and signal level
+        cur_signal = signal;
+        cur_time = 0;
+    }
+
+    // Update signal and time
+    cur_time += msec;
+    return(result);
+}
+
+int cw_decoder_f_u8(float* input, unsigned char* output, int input_size, int sample_rate)
+{
+    static double avgLevel = 0.0;
+    static double curLevel = 0.0;
+    static int qcount = 0;
+
+    char out;
+    int qsize;
+    int signal;
+    int i, j;
+
+    // Compute quantum size in samples
+    qsize = CW_QUANTUM_MSEC * sample_rate / 1000;
+
+    // Compute average signal level in the input
+    for(i=0, j=0 ; i<input_size ; ++i)
+    {
+        curLevel += fabs(input[i]);
+
+        // If quantum size reached...
+        if(++qcount>=qsize)
+        {
+            // Determine if we have signal or not
+            curLevel/= qcount;
+            signal   = curLevel>=0.5? 1:0;
+            avgLevel = (avgLevel + curLevel)/2.0;
+            curLevel = 0.0;
+            qcount   = 0;
+
+            // Inject current signal status into the parser
+            out = cw_parse(signal, CW_QUANTUM_MSEC);
+            if(out) output[j++] = out;
+        }
+    }
+
+    // Done
+    return(j);
+}
+
 int bfsk_demod_cf(complexf* input, float* output, int input_size, complexf* mark_filter, complexf* space_filter, int taps_length)
 {
     complexf acc_space, acc_mark;

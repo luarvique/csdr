@@ -41,6 +41,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "dbpsk.hpp"
 #include "varicode.hpp"
 #include "timingrecovery.hpp"
+#include "cw.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -559,5 +560,12 @@ TimingRecoveryCommand::TimingRecoveryCommand(): Command("timingrecovery", "Timin
         } else {
             std::cerr << "Invalid algorithm: \"" << algorithm << "\"\n";
         }
+    });
+}
+
+CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
+    add_option("sample_rate", sampleRate, "Sample rate")->required();
+    callback( [this] () {
+        runModule(new CwDecoder(sampleRate));
     });
 }

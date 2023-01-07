@@ -175,8 +175,9 @@ char usage[]=
 "    add_const_cc <i> <q>\n"
 "    tee <path> [buffers]\n"
 "    pll_cc (1 [alpha] |2 [bandwidth [damping_factor [ko [kd]]]])\n"
-"    pattern_search_u8_u8 <values_after> <pattern_values × N>\n" 
-"    dbpsk_decoder_c_u8\n" 
+"    pattern_search_u8_u8 <values_after> <pattern_values × N>\n"
+"    dbpsk_decoder_c_u8\n"
+"    cw_decoder_f_u8 <sample_rate>\n"
 "    bfsk_demod_cf <spacing> <filter_length>\n"
 "    normalized_timing_variance_u32_f <samples_per_symbol> <initial_sample_offset> [--debug]\n"
 "    ?<search_the_function_list>\n"
@@ -3467,6 +3468,24 @@ int main(int argc, char *argv[])
             FREAD_C;
             dbpsk_decoder_c_u8((complexf*)input_buffer, local_output_buffer, the_bufsize);
             fwrite(local_output_buffer, sizeof(unsigned char), the_bufsize, stdout);
+            TRY_YIELD;
+        }
+        return 0;
+    }
+
+    if(!strcmp(argv[1], "cw_decoder_f_u8"))
+    {
+        if(!sendbufsize(initialize_buffers())) return -2;
+        unsigned char* local_output_buffer = (unsigned char*)malloc(sizeof(unsigned char)*the_bufsize);
+        int sample_rate;
+        sscanf(argv[2],"%d",&sample_rate);
+        errhead(); fprintf(stderr,"sample_rate = %d\n",sample_rate);
+        for(;;)
+        {
+            FEOF_CHECK;
+            FREAD_R;
+            int out_count = cw_decoder_f_u8((float*)input_buffer, local_output_buffer, the_bufsize, sample_rate);
+            if(out_count) fwrite(local_output_buffer, sizeof(unsigned char), out_count, stdout);
             TRY_YIELD;
         }
         return 0;

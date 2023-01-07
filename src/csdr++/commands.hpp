@@ -260,4 +260,11 @@ namespace Csdr {
             std::string algorithm = "gardner";
     };
 
+    class CwDecoderCommand: public Command {
+        public:
+            CwDecoderCommand();
+        private:
+            unsigned int sampleRate;
+    };
+
 }
