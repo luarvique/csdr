@@ -35,11 +35,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "module.hpp"
 #include "complex.hpp"
 
+#include <fftw3.h>
+
 namespace Csdr {
 
     class CwDecoder: public Module<float, unsigned char> {
         public:
             CwDecoder(unsigned int sampleRate=12000, unsigned int dahTime=240, unsigned int ditTime=10);
+            ~CwDecoder();
+
             bool canProcess() override;
             void process() override;
 
@@ -58,6 +62,10 @@ namespace Csdr {
             unsigned int dahTime;
             unsigned int ditTime;
             unsigned int data;
+
+            fftwf_complex *fftInput;
+            fftwf_complex *fftOutput;
+            fftwf_plan     fftPlan;
 
             char parseSignal(unsigned int signal, unsigned int msec);
 
