@@ -44,27 +44,49 @@ namespace Csdr {
             void process() override;
 
         private:
-            static const int MAX_HISTORY  = 128;
-            static const int QUANTUM_MSEC = 10;
+            unsigned int sampleRate; // Input sampling rate
+            unsigned int targetFreq; // CW carrier offset
+            unsigned int NBTime;     // Noise blanker time (ms)
 
-            double hisLevel[MAX_HISTORY];
-            double avgLevel;
-            unsigned int hisPtr;
+            unsigned int MagLimit; 
+            unsigned int MagLimitL;
+            unsigned int RealState;
+            unsigned int RealState0;
+            unsigned int FiltState0;
+            unsigned int FiltState; 
 
-            unsigned int sampleRate;
-            unsigned int curSignal;
-            unsigned int curTime;
-            unsigned int iniTime;
-            unsigned int dahTime;
-            unsigned int ditTime;
-            unsigned int data;
+            double Coeff;
 
-            char parseSignal(unsigned int signal, unsigned int msec);
+            unsigned int Code;
+            unsigned int Stop;
+            unsigned int WPM;
+            unsigned long LastStartT;
+            unsigned long StartTimeH;
+            unsigned long DurationH;
+            unsigned long LastDurationH;
+            unsigned long AvgTimeH;
+            unsigned long StartTimeL;
+            unsigned long DurationL;
+            unsigned long AvgTimeL;
 
+            // Time counting
+            unsigned long curTime;     // Current time in seconds
+            unsigned int  curSamples;  // Sample count since last second mark
+
+            // Code to character conversion
+            static const char cwTable[];
+
+            // Get current time in milliseconds
+            unsigned long msecs()
+            { return(1000*curTime + 1000*curSamples/sampleRate); }
+
+            // Get number of samples in given number of milliseconds
             unsigned int ms2smp(unsigned int msec)
-            {
-                return(sampleRate * msec / 1000);
-            }
+            { return(sampleRate * msec / 1000); }
+
+            // Convert CW code to a character
+            char cw2char(unsigned int data)
+            { return(data<256? cwTable[data] : '#'); }
     };
 
 }

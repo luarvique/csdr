@@ -35,157 +35,176 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace Csdr;
 
+const char CwDecoder::cwTable[] =
+    "##TEMNAIOGKDWRUS" // 00000000
+    "##QZYCXBJP#L#FVH"
+    "09#8#<#7#(###/-6" // <AR>
+    "1######&2###3#45"
+    "#######:####,###" // 01000000
+    "##)#!;########-#"
+    "#'###@####.#####"
+    "###?######{#####" // <SK>
+    "################" // 10000000
+    "################"
+    "################"
+    "################"
+    "################" // 11000000
+    "################"
+    "################"
+    "######$#########";
+
 CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int ditTime)
 : sampleRate(sampleRate),
-  avgLevel(0.5*MAX_HISTORY),
-  dahTime(dahTime),
-  ditTime(ditTime),
-  hisPtr(0),
-  curSignal(0),
+  MagLimit(100),
+  MagLimitL(100),
+  RealState(0),
+  RealState0(0),
+  FiltState0(0),
+  FiltState(0),
+  NBTime(6),
+  Code(1),
+  Stop(0),
+  WPM(0),
+  LastStartT(0),
+  quantum(96),
   curTime(0),
-  iniTime(0),
-  data(1)
+  curSamples(0),
+  targetFreq(496)
 {
-    for(int i=0; i<MAX_HISTORY ; ++i)
-    {
-        hisLevel[i] = 0.5;
-    }
+    unsigned int J = (int)((double)(quantum * targetFreq) / sampleFreq + 0.5);
+    Coeff = 2.0 * cos((2.0 * PI * J) / quantum);
 }
 
 bool CwDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= ms2smp(QUANTUM_MSEC) && writer->writeable() > 0;
+    return reader->available() >= quantum && writer->writeable() >= 2;
 }
 
 void CwDecoder::process() {
-    unsigned int n = ms2smp(QUANTUM_MSEC);
-    unsigned int j;
-    double curLevel;
-    char out;
+    unsigned long Tmsec = msecs();
+    double Q0, Q1, Q2;
+    unsigned int I;
 
-    std::lock_guard<std::mutex> lock(this->processMutex);
-
-    // Compute average signal level in the input
-    for(j=0, curLevel=0.0; (j<n) && reader->available(); ++j)
+    // Read samples
+    for(I=0, Q1=Q2=0.0 ; I<quantum ; ++I)
     {
-        curLevel += fabs(*(reader->getReadPointer()));
+        Q0 = Q1 * Coeff - Q2 * (*(reader->getReadPointer()));
+        Q2 = Q1;
+        Q1 = Q0;
+
         reader->advance(1);
     }
 
-    if(!j) return;
-
-    // Determine if we have signal or not
-    curLevel /= j;
-    j = curLevel>1.25*avgLevel/MAX_HISTORY? 1:0;
-
-    // Keep track of the long-term average signal level
-    avgLevel += curLevel - hisLevel[hisPtr];
-    hisLevel[hisPtr] = curLevel;
-    hisPtr = hisPtr<MAX_HISTORY-1? hisPtr+1 : 0;
-
-#if 0
-{
-static char logBuf[256];
-static unsigned int count = 0;
-if(++count>=100)
-{
-count=0;
-sprintf(logBuf, " %dHz %.03f %dms %dms ", sampleRate, avgLevel/MAX_HISTORY, ditTime, dahTime);
-for(int k=0; logBuf[k]; ++k)
-{
-*(writer->getWritePointer()) = logBuf[k];
-writer->advance(1);
-}
-}
-}
-#endif
-
-    // Inject current signal status into the parser
-    out = parseSignal(j, QUANTUM_MSEC);
-
-    // If got a character, output it
-    if(out)
+    // We only need the real part
+    double Magnitude = sqrt(Q1*Q1 + Q2*Q2 - Q1*Q2*Coeff);
+  
+    // Try to set the automatic magnitude limit
+    if(Magnitude>MagLimitLow)
     {
-        *(writer->getWritePointer()) = out;
+        MagLimit += (Magnitude - MagLimit) / 6.0;
+        MagLimit  = MagLimit<MagLimitLow? MagLimitLow : MagLimit;
+    }
+  
+    // Check the magnitude
+    RealState = Magnitude>MagLimit*0.6? 1 : 0;
+  
+    // Clean up the state with a noise blanker
+    if(RealState!=RealState0) LastStartT = millis();
+    if((millis()-LastStartT)>NBTime) FiltState = RealState;
+
+    // If signal state changed...
+    if(FiltState!=FiltState0)
+    {
+        // Compute high / low durations
+        if(FiltState)
+        {
+            StartTimeH = Tmsec;
+            DurationL  = Tmsec - StartTimeL;
+        }
+        else
+        {
+            StartTimeL = Tmsec;
+            DurationH  = Tmsec - StartTimeH;
+          
+            // Now we know avg dit time ( rolling 3 avg)
+            if((DurationH<2*AvgTimeH) || (AvgTimeH==0))
+                AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
+          
+            // If speed decreases fast ..
+            if(DurationH>5*AvgTimeH)
+                AvgTimeH = DurationH + AvgTimeH;
+        }
+    
+        // now we will check which kind of baud we have - dit or dah
+        // and what kind of pause we do have 1 - 3 or 7 pause
+        // we think that AvgTimeH = 1 bit
+        Stop = 0;
+    
+        // If ending a HIGH state...
+        if(!FiltState)
+        { 
+            // 0.6 to filter out false dits
+            if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
+            {
+              Code = (Code<<1) | 0;
+            }
+            else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
+            {
+              // The most precise we can do
+              WPM  = (WPM + (1200/(DurationH/3)))/2;
+              Code = (Code<<1) | 1;
+            }
+        }
+        else
+        {
+            // Ending a LOW state...
+            // At high speeds we have to have a little more pause before
+            // new letter or new word 
+            double LackTime = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
+           
+            // If letter space...
+            if((DurationL>2*LackTime*AvgTimeH) && (DurationL<5*LackTime*AvgtTimeH))
+            {
+                // Letter space...
+                *(writer->getWritePointer()) = cw2char(Code);
+                writer->advance(1);
+                // Start new character
+                Code = 1;
+            }
+            else if(DurationL>=5*LackTime*AvgTimeH)
+            {
+                // Word space
+                *(writer->getWritePointer()) = cw2char(Code);
+                writer->advance(1);
+                *(writer->getWritePointer()) = ' ';
+                writer->advance(1);
+                // Start new character
+                Code = 1;
+            }
+        }
+    }
+
+    // Write if no more letters
+    if(((Tmsec-StartTimeL)>6*DurationH) && !Stop)
+    {
+        *(writer->getWritePointer()) = cw2char(Code);
         writer->advance(1);
+        // Start new character
+        Code = 1;
+        Stop = 1;
     }
-}
 
-char CwDecoder::parseSignal(unsigned int signal, unsigned int msec)
-{
-    static const char cw2char[] =
-        "##TEMNAIOGKDWRUS" // 00000000
-        "##QZYCXBJP#L#FVH"
-        "09#8#<#7#(###/-6" // <AR>
-        "1######&2###3#45"
-        "#######:####,###" // 01000000
-        "##)#!;########-#"
-        "#'###@####.#####"
-        "###?######{#####" // <SK>
-        "################" // 10000000
-        "################"
-        "################"
-        "################"
-        "################" // 11000000
-        "################"
-        "################"
-        "######$#########";
+    // Update state
+    RealState0 = RealState;
+    DurationH0 = DurationH;
+    FiltState0 = FiltState;
 
-    char result = '\0';
-
-    // Eliminate jitter
-    if((signal!=curSignal) && (iniTime+msec<=QUANTUM_MSEC))
+    // Update time
+    curSamples += quantum;
+    if(curSamples>=sampleRate)
     {
-        iniTime += msec;
-        return(result);
+        unsigned int secs = curSamples/sampleRate;
+        curTime += secs;
+        curSamples -= secs*sampleRate;
     }
-    else
-    {
-        msec += iniTime;
-        iniTime = 0;
-    }
-
-    // When signal level is low for a while, decode character
-    if(!curSignal && (curTime>dahTime))
-    {
-        if(data>1)
-        {
-            result = data<256? cw2char[data] : '#';
-            curTime = 0;
-            data = 1;
-        }
-        else if(signal && (curTime>(2*dahTime)))
-        {
-            result = ' ';
-        }
-    }
-
-    // If signal level changed...
-    if(signal!=curSignal)
-    {
-        if(curSignal)
-        {
-            // Parse dit or dah
-            data = (data << 1) | (curTime<((ditTime+dahTime)>>1)? 1:0);
-
-            if(curTime<((ditTime+dahTime)>>1))
-            {
-                ditTime = (curTime + ditTime) >> 1;
-                dahTime = (3 * ditTime) >> 1;
-            }
-            else
-            {
-                dahTime = (dahTime + curTime) >> 1;
-                ditTime = (dahTime << 1) / 3;
-            }
-        }
-
-        // Reset time and signal level
-        curSignal = signal;
-        curTime = 0;
-    }
-
-    // Update signal and time
-    curTime += msec;
-    return(result);
 }
