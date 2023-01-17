@@ -1,3 +1,4 @@
+
 /*
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
@@ -55,8 +56,8 @@ const char CwDecoder::cwTable[] =
 
 CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int ditTime)
 : sampleRate(sampleRate),
-  MagLimit(100),
-  MagLimitL(100),
+  MagLimit(0.5),
+  MagLimitL(0.5),
   RealState(0),
   RealState0(0),
   FiltState0(0),
@@ -66,13 +67,16 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int
   Stop(0),
   WPM(0),
   LastStartT(0),
-  quantum(96),
+  StartTimeL(0),
+  StartTimeH(0),
+  AvgTimeH(0),
+  quantum(48),
   curTime(0),
   curSamples(0),
-  targetFreq(496)
+  targetFreq(992)
 {
-    unsigned int J = (int)((double)(quantum * targetFreq) / sampleFreq + 0.5);
-    Coeff = 2.0 * cos((2.0 * PI * J) / quantum);
+    unsigned int J = (int)((double)(quantum * targetFreq) / sampleRate + 0.5);
+    Coeff = 2.0 * cos((2.0 * M_PI * J) / quantum);
 }
 
 bool CwDecoder::canProcess() {
@@ -81,14 +85,14 @@ bool CwDecoder::canProcess() {
 }
 
 void CwDecoder::process() {
-    unsigned long Tmsec = msecs();
+    unsigned long millis = msecs();
     double Q0, Q1, Q2;
     unsigned int I;
 
     // Read samples
     for(I=0, Q1=Q2=0.0 ; I<quantum ; ++I)
     {
-        Q0 = Q1 * Coeff - Q2 * (*(reader->getReadPointer()));
+        Q0 = Q1 * Coeff - Q2 + (*(reader->getReadPointer()));
         Q2 = Q1;
         Q1 = Q0;
 
@@ -97,20 +101,17 @@ void CwDecoder::process() {
 
     // We only need the real part
     double Magnitude = sqrt(Q1*Q1 + Q2*Q2 - Q1*Q2*Coeff);
-  
+
     // Try to set the automatic magnitude limit
-    if(Magnitude>MagLimitLow)
-    {
-        MagLimit += (Magnitude - MagLimit) / 6.0;
-        MagLimit  = MagLimit<MagLimitLow? MagLimitLow : MagLimit;
-    }
-  
+    if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
+    if(MagLimit<MagLimitL)  MagLimit = MagLimitL;
+
     // Check the magnitude
     RealState = Magnitude>MagLimit*0.6? 1 : 0;
-  
+
     // Clean up the state with a noise blanker
-    if(RealState!=RealState0) LastStartT = millis();
-    if((millis()-LastStartT)>NBTime) FiltState = RealState;
+    if(RealState!=RealState0) LastStartT = millis;
+    if((millis-LastStartT)>NBTime) FiltState = RealState;
 
     // If signal state changed...
     if(FiltState!=FiltState0)
@@ -118,52 +119,68 @@ void CwDecoder::process() {
         // Compute high / low durations
         if(FiltState)
         {
-            StartTimeH = Tmsec;
-            DurationL  = Tmsec - StartTimeL;
+            StartTimeH = millis;
+            DurationL  = millis - StartTimeL;
         }
         else
         {
-            StartTimeL = Tmsec;
-            DurationH  = Tmsec - StartTimeH;
-          
-            // Now we know avg dit time ( rolling 3 avg)
+            StartTimeL = millis;
+            DurationH  = millis - StartTimeH;
+
+            // Now we know average dit time (rolling 3 average)
             if((DurationH<2*AvgTimeH) || (AvgTimeH==0))
                 AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
-          
-            // If speed decreases fast ..
+
+            // If speed decreases fast...
             if(DurationH>5*AvgTimeH)
                 AvgTimeH = DurationH + AvgTimeH;
+
+
+#if 0
+{
+char buf[256];
+sprintf(buf, "%d / %d", DurationH, AvgTimeH);
+for(int j=0;buf[j];++j) {
+  *(writer->getWritePointer()) = buf[j];
+  writer->advance(1);
+}}
+#endif
+
         }
-    
+
         // now we will check which kind of baud we have - dit or dah
         // and what kind of pause we do have 1 - 3 or 7 pause
         // we think that AvgTimeH = 1 bit
         Stop = 0;
-    
+
         // If ending a HIGH state...
         if(!FiltState)
-        { 
+        {
             // 0.6 to filter out false dits
             if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
             {
-              Code = (Code<<1) | 0;
+              Code = (Code<<1) | 1;
+//*(writer->getWritePointer()) = '.';
+//writer->advance(1);
             }
             else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
             {
               // The most precise we can do
               WPM  = (WPM + (1200/(DurationH/3)))/2;
-              Code = (Code<<1) | 1;
+              Code = (Code<<1) | 0;
+//*(writer->getWritePointer()) = '-';
+//writer->advance(1);
             }
         }
         else
         {
             // Ending a LOW state...
             // At high speeds we have to have a little more pause before
-            // new letter or new word 
+            // new letter or new word
             double LackTime = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
-           
+
             // If letter space...
-            if((DurationL>2*LackTime*AvgTimeH) && (DurationL<5*LackTime*AvgtTimeH))
+            if((Code>1) && (DurationL>2*LackTime*AvgTimeH) && (DurationL<5*LackTime*AvgTimeH))
             {
                 // Letter space...
                 *(writer->getWritePointer()) = cw2char(Code);
@@ -174,8 +191,11 @@ void CwDecoder::process() {
             else if(DurationL>=5*LackTime*AvgTimeH)
             {
                 // Word space
-                *(writer->getWritePointer()) = cw2char(Code);
-                writer->advance(1);
+                if(Code>1)
+                {
+                    *(writer->getWritePointer()) = cw2char(Code);
+                    writer->advance(1);
+                }
                 *(writer->getWritePointer()) = ' ';
                 writer->advance(1);
                 // Start new character
@@ -185,18 +205,20 @@ void CwDecoder::process() {
     }
 
     // Write if no more letters
-    if(((Tmsec-StartTimeL)>6*DurationH) && !Stop)
+    if(((millis-StartTimeL)>6*DurationH) && !Stop)
     {
-        *(writer->getWritePointer()) = cw2char(Code);
-        writer->advance(1);
-        // Start new character
-        Code = 1;
+        if(Code>1)
+        {
+            *(writer->getWritePointer()) = cw2char(Code);
+            writer->advance(1);
+            // Start new character
+            Code = 1;
+        }
         Stop = 1;
     }
 
     // Update state
     RealState0 = RealState;
-    DurationH0 = DurationH;
     FiltState0 = FiltState;
 
     // Update time

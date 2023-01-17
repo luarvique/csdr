@@ -46,14 +46,15 @@ namespace Csdr {
         private:
             unsigned int sampleRate; // Input sampling rate
             unsigned int targetFreq; // CW carrier offset
+            unsigned int quantum;    // Number of samples per quantum
             unsigned int NBTime;     // Noise blanker time (ms)
 
-            unsigned int MagLimit; 
-            unsigned int MagLimitL;
+            double MagLimit;
+            double MagLimitL;
             unsigned int RealState;
             unsigned int RealState0;
             unsigned int FiltState0;
-            unsigned int FiltState; 
+            unsigned int FiltState;
 
             double Coeff;
 
