@@ -107,7 +107,7 @@ void CwDecoder::process() {
 
     // Check the magnitude
 //    RealState = Magnitude>MagLimit*0.6? 1 : 0;
-    RealState = Magnitude>MagLimit*1.0? 1 : 0;
+    RealState = Magnitude>MagLimit? 1 : 0;
 
     // Clean up the state with a noise blanker
     if(RealState!=RealState0) LastStartT = millis;
