@@ -39,7 +39,7 @@ namespace Csdr {
 
     class CwDecoder: public Module<float, unsigned char> {
         public:
-            CwDecoder(unsigned int sampleRate=12000, unsigned int dahTime=240, unsigned int ditTime=10);
+            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=750, unsigned int quantum=64);
             bool canProcess() override;
             void process() override;
 

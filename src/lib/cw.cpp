@@ -54,8 +54,10 @@ const char CwDecoder::cwTable[] =
     "################"
     "######$#########";
 
-CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int ditTime)
+CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int quantum)
 : sampleRate(sampleRate),
+  targetFreq(targetFreq),
+  quantum(quantum),
   MagLimit(0.01),
   MagLimitL(0.01),
   RealState(0),
@@ -70,13 +72,11 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int
   StartTimeL(0),
   StartTimeH(0),
   AvgTimeH(0),
-  quantum(48),
   curTime(0),
-  curSamples(0),
-  targetFreq(992)
+  curSamples(0)
 {
     double V = round((double)quantum * targetFreq / sampleRate);
-    Coeff = 2.0 * cos((2.0 * M_PI * V) / quantum);
+    Coeff = 2.0 * cos(2.0 * M_PI * V / quantum);
 }
 
 bool CwDecoder::canProcess() {
