@@ -56,8 +56,8 @@ const char CwDecoder::cwTable[] =
 
 CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int ditTime)
 : sampleRate(sampleRate),
-  MagLimit(0.5),
-  MagLimitL(0.5),
+  MagLimit(0.01),
+  MagLimitL(0.01),
   RealState(0),
   RealState0(0),
   FiltState0(0),
@@ -75,8 +75,8 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int dahTime, unsigned int
   curSamples(0),
   targetFreq(992)
 {
-    unsigned int J = (int)((double)(quantum * targetFreq) / sampleRate + 0.5);
-    Coeff = 2.0 * cos((2.0 * M_PI * J) / quantum);
+    double V = round((double)quantum * targetFreq / sampleRate);
+    Coeff = 2.0 * cos((2.0 * M_PI * V) / quantum);
 }
 
 bool CwDecoder::canProcess() {
@@ -104,10 +104,10 @@ void CwDecoder::process() {
 
     // Try to set the automatic magnitude limit
     if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
-    if(MagLimit<MagLimitL)  MagLimit = MagLimitL;
 
     // Check the magnitude
-    RealState = Magnitude>MagLimit*0.6? 1 : 0;
+//    RealState = Magnitude>MagLimit*0.6? 1 : 0;
+    RealState = Magnitude>MagLimit*1.0? 1 : 0;
 
     // Clean up the state with a noise blanker
     if(RealState!=RealState0) LastStartT = millis;
@@ -139,11 +139,14 @@ void CwDecoder::process() {
 #if 0
 {
 char buf[256];
-sprintf(buf, "%d / %d", DurationH, AvgTimeH);
+static int aaa=0;
+if(++aaa>10){
+aaa=0;
+sprintf(buf, "%.03f %.03f", Magnitude, MagLimit);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
-}}
+}}}
 #endif
 
         }
