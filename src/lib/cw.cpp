@@ -54,10 +54,10 @@ const char CwDecoder::cwTable[] =
     "################"
     "######$#########";
 
-CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int quantum)
+CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int buckets)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
-  quantum(quantum),
+  buckets(buckets),
   MagLimit(0.01),
   MagLimitL(0.01),
   RealState(0),
@@ -75,13 +75,13 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   curTime(0),
   curSamples(0)
 {
-    double V = round((double)quantum * targetFreq / sampleRate);
-    Coeff = 2.0 * cos(2.0 * M_PI * V / quantum);
+    double V = round((double)buckets * targetFreq / sampleRate);
+    Coeff = 2.0 * cos(2.0 * M_PI * V / buckets);
 }
 
 bool CwDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= quantum && writer->writeable() >= 2;
+    return reader->available() >= buckets && writer->writeable() >= 2;
 }
 
 void CwDecoder::process() {
@@ -90,7 +90,7 @@ void CwDecoder::process() {
     unsigned int I;
 
     // Read samples
-    for(I=0, Q1=Q2=0.0 ; I<quantum ; ++I)
+    for(I=0, Q1=Q2=0.0 ; I<buckets ; ++I)
     {
         Q0 = Q1 * Coeff - Q2 + (*(reader->getReadPointer()));
         Q2 = Q1;
@@ -225,7 +225,7 @@ for(int j=0;buf[j];++j) {
     FiltState0 = FiltState;
 
     // Update time
-    curSamples += quantum;
+    curSamples += buckets;
     if(curSamples>=sampleRate)
     {
         unsigned int secs = curSamples/sampleRate;

@@ -39,14 +39,14 @@ namespace Csdr {
 
     class CwDecoder: public Module<float, unsigned char> {
         public:
-            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int quantum=64);
+            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int buckets=64);
             bool canProcess() override;
             void process() override;
 
         private:
             unsigned int sampleRate; // Input sampling rate
             unsigned int targetFreq; // CW carrier offset
-            unsigned int quantum;    // Number of samples per quantum
+            unsigned int buckets;    // Number of FFT buckets
             unsigned int NBTime;     // Noise blanker time (ms)
 
             double MagLimit;
