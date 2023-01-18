@@ -60,11 +60,9 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   buckets(buckets),
   MagLimit(10.0),
   MagLimitL(10.0),
-  RealState(0),
   RealState0(0),
   FiltState0(0),
-  FiltState(0),
-  NBTime(20),
+  NBTime(10),
   Code(1),
   Stop(0),
   WPM(0),
@@ -106,23 +104,61 @@ void CwDecoder::process() {
     if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
 
     // Check the magnitude
-    RealState = Magnitude>MagLimit*0.6? 1 : 0;
+    unsigned int RealState = Magnitude>MagLimit*0.6? 1 : 0;
 
     // Clean up the state with a noise blanker
     if(RealState!=RealState0) LastStartT = millis;
-    if((millis-LastStartT)>NBTime) FiltState = RealState;
+    unsigned int FiltState = (millis-LastStartT)>NBTime? RealState : FiltState0;
 
     // If signal state changed...
     if(FiltState!=FiltState0)
     {
-        // Compute high / low durations
+        // now we will check which kind of baud we have - dit or dah
+        // and what kind of pause we do have 1 - 3 or 7 pause
+        // we think that AvgTimeH = 1 bit
+        Stop = 0;
+
         if(FiltState)
         {
+            // Ending a LOW state...
+
+            // Compute LOW duration
             StartTimeH = millis;
             DurationL  = millis - StartTimeL;
+
+            // At high speeds we have to have a little more pause
+            double M = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
+            unsigned int PauseTime = (unsigned int)(M*AvgTimeH);
+
+            // If we have got some dits or dahs...
+            if(Code>1)
+            {
+                // If letter space...
+                if((DurationL>2*PauseTime) && (DurationL<5*PauseTime))
+                {
+                    // Letter space...
+                    *(writer->getWritePointer()) = cw2char(Code);
+                    writer->advance(1);
+                    // Start new character
+                    Code = 1;
+                }
+                else if(DurationL>=5*PauseTime)
+                {
+                    // Word space
+                    *(writer->getWritePointer()) = cw2char(Code);
+                    writer->advance(1);
+                    *(writer->getWritePointer()) = ' ';
+                    writer->advance(1);
+                    // Start new character
+                    Code = 1;
+                }
+            }
         }
         else
         {
+            // Ending a HIGH state...
+
+            // Compute HIGH duration
             StartTimeL = millis;
             DurationH  = millis - StartTimeH;
 
@@ -134,8 +170,27 @@ void CwDecoder::process() {
 //            if(DurationH>5*AvgTimeH)
 //                AvgTimeH = DurationH + AvgTimeH;
 
+            // 0.6 to filter out false dits
+            if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
+            {
+                // Print a dit
+//                *(writer->getWritePointer()) = '.';
+//                writer->advance(1);
+                // Add a dit
+                Code = (Code<<1) | 1;
+            }
+            else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
+            {
+                // Print a dah
+//                *(writer->getWritePointer()) = '-';
+//                writer->advance(1);
+                // Add a dash
+                Code = (Code<<1) | 0;
+                // Try computing WPM
+                WPM  = (WPM + (1200/(DurationH/3)))/2;
+            }
 
-#if 1
+#if 0
 {
 char buf[256];
 static int aaa=0;
@@ -147,62 +202,6 @@ for(int j=0;buf[j];++j) {
   writer->advance(1);
 }}}
 #endif
-
-        }
-
-        // now we will check which kind of baud we have - dit or dah
-        // and what kind of pause we do have 1 - 3 or 7 pause
-        // we think that AvgTimeH = 1 bit
-        Stop = 0;
-
-        // If ending a HIGH state...
-        if(!FiltState)
-        {
-            // 0.6 to filter out false dits
-            if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
-            {
-              Code = (Code<<1) | 1;
-*(writer->getWritePointer()) = '.';
-writer->advance(1);
-            }
-            else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
-            {
-              // The most precise we can do
-              WPM  = (WPM + (1200/(DurationH/3)))/2;
-              Code = (Code<<1) | 0;
-*(writer->getWritePointer()) = '-';
-writer->advance(1);
-            }
-        }
-        else
-        {
-            // Ending a LOW state...
-            // At high speeds we have to have a little more pause before
-            // new letter or new word
-            double LackTime = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
-
-            // If letter space...
-            if((Code>1) && (DurationL>2*LackTime*AvgTimeH) && (DurationL<5*LackTime*AvgTimeH))
-            {
-                // Letter space...
-                *(writer->getWritePointer()) = cw2char(Code);
-                writer->advance(1);
-                // Start new character
-                Code = 1;
-            }
-            else if(DurationL>=5*LackTime*AvgTimeH)
-            {
-                // Word space
-                if(Code>1)
-                {
-                    *(writer->getWritePointer()) = cw2char(Code);
-                    writer->advance(1);
-                }
-                *(writer->getWritePointer()) = ' ';
-                writer->advance(1);
-                // Start new character
-                Code = 1;
-            }
         }
     }
 
@@ -212,6 +211,8 @@ writer->advance(1);
         if(Code>1)
         {
             *(writer->getWritePointer()) = cw2char(Code);
+            writer->advance(1);
+            *(writer->getWritePointer()) = ' ';
             writer->advance(1);
             // Start new character
             Code = 1;
