@@ -127,7 +127,7 @@ void CwDecoder::process() {
             DurationH  = millis - StartTimeH;
 
             // Now we know average dit time (rolling 3 average)
-            if((DurationH<2*AvgTimeH) || (AvgTimeH==0))
+            if((DurationH<2*AvgTimeH) || (AvgTimeH<=NBTime*3))
                 AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
 
             // If speed decreases fast...
