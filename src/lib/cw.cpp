@@ -58,13 +58,13 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   buckets(buckets),
-  MagLimit(0.01),
-  MagLimitL(0.01),
+  MagLimit(10.0),
+  MagLimitL(10.0),
   RealState(0),
   RealState0(0),
   FiltState0(0),
   FiltState(0),
-  NBTime(6),
+  NBTime(20),
   Code(1),
   Stop(0),
   WPM(0),
@@ -106,8 +106,7 @@ void CwDecoder::process() {
     if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
 
     // Check the magnitude
-//    RealState = Magnitude>MagLimit*0.6? 1 : 0;
-    RealState = Magnitude>MagLimit? 1 : 0;
+    RealState = Magnitude>MagLimit*0.6? 1 : 0;
 
     // Clean up the state with a noise blanker
     if(RealState!=RealState0) LastStartT = millis;
@@ -132,17 +131,17 @@ void CwDecoder::process() {
                 AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
 
             // If speed decreases fast...
-            if(DurationH>5*AvgTimeH)
-                AvgTimeH = DurationH + AvgTimeH;
+//            if(DurationH>5*AvgTimeH)
+//                AvgTimeH = DurationH + AvgTimeH;
 
 
-#if 0
+#if 1
 {
 char buf[256];
 static int aaa=0;
-if(++aaa>10){
+if(++aaa>100){
 aaa=0;
-sprintf(buf, "%.03f %.03f", Magnitude, MagLimit);
+sprintf(buf, "%.03f %.03f %dms WPM=%d", Magnitude, MagLimit, AvgTimeH, WPM);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
@@ -163,16 +162,16 @@ for(int j=0;buf[j];++j) {
             if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
             {
               Code = (Code<<1) | 1;
-//*(writer->getWritePointer()) = '.';
-//writer->advance(1);
+*(writer->getWritePointer()) = '.';
+writer->advance(1);
             }
             else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
             {
               // The most precise we can do
               WPM  = (WPM + (1200/(DurationH/3)))/2;
               Code = (Code<<1) | 0;
-//*(writer->getWritePointer()) = '-';
-//writer->advance(1);
+*(writer->getWritePointer()) = '-';
+writer->advance(1);
             }
         }
         else
