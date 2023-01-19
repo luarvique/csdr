@@ -51,6 +51,7 @@ namespace Csdr {
 
             double MagLimit;
             double MagLimitL;
+            double MagTotal;
             unsigned int RealState0;
             unsigned int FiltState0;
 

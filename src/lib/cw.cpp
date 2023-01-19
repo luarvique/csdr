@@ -60,6 +60,7 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   buckets(buckets),
   MagLimit(10.0),
   MagLimitL(10.0),
+  MagTotal(0.0),
   RealState0(0),
   FiltState0(0),
   NBTime(10),
@@ -69,7 +70,7 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   LastStartT(0),
   StartTimeL(0),
   StartTimeH(0),
-  AvgTimeH(0),
+  AvgTimeH(30),
   curTime(0),
   curSamples(0)
 {
@@ -126,6 +127,12 @@ void CwDecoder::process() {
             StartTimeH = millis;
             DurationL  = millis - StartTimeL;
 
+if(DurationL>=3*AvgTimeH)
+{
+    MagTotal /= DurationL / (1000 * buckets / sampleRate);
+    MagLimit = (MagLimit + MagTotal*2.0)/2.0;
+}
+
             // At high speeds we have to have a little more pause
             double M = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
             unsigned int PauseTime = (unsigned int)(M*AvgTimeH);
@@ -162,9 +169,20 @@ void CwDecoder::process() {
             StartTimeL = millis;
             DurationH  = millis - StartTimeH;
 
+if(DurationH>=3*AvgTimeH)
+{
+    MagTotal /= DurationH / (1000 * buckets / sampleRate);
+    MagLimit = (MagLimit + MagTotal)/2.0;
+}
+
+            if((DurationH>=10) && (DurationH<2*AvgTimeH))
+                AvgTimeH = (DurationH+AvgTimeH)/2;
+            else if((DurationH>=3*AvgTimeH) && (DurationH<500))
+                AvgTimeH = (DurationH/3+AvgTimeH)/2;
+
             // Now we know average dit time (rolling 3 average)
-            if((DurationH<2*AvgTimeH) || (AvgTimeH<=NBTime*3))
-                AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
+//            if((DurationH<2*AvgTimeH) || (AvgTimeH<=NBTime*3))
+//                AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
 
             // If speed decreases fast...
 //            if(DurationH>5*AvgTimeH)
@@ -205,7 +223,8 @@ for(int j=0;buf[j];++j) {
 }}}
 #endif
 
-
+        // Compute new total magnitude
+        MagTotal = 0.0;
     }
 
     // Write if no more letters
@@ -226,6 +245,7 @@ for(int j=0;buf[j];++j) {
     // Update state
     RealState0 = RealState;
     FiltState0 = FiltState;
+    MagTotal  += Magnitude;
 
     // Update time
     curSamples += buckets;
