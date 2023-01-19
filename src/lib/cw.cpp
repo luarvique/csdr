@@ -189,6 +189,8 @@ void CwDecoder::process() {
                 // Try computing WPM
                 WPM  = (WPM + (1200/(DurationH/3)))/2;
             }
+        }
+
 
 #if 0
 {
@@ -196,13 +198,14 @@ char buf[256];
 static int aaa=0;
 if(++aaa>100){
 aaa=0;
-sprintf(buf, "%.03f %.03f %dms WPM=%d", Magnitude, MagLimit, AvgTimeH, WPM);
+sprintf(buf, "[%d %dms WPM%d]", (int)MagLimit, AvgTimeH, WPM);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
 }}}
 #endif
-        }
+
+
     }
 
     // Write if no more letters
