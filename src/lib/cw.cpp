@@ -129,7 +129,7 @@ void CwDecoder::process() {
 
 if(DurationL>=3*AvgTimeH)
 {
-    MagTotal /= DurationL / (1000 * buckets / sampleRate);
+    MagTotal /= DurationL * sampleRate / 1000 / buckets;
     MagLimit = (MagLimit + MagTotal*2.0)/2.0;
 }
 
@@ -171,7 +171,7 @@ if(DurationL>=3*AvgTimeH)
 
 if(DurationH>=3*AvgTimeH)
 {
-    MagTotal /= DurationH / (1000 * buckets / sampleRate);
+    MagTotal /= DurationH * sampleRate / 1000 / buckets;
     MagLimit = (MagLimit + MagTotal)/2.0;
 }
 
