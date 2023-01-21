@@ -49,9 +49,12 @@ namespace Csdr {
             unsigned int buckets;    // Number of FFT buckets
             unsigned int NBTime;     // Noise blanker time (ms)
 
-            double MagLimit;
-            double MagLimitL;
-            double MagTotal;
+            double MagLimit;         // Current magnitude limit
+            double MagLimitL;        // MagLimit can't go lower than this
+            double MagTotal;         // Total magnitude over a period
+            double MagL;             // Minimal observed magnitude
+            double MagH;             // Maximal observed magnitude
+
             unsigned int RealState0;
             unsigned int FiltState0;
 

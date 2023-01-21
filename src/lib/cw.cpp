@@ -1,4 +1,3 @@
-
 /*
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
@@ -58,6 +57,8 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   buckets(buckets),
+  MagL(1000.0),
+  MagH(0.0),
   MagLimit(10.0),
   MagLimitL(10.0),
   MagTotal(0.0),
@@ -101,11 +102,19 @@ void CwDecoder::process() {
     // We only need the real part
     double Magnitude = sqrt(Q1*Q1 + Q2*Q2 - Q1*Q2*Coeff);
 
+    // Keep track of minimal/maximal magnitude
+    MagL += Magnitude<MagL? (Magnitude-MagL)/3.0 : (MagH-MagL)/100.0;
+    MagH += Magnitude>MagH? (Magnitude-MagH)/3.0 : (MagL-MagH)/100.0;
+
     // Try to set the automatic magnitude limit
     if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
 
-    // Check the magnitude
-    unsigned int RealState = Magnitude>MagLimit*0.6? 1 : 0;
+    // Compute current state based on the magnitude
+//    unsigned int RealState = Magnitude>MagLimit*0.6? 1 : 0;
+    unsigned int RealState =
+        Magnitude>(MagL+(MagH-MagL)*0.7)? 1 :
+        Magnitude<(MagL+(MagH-MagL)*0.3)? 0 :
+        RealState0;
 
     // Clean up the state with a noise blanker
     if(RealState!=RealState0) LastStartT = millis;
@@ -136,6 +145,8 @@ if(DurationL>=3*AvgTimeH)
             // At high speeds we have to have a little more pause
             double M = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
             unsigned int PauseTime = (unsigned int)(M*AvgTimeH);
+
+PauseTime=AvgTimeH;
 
             // If we have got some dits or dahs...
             if(Code>1)
@@ -176,20 +187,12 @@ if(DurationH>=3*AvgTimeH)
 }
 
             if((DurationH>=10) && (DurationH<2*AvgTimeH))
-                AvgTimeH = (DurationH+AvgTimeH)/2;
-            else if((DurationH>=3*AvgTimeH) && (DurationH<500))
-                AvgTimeH = (DurationH/3+AvgTimeH)/2;
-
-            // Now we know average dit time (rolling 3 average)
-//            if((DurationH<2*AvgTimeH) || (AvgTimeH<=NBTime*3))
-//                AvgTimeH = (DurationH+AvgTimeH+AvgTimeH)/3;
-
-            // If speed decreases fast...
-//            if(DurationH>5*AvgTimeH)
-//                AvgTimeH = DurationH + AvgTimeH;
+                AvgTimeH += (int)(DurationH-AvgTimeH)/3;
+            else if((DurationH>=3*AvgTimeH) && (DurationH<300))
+                AvgTimeH += (int)(DurationH/3-AvgTimeH)/3;
 
             // 0.6 to filter out false dits
-            if((DurationH<2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
+            if((DurationH<=2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
             {
                 // Print a dit
 //                *(writer->getWritePointer()) = '.';
@@ -216,7 +219,7 @@ char buf[256];
 static int aaa=0;
 if(++aaa>100){
 aaa=0;
-sprintf(buf, "[%d %dms WPM%d]", (int)MagLimit, AvgTimeH, WPM);
+sprintf(buf, "[%d-%d-%d %dms WPM%d]", (int)MagL, (int)MagLimit, (int)MagH, AvgTimeH, WPM);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
