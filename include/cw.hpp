@@ -39,7 +39,9 @@ namespace Csdr {
 
     class CwDecoder: public Module<float, unsigned char> {
         public:
-            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int buckets=64);
+            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int targetWidth=100);
+            ~CwDecoder();
+
             bool canProcess() override;
             void process() override;
 
@@ -48,6 +50,7 @@ namespace Csdr {
             unsigned int targetFreq; // CW carrier offset
             unsigned int buckets;    // Number of FFT buckets
             unsigned int NBTime;     // Noise blanker time (ms)
+            unsigned int quantStep;  // Quantization step (samples)
 
             double MagLimit;         // Current magnitude limit
             double MagLimitL;        // MagLimit can't go lower than this
@@ -72,6 +75,10 @@ namespace Csdr {
             unsigned long DurationL;
             unsigned long AvgTimeL;
 
+            // Sample buffer
+            float *Buf;
+            unsigned int BPtr;
+
             // Time counting
             unsigned long curTime;     // Current time in seconds
             unsigned int  curSamples;  // Sample count since last second mark
@@ -90,6 +97,9 @@ namespace Csdr {
             // Convert CW code to a character
             char cw2char(unsigned int data)
             { return(data<256? cwTable[data] : '#'); }
+
+            // Process a quantum of input data
+            void processInternal(float *data, unsigned int size);
     };
 
 }
