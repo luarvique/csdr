@@ -57,77 +57,76 @@ const char CwDecoder::cwTable[] =
 CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
+  quTime(5),
+  nbTime(20),
   buckets(sampleRate/targetWidth),
-  MagL(1000.0),
-  MagH(0.0),
-  MagLimit(10.0),
-  MagLimitL(10.0),
-  MagTotal(0.0),
-  RealState0(0),
-  FiltState0(0),
-  NBTime(20),
-  Code(1),
-  Stop(0),
-  WPM(0),
-  LastStartT(0),
-  StartTimeL(0),
-  StartTimeH(0),
-  AvgTimeH(30),
-  curTime(0),
+  step(quTime*sampleRate/1000),
+  magL(1000.0),
+  magH(0.0),
+  realState0(0),
+  filtState0(0),
+  lastStartT(0),
+  startTimeL(0),
+  startTimeH(0),
+  avgTimeH(30),
+  avgTimeL(30),
+  code(1),
+  stop(0),
+  wpm(0),
+  curSeconds(0),
   curSamples(0),
-  quantStep(5*sampleRate/1000),
-  BPtr(0)
+  bufPos(0)
 {
-    double V = round((double)buckets * targetFreq / sampleRate);
-    Coeff = 2.0 * cos(2.0 * M_PI * V / buckets);
+    double v = round((double)buckets * targetFreq / sampleRate);
 
-    Buf = new float[buckets * 2];
+    coeff = 2.0 * cos(2.0 * M_PI * v / buckets);
+    buf   = new float[buckets];
 }
 
 CwDecoder::~CwDecoder() {
-    if(Buf) { delete[] Buf;Buf=0; }
+    if(buf) { delete[] buf;buf=0; }
 }
 
 bool CwDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= (buckets*2-BPtr) && writer->writeable() >= 2;
+    return (reader->available()>=(buckets-bufPos)) && (writer->writeable()>=2);
 }
 
 void CwDecoder::process() {
-    unsigned int I;
+    unsigned int i, j;
 
     // Read input data into the buffer
-    while(BPtr<buckets*2) {
-        Buf[BPtr++] = *(reader->getReadPointer());
+    while(bufPos<buckets) {
+        buf[bufPos++] = *(reader->getReadPointer());
         reader->advance(1);
     }
 
     // Process buffered data
-    for(I=0 ; I+buckets<BPtr ; I+=quantStep) {
+    for(i=0 ; i+buckets<=bufPos ; i+=step) {
         // Process data
-        processInternal(Buf+I, buckets);
+        processInternal(buf+i, buckets);
 
         // Update time
-        curSamples += quantStep;
+        curSamples += step;
         if(curSamples>=sampleRate)
         {
             unsigned int secs = curSamples/sampleRate;
-            curTime += secs;
+            curSeconds += secs;
             curSamples -= secs*sampleRate;
         }
     }
 
     // Shift data
-    for(int J=0 ; I+J<BPtr ; ++J) Buf[J]=Buf[I+J];
+    for(j=0 ; i+j<bufPos ; ++j) buf[j]=buf[i+j];
 
     // Done with the data
-    BPtr -= I;
+    bufPos -= i;
 }
 
 void CwDecoder::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
-    double Q0, Q1, Q2;
-    unsigned int I;
+    double q0, q1, q2;
+    unsigned int i;
 
 static unsigned int HistH[32] = {0};
 static unsigned int HistL[32] = {0};
@@ -135,130 +134,116 @@ static unsigned int CountH = 0;
 static unsigned int CountL = 0;
 
     // Read samples
-    for(I=0, Q1=Q2=0.0 ; I<size ; ++I)
+    for(i=0, q1=q2=0.0 ; i<size ; ++i)
     {
-        Q0 = Q1 * Coeff - Q2 + data[I];
-        Q2 = Q1;
-        Q1 = Q0;
+        q0 = q1 * coeff - q2 + data[i];
+        q2 = q1;
+        q1 = q0;
     }
 
     // We only need the real part
-    double Magnitude = sqrt(Q1*Q1 + Q2*Q2 - Q1*Q2*Coeff);
+    double magnitude = sqrt(q1*q1 + q2*q2 - q1*q2*coeff);
 
     // Keep track of minimal/maximal magnitude
-    MagL += Magnitude<MagL? (Magnitude-MagL)/10.0 : (MagH-MagL)/1000.0;
-    MagH += Magnitude>MagH? (Magnitude-MagH)/10.0 : (MagL-MagH)/1000.0;
-
-    // Try to set the automatic magnitude limit
-    if(Magnitude>MagLimitL) MagLimit += (Magnitude - MagLimit) / 6.0;
+    magL += magnitude<magL? (magnitude-magL)/10.0 : (magH-magL)/1000.0;
+    magH += magnitude>magH? (magnitude-magH)/10.0 : (magL-magH)/1000.0;
 
     // Compute current state based on the magnitude
-//    unsigned int RealState = Magnitude>MagLimit*0.6? 1 : 0;
-    unsigned int RealState =
-        Magnitude>(MagL+(MagH-MagL)*0.5)? 1 :
-        Magnitude<(MagL+(MagH-MagL)*0.5)? 0 :
-        RealState0;
+    unsigned int realState =
+        magnitude>(magL+(magH-magL)*0.5)? 1 :
+        magnitude<(magL+(magH-magL)*0.5)? 0 :
+        realState0;
 
-    // Clean up the state with a noise blanker
-    if(RealState!=RealState0) LastStartT = millis;
-    unsigned int FiltState = (millis-LastStartT)>NBTime? RealState : FiltState0;
+    // Filter out jitter based on nbTime
+    if(realState!=realState0) lastStartT = millis;
+    unsigned int filtState = (millis-lastStartT)>nbTime? realState : filtState0;
 
     // If signal state changed...
-    if(FiltState!=FiltState0)
+    if(filtState!=filtState0)
     {
-        // now we will check which kind of baud we have - dit or dah
-        // and what kind of pause we do have 1 - 3 or 7 pause
-        // we think that AvgTimeH = 1 bit
-        Stop = 0;
+        // Mark change in signal state
+        stop = 0;
 
-        if(FiltState)
+        if(filtState)
         {
             // Ending a LOW state...
 
             // Compute LOW duration
-            StartTimeH = millis;
-            DurationL  = millis - StartTimeL;
+            startTimeH = millis;
+            durationL  = millis - startTimeL;
 
-HistL[DurationL/10<32? DurationL/10:31]++;
+HistL[durationL/10<32? durationL/10:31]++;
 CountL++;
 
-if(DurationL>=3*AvgTimeH)
-{
-    MagTotal /= DurationL * sampleRate / 1000 / size;
-    MagLimit = (MagLimit + MagTotal*2.0)/2.0;
-}
-
             // At high speeds we have to have a little more pause
-            double M = WPM>35? 1.5 : WPM>30? 1.2 : WPM>25? 1.0 : 1.0;
-            unsigned int PauseTime = (unsigned int)(M*AvgTimeH);
-
-PauseTime=AvgTimeH;
+            double m = wpm>35? 1.5 : wpm>30? 1.2 : wpm>25? 1.0 : 1.0;
+            unsigned int pauseTime = (unsigned int)(m * avgTimeL);
+pauseTime = avgTimeL;
 
             // If we have got some dits or dahs...
-            if(Code>1)
+            if(code>1)
             {
                 // If letter space...
-                if((DurationL>2*PauseTime) && (DurationL<5*PauseTime))
+                if((durationL>2*pauseTime) && (durationL<5*pauseTime))
                 {
                     // Letter space...
-                    *(writer->getWritePointer()) = cw2char(Code);
+                    *(writer->getWritePointer()) = cw2char(code);
                     writer->advance(1);
                     // Start new character
-                    Code = 1;
+                    code = 1;
                 }
-                else if(DurationL>=5*PauseTime)
+                else if(durationL>=5*pauseTime)
                 {
                     // Word space
-                    *(writer->getWritePointer()) = cw2char(Code);
+                    *(writer->getWritePointer()) = cw2char(code);
                     writer->advance(1);
                     *(writer->getWritePointer()) = ' ';
                     writer->advance(1);
                     // Start new character
-                    Code = 1;
+                    code = 1;
                 }
             }
+
+            // Keep track of the average LOW duration
+            if((durationL>=10) && (durationL<2*avgTimeL))
+                avgTimeL += (int)(durationL-avgTimeL)/3;
         }
         else
         {
             // Ending a HIGH state...
 
             // Compute HIGH duration
-            StartTimeL = millis;
-            DurationH  = millis - StartTimeH;
+            startTimeL = millis;
+            durationH  = millis - startTimeH;
 
-HistH[DurationH/10<32? DurationH/10:31]++;
+HistH[durationH/10<32? durationH/10:31]++;
 CountH++;
 
-if(DurationH>=3*AvgTimeH)
-{
-    MagTotal /= DurationH * sampleRate / 1000 / size;
-    MagLimit = (MagLimit + MagTotal)/2.0;
-}
-
             // 0.6 to filter out false dits
-            if((DurationH<=2*AvgTimeH) && (DurationH>0.6*AvgTimeH))
+            if((durationH<=2*avgTimeH) && (durationH>0.6*avgTimeH))
             {
                 // Print a dit
                 *(writer->getWritePointer()) = '.';
                 writer->advance(1);
-                // Add a dit
-                Code = (Code<<1) | 1;
+                // Add a dit to the code
+                code = (code<<1) | 1;
             }
-            else if((DurationH>2*AvgTimeH) && (DurationH<6*AvgTimeH))
+            else if((durationH>2*avgTimeH) && (durationH<6*avgTimeH))
             {
                 // Print a dah
                 *(writer->getWritePointer()) = '-';
                 writer->advance(1);
-                // Add a dash
-                Code = (Code<<1) | 0;
+                // Add a dah to the code
+                code = (code<<1) | 0;
                 // Try computing WPM
-                WPM  = (WPM + (1200/(DurationH/3)))/2;
+                wpm = (wpm + (1200/(durationH/3)))/2;
             }
 
-            if((DurationH>=10) && (DurationH<2*AvgTimeH))
-                AvgTimeH += (int)(DurationH-AvgTimeH)/3;
-            else if((DurationH>=3*AvgTimeH) && (DurationH<300))
-                AvgTimeH += (int)(DurationH/3-AvgTimeH)/3;
+            // Keep track of the average HIGH duration
+            if((durationH>=10) && (durationH<2*avgTimeH))
+                avgTimeH += (int)(durationH - avgTimeH)/3;
+            else if((durationH>=3*avgTimeH) && (durationH<300))
+                avgTimeH += (int)(durationH/3 - avgTimeH)/3;
         }
 
 
@@ -269,45 +254,42 @@ static int aaa=0;
 if(++aaa>100){
 aaa=0;
 for(int j=0;j<32;++j) {
-I = 10*HistH[j]/(CountH+1);
-buf[j+1]=I<1? '-':I<10? '0'+I:'*';
-I = 10*HistL[j]/(CountL+1);
-buf[j+34]=I<1? '-':I<10? '0'+I:'*';
+i = 10*HistH[j]/(CountH+1);
+buf[j+1]=i<1? '-':i<10? '0'+i:'*';
+i = 10*HistL[j]/(CountL+1);
+buf[j+34]=i<1? '-':i<10? '0'+i:'*';
 }
 buf[0]='\n';
 buf[33]='|';
 memset(HistL,0,sizeof(HistL));
 memset(HistH,0,sizeof(HistH));
 CountL=CountH=0;
-sprintf(buf+33+33, "[%d-%d-%d %dms WPM%d]\n", (int)MagL, (int)MagLimit, (int)MagH, AvgTimeH, WPM);
+sprintf(buf+33+33, "[%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
 }
 }}
 #endif
-
-        // Compute new total magnitude
-        MagTotal = 0.0;
     }
 
     // Write if no more letters
-    if(((millis-StartTimeL)>6*DurationH) && !Stop)
+    if(((millis-startTimeL)>6*durationH) && !stop)
     {
-        if(Code>1)
+        if(code>1)
         {
-            *(writer->getWritePointer()) = cw2char(Code);
+            *(writer->getWritePointer()) = cw2char(code);
             writer->advance(1);
             *(writer->getWritePointer()) = ' ';
             writer->advance(1);
             // Start new character
-            Code = 1;
+            code = 1;
         }
-        Stop = 1;
+
+        stop = 1;
     }
 
     // Update state
-    RealState0 = RealState;
-    FiltState0 = FiltState;
-    MagTotal  += Magnitude;
+    realState0 = realState;
+    filtState0 = filtState;
 }

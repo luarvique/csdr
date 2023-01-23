@@ -46,41 +46,43 @@ namespace Csdr {
             void process() override;
 
         private:
-            unsigned int sampleRate; // Input sampling rate
-            unsigned int targetFreq; // CW carrier offset
-            unsigned int buckets;    // Number of FFT buckets
-            unsigned int NBTime;     // Noise blanker time (ms)
-            unsigned int quantStep;  // Quantization step (samples)
+            // Configurable input parameters
+            unsigned int sampleRate;   // Input sampling rate (Hz)
+            unsigned int targetFreq;   // CW carrier offset (Hz)
+            unsigned int nbTime;       // Noise blanker time (ms)
+            unsigned int quTime;       // Quantization step (ms)
 
-            double MagLimit;         // Current magnitude limit
-            double MagLimitL;        // MagLimit can't go lower than this
-            double MagTotal;         // Total magnitude over a period
-            double MagL;             // Minimal observed magnitude
-            double MagH;             // Maximal observed magnitude
+            // Computed FFT parameters
+            unsigned int buckets;      // Number of FFT buckets (samples)
+            unsigned int step;         // Quantization step (samples)
+            double coeff;              // Used by Goertzel algorithm
 
-            unsigned int RealState0;
-            unsigned int FiltState0;
+            // Input signal characteristics
+            double magL;               // Minimal observed magnitude
+            double magH;               // Maximal observed magnitude
+            unsigned int realState0;   // Last unfiltered signal state (0/1)
+            unsigned int filtState0;   // Last filtered signal state (0/1)
 
-            double Coeff;
+            // Current CW code
+            unsigned int code;         // Currently accumulated CW code or 1
+            unsigned int stop;         // 1 if there is a code pending
+            unsigned int wpm;          // Current CW speed (in wpm)
 
-            unsigned int Code;
-            unsigned int Stop;
-            unsigned int WPM;
-            unsigned long LastStartT;
-            unsigned long StartTimeH;
-            unsigned long DurationH;
-            unsigned long LastDurationH;
-            unsigned long AvgTimeH;
-            unsigned long StartTimeL;
-            unsigned long DurationL;
-            unsigned long AvgTimeL;
+            // Dit / Dah timing
+            unsigned long lastStartT;  // Time of the last signal change (ms)
+            unsigned long startTimeH;  // Time HIGH signal started (ms)
+            unsigned long durationH;   // Duration of the HIGH signal (ms)
+            unsigned long avgTimeH;    // Average HIGH signal duration (ms)
+            unsigned long startTimeL;  // Time LOW signal started (ms)
+            unsigned long durationL;   // Duration of the LOW signal (ms)
+            unsigned long avgTimeL;    // Average LOW signal duration (ms)
 
             // Sample buffer
-            float *Buf;
-            unsigned int BPtr;
+            float *buf;
+            unsigned int bufPos;
 
             // Time counting
-            unsigned long curTime;     // Current time in seconds
+            unsigned long curSeconds;  // Current time in seconds
             unsigned int  curSamples;  // Sample count since last second mark
 
             // Code to character conversion
@@ -88,7 +90,7 @@ namespace Csdr {
 
             // Get current time in milliseconds
             unsigned long msecs()
-            { return(1000*curTime + 1000*curSamples/sampleRate); }
+            { return(1000*curSeconds + 1000*curSamples/sampleRate); }
 
             // Get number of samples in given number of milliseconds
             unsigned int ms2smp(unsigned int msec)
