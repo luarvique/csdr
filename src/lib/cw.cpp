@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cw.hpp"
 #include <cmath>
-#include <cstring>
 
 using namespace Csdr;
 
@@ -68,8 +67,8 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   lastStartT(0),
   startTimeL(0),
   startTimeH(0),
-  avgTimeH(30),
-  avgTimeL(30),
+  avgTimeH(50),
+  avgTimeL(50),
   code(1),
   stop(0),
   wpm(0),
@@ -128,10 +127,10 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
     double q0, q1, q2;
     unsigned int i;
 
-static unsigned int HistH[32] = {0};
-static unsigned int HistL[32] = {0};
-static unsigned int CountH = 0;
-static unsigned int CountL = 0;
+static unsigned int histH[20] = {0};
+static unsigned int histL[20] = {0};
+static unsigned int countH = 0;
+static unsigned int countL = 0;
 
     // Read samples
     for(i=0, q1=q2=0.0 ; i<size ; ++i)
@@ -172,8 +171,8 @@ static unsigned int CountL = 0;
             startTimeH = millis;
             durationL  = millis - startTimeL;
 
-HistL[durationL/10<32? durationL/10:31]++;
-CountL++;
+histL[durationL/10<20? durationL/10:19]++;
+countL++;
 
             // At high speeds we have to have a little more pause
             double m = wpm>35? 1.5 : wpm>30? 1.2 : wpm>25? 1.0 : 1.0;
@@ -206,7 +205,9 @@ pauseTime = avgTimeL;
 
             // Keep track of the average LOW duration
             if((durationL>=10) && (durationL<2*avgTimeL))
-                avgTimeL += (int)(durationL-avgTimeL)/3;
+                avgTimeL += (int)(durationL - avgTimeL)/10;
+            else if((durationL>3*avgTimeL) && (durationL<6*avgTimeL))
+                avgTimeL += (int)(durationL/3 - avgTimeL)/10;
         }
         else
         {
@@ -216,23 +217,23 @@ pauseTime = avgTimeL;
             startTimeL = millis;
             durationH  = millis - startTimeH;
 
-HistH[durationH/10<32? durationH/10:31]++;
-CountH++;
+histH[durationH/10<20? durationH/10:19]++;
+countH++;
 
             // 0.6 to filter out false dits
             if((durationH<=2*avgTimeH) && (durationH>0.6*avgTimeH))
             {
                 // Print a dit
-                *(writer->getWritePointer()) = '.';
-                writer->advance(1);
+//                *(writer->getWritePointer()) = '.';
+//                writer->advance(1);
                 // Add a dit to the code
                 code = (code<<1) | 1;
             }
             else if((durationH>2*avgTimeH) && (durationH<6*avgTimeH))
             {
                 // Print a dah
-                *(writer->getWritePointer()) = '-';
-                writer->advance(1);
+//                *(writer->getWritePointer()) = '-';
+//                writer->advance(1);
                 // Add a dah to the code
                 code = (code<<1) | 0;
                 // Try computing WPM
@@ -247,24 +248,24 @@ CountH++;
         }
 
 
-#if 1
+#if 0
 {
 char buf[256];
 static int aaa=0;
 if(++aaa>100){
 aaa=0;
-for(int j=0;j<32;++j) {
-i = 10*HistH[j]/(CountH+1);
-buf[j+1]=i<1? '-':i<10? '0'+i:'*';
-i = 10*HistL[j]/(CountL+1);
-buf[j+34]=i<1? '-':i<10? '0'+i:'*';
+for(int j=0;j<20;++j) {
+i = 10*histH[j]/(countH+1);
+buf[j+2]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
+i = 10*histL[j]/(countL+1);
+buf[j+23]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
+histH[j]=histL[j]=0;
 }
+countL=countH=0;
 buf[0]='\n';
-buf[33]='|';
-memset(HistL,0,sizeof(HistL));
-memset(HistH,0,sizeof(HistH));
-CountL=CountH=0;
-sprintf(buf+33+33, "[%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
+buf[1]='[';
+buf[22]='|';
+sprintf(buf+43, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
