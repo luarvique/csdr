@@ -127,8 +127,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
     double q0, q1, q2;
     unsigned int i;
 
-static unsigned int histH[20] = {0};
-static unsigned int histL[20] = {0};
+static unsigned int histH[25] = {0};
+static unsigned int histL[25] = {0};
 static unsigned int countH = 0;
 static unsigned int countL = 0;
 
@@ -171,7 +171,7 @@ static unsigned int countL = 0;
             startTimeH = millis;
             durationL  = millis - startTimeL;
 
-histL[durationL/10<20? durationL/10:19]++;
+histL[durationL/10<25? durationL/10:24]++;
 countL++;
 
             // At high speeds we have to have a little more pause
@@ -204,7 +204,7 @@ pauseTime = avgTimeL;
             }
 
             // Keep track of the average LOW duration
-            if((durationL>=10) && (durationL<2*avgTimeL))
+            if((durationL>20) && (durationL<2*avgTimeL))
                 avgTimeL += (int)(durationL - avgTimeL)/10;
             else if((durationL>3*avgTimeL) && (durationL<6*avgTimeL))
                 avgTimeL += (int)(durationL/3 - avgTimeL)/10;
@@ -217,7 +217,7 @@ pauseTime = avgTimeL;
             startTimeL = millis;
             durationH  = millis - startTimeH;
 
-histH[durationH/10<20? durationH/10:19]++;
+histH[durationH/10<25? durationH/10:24]++;
 countH++;
 
             // 0.6 to filter out false dits
@@ -241,31 +241,31 @@ countH++;
             }
 
             // Keep track of the average HIGH duration
-            if((durationH>=10) && (durationH<2*avgTimeH))
-                avgTimeH += (int)(durationH - avgTimeH)/3;
-            else if((durationH>=3*avgTimeH) && (durationH<300))
-                avgTimeH += (int)(durationH/3 - avgTimeH)/3;
+            if((durationH>20) && (durationH<2*avgTimeH))
+                avgTimeH += (int)(durationH - avgTimeH)/10;
+            else if((durationH>3*avgTimeH) && (durationH<250))
+                avgTimeH += (int)(durationH/3 - avgTimeH)/10;
         }
 
 
-#if 0
+#if 1
 {
 char buf[256];
 static int aaa=0;
 if(++aaa>100){
 aaa=0;
-for(int j=0;j<20;++j) {
+for(int j=0;j<25;++j) {
 i = 10*histH[j]/(countH+1);
 buf[j+2]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
 i = 10*histL[j]/(countL+1);
-buf[j+23]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
+buf[j+28]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
 histH[j]=histL[j]=0;
 }
 countL=countH=0;
 buf[0]='\n';
 buf[1]='[';
-buf[22]='|';
-sprintf(buf+43, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
+buf[27]='|';
+sprintf(buf+48, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
 for(int j=0;buf[j];++j) {
   *(writer->getWritePointer()) = buf[j];
   writer->advance(1);
