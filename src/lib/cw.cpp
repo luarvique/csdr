@@ -174,16 +174,11 @@ static unsigned int countL = 0;
 histL[durationL/10<25? durationL/10:24]++;
 countL++;
 
-            // At high speeds we have to have a little more pause
-            double m = wpm>35? 1.5 : wpm>30? 1.2 : wpm>25? 1.0 : 1.0;
-            unsigned int pauseTime = (unsigned int)(m * avgTimeL);
-pauseTime = avgTimeL;
-
             // If we have got some dits or dahs...
             if(code>1)
             {
                 // If letter space...
-                if((durationL>2*pauseTime) && (durationL<5*pauseTime))
+                if((durationL>2*avgTimeL) && (durationL<5*avgTimeL))
                 {
                     // Letter space...
                     *(writer->getWritePointer()) = cw2char(code);
@@ -191,7 +186,7 @@ pauseTime = avgTimeL;
                     // Start new character
                     code = 1;
                 }
-                else if(durationL>=5*pauseTime)
+                else if(durationL>=5*avgTimeL)
                 {
                     // Word space
                     *(writer->getWritePointer()) = cw2char(code);
