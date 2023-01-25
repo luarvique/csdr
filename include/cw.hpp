@@ -51,6 +51,7 @@ namespace Csdr {
             unsigned int targetFreq;   // CW carrier offset (Hz)
             unsigned int nbTime;       // Noise blanker time (ms)
             unsigned int quTime;       // Quantization step (ms)
+            unsigned int dbgTime;      // Debug printout time (ms)
 
             // Computed FFT parameters
             unsigned int buckets;      // Number of FFT buckets (samples)
@@ -85,8 +86,15 @@ namespace Csdr {
             unsigned long curSeconds;  // Current time in seconds
             unsigned int  curSamples;  // Sample count since last second mark
 
-            // Code to character conversion
+            // Code to character conversion table
             static const char cwTable[];
+
+            // Debugging data
+            unsigned int histH[25];    // HIGH level duration histogram
+            unsigned int histL[25];    // LOW level duration histogram
+            unsigned int histCntH;     // Number of values in histH[]
+            unsigned int histCntL;     // Number of values in histL[]
+            unsigned long lastDebugT;  // Time of the last debug printout (ms)
 
             // Get current time in milliseconds
             unsigned long msecs()
@@ -102,6 +110,8 @@ namespace Csdr {
 
             // Process a quantum of input data
             void processInternal(float *data, unsigned int size);
-    };
 
+            // Print debug information
+            void printDebug();
+    };
 }

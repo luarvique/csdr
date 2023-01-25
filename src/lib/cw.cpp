@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cw.hpp"
 #include <cmath>
+#include <cstring>
 
 using namespace Csdr;
 
@@ -58,6 +59,7 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   targetFreq(targetFreq),
   quTime(5),
   nbTime(20),
+  dbgTime(30000),
   buckets(sampleRate/targetWidth),
   step(quTime*sampleRate/1000),
   magL(1000.0),
@@ -74,12 +76,18 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   wpm(0),
   curSeconds(0),
   curSamples(0),
-  bufPos(0)
+  bufPos(0),
+  histCntH(0),
+  histCntL(0),
+  lastDebugT(0)
 {
     double v = round((double)buckets * targetFreq / sampleRate);
 
     coeff = 2.0 * cos(2.0 * M_PI * v / buckets);
     buf   = new float[buckets];
+
+    memset(histH, 0, sizeof(histH));
+    memset(histL, 0, sizeof(histL));
 }
 
 CwDecoder::~CwDecoder() {
@@ -125,12 +133,7 @@ void CwDecoder::process() {
 void CwDecoder::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q0, q1, q2;
-    unsigned int i;
-
-static unsigned int histH[25] = {0};
-static unsigned int histL[25] = {0};
-static unsigned int countH = 0;
-static unsigned int countL = 0;
+    unsigned int i, j;
 
     // Read samples
     for(i=0, q1=q2=0.0 ; i<size ; ++i)
@@ -149,8 +152,8 @@ static unsigned int countL = 0;
 
     // Compute current state based on the magnitude
     unsigned int realState =
-        magnitude>(magL+(magH-magL)*0.5)? 1 :
-        magnitude<(magL+(magH-magL)*0.5)? 0 :
+        magnitude>(magL+(magH-magL)*0.6)? 1 :
+        magnitude<(magL+(magH-magL)*0.4)? 0 :
         realState0;
 
     // Filter out jitter based on nbTime
@@ -171,8 +174,11 @@ static unsigned int countL = 0;
             startTimeH = millis;
             durationL  = millis - startTimeL;
 
-histL[durationL/10<25? durationL/10:24]++;
-countL++;
+            // Accumulate histogram data
+            i = sizeof(histL) / sizeof(histL[0]);
+            j = durationL / 10;
+            histL[j<i? j:i-1]++;
+            histCntL++;
 
             // If we have got some dits or dahs...
             if(code>1)
@@ -212,8 +218,11 @@ countL++;
             startTimeL = millis;
             durationH  = millis - startTimeH;
 
-histH[durationH/10<25? durationH/10:24]++;
-countH++;
+            // Accumulate histogram data
+            i = sizeof(histH) / sizeof(histH[0]);
+            j = durationH / 10;
+            histH[j<i? j:i-1]++;
+            histCntH++;
 
             // 0.6 to filter out false dits
             if((durationH<=2*avgTimeH) && (durationH>0.6*avgTimeH))
@@ -241,32 +250,6 @@ countH++;
             else if((durationH>3*avgTimeH) && (durationH<250))
                 avgTimeH += (int)(durationH/3 - avgTimeH)/10;
         }
-
-
-#if 1
-{
-char buf[256];
-static int aaa=0;
-if(++aaa>100){
-aaa=0;
-for(int j=0;j<25;++j) {
-i = 10*histH[j]/(countH+1);
-buf[j+2]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
-i = 10*histL[j]/(countL+1);
-buf[j+28]=i>9? '*':i>0? '0'+i:histH[j]>0? '0':'-';
-histH[j]=histL[j]=0;
-}
-countL=countH=0;
-buf[0]='\n';
-buf[1]='[';
-buf[27]='|';
-sprintf(buf+48, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
-for(int j=0;buf[j];++j) {
-  *(writer->getWritePointer()) = buf[j];
-  writer->advance(1);
-}
-}}
-#endif
     }
 
     // Write if no more letters
@@ -285,7 +268,43 @@ for(int j=0;buf[j];++j) {
         stop = 1;
     }
 
+    // Periodically print debug information
+    if(millis-lastDebugT >= dbgTime)
+    {
+        lastDebugT = millis;
+        printDebug();
+    }
+
     // Update state
     realState0 = realState;
     filtState0 = filtState;
+}
+
+void CwDecoder::printDebug()
+{
+    char buf[256];
+    int i, j;
+
+    i = sizeof(histH) / sizeof(histH[0]);
+    for(j=0 ; j<i ; ++j)
+    {
+        int h = 10 * histH[j] / (histCntH+1);
+        int l = 10 * histL[j] / (histCntL+1);
+
+        buf[j+2]   = h>9? '*' : h>0? '0'+h : histH[j]>0? '0' : '-';
+        buf[j+i+3] = l>9? '*' : l>0? '0'+l : histL[j]>0? '0' : '-';
+        histH[j] = histL[j] = 0;
+    }
+
+    histCntH = histCntL = 0;
+    buf[0]   = '\n';
+    buf[1]   = '[';
+    buf[i+2] = '|';
+
+    sprintf(buf+2*i+3, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
+    for(j=0 ; buf[j] ; ++j)
+    {
+        *(writer->getWritePointer()) = buf[j];
+        writer->advance(1);
+    }
 }
