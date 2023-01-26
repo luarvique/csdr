@@ -60,6 +60,7 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   quTime(5),
   nbTime(20),
   dbgTime(30000),
+  showCw(false),
   buckets(sampleRate/targetWidth),
   step(quTime*sampleRate/1000),
   magL(1000.0),
@@ -228,16 +229,22 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
             if((durationH<=2*avgTimeH) && (durationH>0.6*avgTimeH))
             {
                 // Print a dit
-//                *(writer->getWritePointer()) = '.';
-//                writer->advance(1);
+                if(showCw)
+                {
+                    *(writer->getWritePointer()) = '.';
+                    writer->advance(1);
+                }
                 // Add a dit to the code
                 code = (code<<1) | 1;
             }
             else if((durationH>2*avgTimeH) && (durationH<6*avgTimeH))
             {
                 // Print a dah
-//                *(writer->getWritePointer()) = '-';
-//                writer->advance(1);
+                if(showCw)
+                {
+                    *(writer->getWritePointer()) = '-';
+                    writer->advance(1);
+                }
                 // Add a dah to the code
                 code = (code<<1) | 0;
                 // Try computing WPM
@@ -268,8 +275,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
         stop = 1;
     }
 
-    // Periodically print debug information
-    if(millis-lastDebugT >= dbgTime)
+    // Periodically print debug information, if enabled
+    if(dbgTime && (millis-lastDebugT >= dbgTime))
     {
         lastDebugT = millis;
         printDebug();
@@ -285,7 +292,10 @@ void CwDecoder::printDebug()
     char buf[256];
     int i, j;
 
+    // Number of histogram entries
     i = sizeof(histH) / sizeof(histH[0]);
+
+    // Draw HIGH/LOW duration histograms
     for(j=0 ; j<i ; ++j)
     {
         int h = 10 * histH[j] / (histCntH+1);
@@ -296,15 +306,23 @@ void CwDecoder::printDebug()
         histH[j] = histL[j] = 0;
     }
 
+    // Complete histograms
     histCntH = histCntL = 0;
     buf[0]   = '\n';
     buf[1]   = '[';
     buf[i+2] = '|';
 
+    // Create complete string to print
     sprintf(buf+2*i+3, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
-    for(j=0 ; buf[j] ; ++j)
+
+    // If there is enough output buffer available...
+    if(writer->writeable()>=strlen(buf))
     {
-        *(writer->getWritePointer()) = buf[j];
-        writer->advance(1);
+        // Place each string character into the output buffer
+        for(j=0 ; buf[j] ; ++j)
+        {
+            *(writer->getWritePointer()) = buf[j];
+            writer->advance(1);
+        }
     }
 }

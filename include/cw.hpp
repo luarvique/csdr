@@ -52,6 +52,7 @@ namespace Csdr {
             unsigned int nbTime;       // Noise blanker time (ms)
             unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
+            bool showCw;               // TRUE: show dits/dahs
 
             // Computed FFT parameters
             unsigned int buckets;      // Number of FFT buckets (samples)
