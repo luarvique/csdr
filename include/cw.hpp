@@ -54,6 +54,14 @@ namespace Csdr {
             unsigned int dbgTime;      // Debug printout time (ms)
             bool showCw;               // TRUE: show dits/dahs
 
+            // Time counting
+            unsigned long curSeconds;  // Current time in seconds
+            unsigned int  curSamples;  // Sample count since last second mark
+
+            // Sample buffer
+            float *buf;
+            unsigned int bufPos;
+
             // Computed FFT parameters
             unsigned int buckets;      // Number of FFT buckets (samples)
             unsigned int step;         // Quantization step (samples)
@@ -65,27 +73,22 @@ namespace Csdr {
             unsigned int realState0;   // Last unfiltered signal state (0/1)
             unsigned int filtState0;   // Last filtered signal state (0/1)
 
+            // HIGH / LOW timing
+            unsigned long lastStartT;  // Time of the last signal change (ms)
+            unsigned long startTimeH;  // Time HIGH signal started (ms)
+            unsigned long durationH;   // Duration of the HIGH signal (ms)
+            unsigned long startTimeL;  // Time LOW signal started (ms)
+            unsigned long durationL;   // Duration of the LOW signal (ms)
+
+            // DIT / DAH / BREAK timing
+            unsigned long avgDitT;     // Average DIT signal duration (ms)
+            unsigned long avgDahT;     // Average DAH signal duration (ms)
+            unsigned long avgBrkT;     // Average BREAK duration (ms)
+
             // Current CW code
             unsigned int code;         // Currently accumulated CW code or 1
             unsigned int stop;         // 1 if there is a code pending
             unsigned int wpm;          // Current CW speed (in wpm)
-
-            // Dit / Dah timing
-            unsigned long lastStartT;  // Time of the last signal change (ms)
-            unsigned long startTimeH;  // Time HIGH signal started (ms)
-            unsigned long durationH;   // Duration of the HIGH signal (ms)
-            unsigned long avgTimeH;    // Average HIGH signal duration (ms)
-            unsigned long startTimeL;  // Time LOW signal started (ms)
-            unsigned long durationL;   // Duration of the LOW signal (ms)
-            unsigned long avgTimeL;    // Average LOW signal duration (ms)
-
-            // Sample buffer
-            float *buf;
-            unsigned int bufPos;
-
-            // Time counting
-            unsigned long curSeconds;  // Current time in seconds
-            unsigned int  curSamples;  // Sample count since last second mark
 
             // Code to character conversion table
             static const char cwTable[];

@@ -70,8 +70,9 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   lastStartT(0),
   startTimeL(0),
   startTimeH(0),
-  avgTimeH(50),
-  avgTimeL(50),
+  avgDitT(50),
+  avgDahT(100),
+  avgBrkT(50),
   code(1),
   stop(0),
   wpm(0),
@@ -181,35 +182,38 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
             histL[j<i? j:i-1]++;
             histCntL++;
 
-            // If we have got some dits or dahs...
+            // If we have got some DITs or DAHs...
             if(code>1)
             {
-                // If letter space...
-                if((durationL>2*avgTimeL) && (durationL<5*avgTimeL))
+                // If a letter BREAK...
+                if((durationL>=2*avgBrkT) && (durationL<5*avgBrkT))
                 {
-                    // Letter space...
+                    // Print character
                     *(writer->getWritePointer()) = cw2char(code);
                     writer->advance(1);
+
                     // Start new character
                     code = 1;
                 }
-                else if(durationL>=5*avgTimeL)
+                // If a word BREAK...
+                else if(durationL>=5*avgBrkT)
                 {
-                    // Word space
+                    // Print character
                     *(writer->getWritePointer()) = cw2char(code);
                     writer->advance(1);
+
+                    // Print word BREAK
                     *(writer->getWritePointer()) = ' ';
                     writer->advance(1);
+
                     // Start new character
                     code = 1;
                 }
             }
 
-            // Keep track of the average LOW duration
-            if((durationL>20) && (durationL<2*avgTimeL))
-                avgTimeL += (int)(durationL - avgTimeL)/10;
-            else if((durationL>3*avgTimeL) && (durationL<6*avgTimeL))
-                avgTimeL += (int)(durationL/3 - avgTimeL)/10;
+            // Keep track of the average small BREAK duration
+            if((durationL>20) && (durationL<2*avgBrkT) && (durationL>2*avgDitT/3))
+                avgBrkT += (int)(durationL - avgBrkT)/10;
         }
         else
         {
@@ -225,49 +229,59 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
             histH[j<i? j:i-1]++;
             histCntH++;
 
-            // 0.6 to filter out false dits
-            if((durationH<=2*avgTimeH) && (durationH>0.6*avgTimeH))
+            // 2/3 to filter out false DITs
+            if((durationH<2*avgDitT) && (durationH>2*avgDitT/3))
             {
-                // Print a dit
+                // Add a DIT to the code
+                code = (code<<1) | 1;
+
+                // Print a DIT
                 if(showCw)
                 {
                     *(writer->getWritePointer()) = '.';
                     writer->advance(1);
                 }
-                // Add a dit to the code
-                code = (code<<1) | 1;
             }
-            else if((durationH>2*avgTimeH) && (durationH<6*avgTimeH))
+            else if((durationH<2*avgDahT) && (durationH>2*avgDahT/3))
             {
-                // Print a dah
+                // Add a DAH to the code
+                code = (code<<1) | 0;
+
+                // Try computing WPM
+                wpm = (wpm + (1200/(durationH/3)))/2;
+
+                // Print a DAH
                 if(showCw)
                 {
                     *(writer->getWritePointer()) = '-';
                     writer->advance(1);
                 }
-                // Add a dah to the code
-                code = (code<<1) | 0;
-                // Try computing WPM
-                wpm = (wpm + (1200/(durationH/3)))/2;
             }
 
-            // Keep track of the average HIGH duration
-            if((durationH>20) && (durationH<2*avgTimeH))
-                avgTimeH += (int)(durationH - avgTimeH)/10;
-            else if((durationH>3*avgTimeH) && (durationH<250))
-                avgTimeH += (int)(durationH/3 - avgTimeH)/10;
+            // Keep track of the average DIT duration
+            if((durationH>20) && (durationH<2*avgDitT))
+                avgDitT += (int)(durationH - avgDitT)/10;
+
+            // Keep track of the average DAH duration
+            if((durationH<300) && (durationH>3*avgDitT))
+                avgDahT += (int)(durationH - avgDahT)/10;
         }
     }
 
-    // Write if no more letters
+    // If no more characters...
     if(((millis-startTimeL)>6*durationH) && !stop)
     {
+        // If there is a buffered code...
         if(code>1)
         {
+            // Print character
             *(writer->getWritePointer()) = cw2char(code);
             writer->advance(1);
+
+            // Print word break
             *(writer->getWritePointer()) = ' ';
             writer->advance(1);
+
             // Start new character
             code = 1;
         }
@@ -313,7 +327,7 @@ void CwDecoder::printDebug()
     buf[i+2] = '|';
 
     // Create complete string to print
-    sprintf(buf+2*i+3, "] [%d-%d %dms|%dms WPM%d]\n", (int)magL, (int)magH, avgTimeH, avgTimeL, wpm);
+    sprintf(buf+2*i+3, "] [%d-%d .%d -%d _%dms WPM%d]\n", (int)magL, (int)magH, avgDitT, avgDahT, avgBrkT, wpm);
 
     // If there is enough output buffer available...
     if(writer->writeable()>=strlen(buf))
