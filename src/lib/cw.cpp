@@ -2,9 +2,7 @@
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
-Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
-Copyright (c) 2022 Marat Fayzullin <luarvique@gmail.com>
+Copyright (c) 2022-2023 Marat Fayzullin <luarvique@gmail.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
