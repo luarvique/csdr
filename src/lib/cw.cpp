@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cw.hpp"
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 
 using namespace Csdr;
 
@@ -58,7 +59,7 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
   quTime(5),      // Quantization step (ms)
   nbTime(20),     // Noise blanking width (ms)
   dbgTime(30000), // Debug printout period (ms)
-  showCw(false),  // TRUE: print DITs/DAHs
+  showCw(false)   // TRUE: print DITs/DAHs
 {
     buckets = sampleRate/targetWidth; // Number of FFT buckets
     step    = quTime*sampleRate/1000; // Quantization step in samples
