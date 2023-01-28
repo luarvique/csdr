@@ -1,3 +1,9 @@
+csdr (0.18.3) bullseye jammy; urgency=low
+
+  * Added experimental CW decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 28 Jan 2023 15:15:00 +0000
+
 csdr (0.18.2) bullseye jammy; urgency=low
 
   * Added noise filtering based on spectral subtraction.
