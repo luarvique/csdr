@@ -53,50 +53,50 @@ namespace Csdr {
             bool showCw;               // TRUE: show dits/dahs
 
             // Time counting
-            unsigned long curSeconds;  // Current time in seconds
-            unsigned int  curSamples;  // Sample count since last second mark
+            unsigned long curSeconds = 0; // Current time in seconds
+            unsigned int  curSamples = 0; // Sample count since last second mark
 
             // Sample buffer
-            float *buf;
-            unsigned int bufPos;
+            float *buf = 0;
+            unsigned int bufPos = 0;
 
             // Computed FFT parameters
-            unsigned int buckets;      // Number of FFT buckets (samples)
-            unsigned int step;         // Quantization step (samples)
-            double coeff;              // Used by Goertzel algorithm
+            unsigned int buckets;        // Number of FFT buckets (samples)
+            unsigned int step;           // Quantization step (samples)
+            double coeff;                // Used by Goertzel algorithm
 
             // Input signal characteristics
-            double magL;               // Minimal observed magnitude
-            double magH;               // Maximal observed magnitude
-            unsigned int realState0;   // Last unfiltered signal state (0/1)
-            unsigned int filtState0;   // Last filtered signal state (0/1)
+            double magL = 1000.0;        // Minimal observed magnitude
+            double magH = 0.0;           // Maximal observed magnitude
+            unsigned int realState0 = 0; // Last unfiltered signal state (0/1)
+            unsigned int filtState0 = 0; // Last filtered signal state (0/1)
 
             // HIGH / LOW timing
-            unsigned long lastStartT;  // Time of the last signal change (ms)
-            unsigned long startTimeH;  // Time HIGH signal started (ms)
-            unsigned long durationH;   // Duration of the HIGH signal (ms)
-            unsigned long startTimeL;  // Time LOW signal started (ms)
-            unsigned long durationL;   // Duration of the LOW signal (ms)
+            unsigned long lastStartT = 0; // Time of the last signal change (ms)
+            unsigned long startTimeH = 0; // Time HIGH signal started (ms)
+            unsigned long durationH  = 0; // Duration of the HIGH signal (ms)
+            unsigned long startTimeL = 0; // Time LOW signal started (ms)
+            unsigned long durationL  = 0; // Duration of the LOW signal (ms)
 
             // DIT / DAH / BREAK timing
-            unsigned long avgDitT;     // Average DIT signal duration (ms)
-            unsigned long avgDahT;     // Average DAH signal duration (ms)
-            unsigned long avgBrkT;     // Average BREAK duration (ms)
+            unsigned long avgDitT = 50;   // Average DIT signal duration (ms)
+            unsigned long avgDahT = 100;  // Average DAH signal duration (ms)
+            unsigned long avgBrkT = 50;   // Average BREAK duration (ms)
 
             // Current CW code
-            unsigned int code;         // Currently accumulated CW code or 1
-            unsigned int stop;         // 1 if there is a code pending
-            unsigned int wpm;          // Current CW speed (in wpm)
+            unsigned int code = 1;        // Currently accumulated CW code or 1
+            unsigned int stop = 0;        // 1 if there is a code pending
+            unsigned int wpm  = 0;        // Current CW speed (in wpm)
 
             // Code to character conversion table
             static const char cwTable[];
 
             // Debugging data
-            unsigned int histH[25];    // HIGH level duration histogram
-            unsigned int histL[25];    // LOW level duration histogram
-            unsigned int histCntH;     // Number of values in histH[]
-            unsigned int histCntL;     // Number of values in histL[]
-            unsigned long lastDebugT;  // Time of the last debug printout (ms)
+            unsigned int histH[25] = {0}; // HIGH level duration histogram
+            unsigned int histL[25] = {0}; // LOW level duration histogram
+            unsigned int histCntH  = 0;   // Number of values in histH[]
+            unsigned int histCntL  = 0;   // Number of values in histL[]
+            unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Get current time in milliseconds
             unsigned long msecs()

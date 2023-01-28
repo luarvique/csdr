@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cw.hpp"
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 
 using namespace Csdr;
 
@@ -55,39 +56,18 @@ const char CwDecoder::cwTable[] =
 CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
-  quTime(5),
-  nbTime(20),
-  dbgTime(0/*30000*/),
-  showCw(false/*true*/),
-  buckets(sampleRate/targetWidth),
-  step(quTime*sampleRate/1000),
-  magL(1000.0),
-  magH(0.0),
-  realState0(0),
-  filtState0(0),
-  lastStartT(0),
-  startTimeL(0),
-  startTimeH(0),
-  avgDitT(50),
-  avgDahT(100),
-  avgBrkT(50),
-  code(1),
-  stop(0),
-  wpm(0),
-  curSeconds(0),
-  curSamples(0),
-  bufPos(0),
-  histCntH(0),
-  histCntL(0),
-  lastDebugT(0)
+  quTime(5),      // Quantization step (ms)
+  nbTime(20),     // Noise blanking width (ms)
+  dbgTime(0),     // Debug printout period (ms)
+  showCw(false)   // TRUE: print DITs/DAHs
 {
+    buckets = sampleRate/targetWidth; // Number of FFT buckets
+    step    = quTime*sampleRate/1000; // Quantization step in samples
+    buf     = new float[buckets];     // Temporary sample buffer
+
+    // Goertzel algorithm coefficient
     double v = round((double)buckets * targetFreq / sampleRate);
-
     coeff = 2.0 * cos(2.0 * M_PI * v / buckets);
-    buf   = new float[buckets];
-
-    memset(histH, 0, sizeof(histH));
-    memset(histL, 0, sizeof(histL));
 }
 
 CwDecoder::~CwDecoder() {
