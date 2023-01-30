@@ -42,6 +42,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "varicode.hpp"
 #include "timingrecovery.hpp"
 #include "cw.hpp"
+#include "rtty.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -567,5 +568,12 @@ CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
     callback( [this] () {
         runModule(new CwDecoder<float>(sampleRate));
+    });
+}
+
+RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") {
+    add_option("sample_rate", sampleRate, "Sample rate")->required();
+    callback( [this] () {
+        runModule(new RttyDecoder(sampleRate));
     });
 }
