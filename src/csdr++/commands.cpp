@@ -573,7 +573,10 @@ CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
 
 RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
+    add_option("freq", targetFreq, "Frequency base");
+    add_option("shift", targetWidth, "Frequency shift");
+    add_option("baud_rate", baudRate, "Baud rate");
     callback( [this] () {
-        runModule(new RttyDecoder(sampleRate));
+        runModule(new RttyDecoder(sampleRate, targetFreq, targetWidth, baudRate));
     });
 }

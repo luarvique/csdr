@@ -37,7 +37,7 @@ namespace Csdr {
 
     class RttyDecoder: public Module<float, unsigned char> {
         public:
-            RttyDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int targetWidth=170, double baudRate=45.45);
+            RttyDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=2125, unsigned int targetWidth=170, double baudRate=45.45);
             ~RttyDecoder();
 
             bool canProcess() override;
@@ -65,6 +65,9 @@ namespace Csdr {
             unsigned int step;           // Quantization step (samples)
             double coeff1;               // Used by Goertzel algorithm
             double coeff2;               // Used by Goertzel algorithm
+
+            // Debugging data
+            unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Get current time in milliseconds
             unsigned long msecs()
