@@ -66,8 +66,26 @@ namespace Csdr {
             double coeff1;               // Used by Goertzel algorithm
             double coeff2;               // Used by Goertzel algorithm
 
+            // Input signal characteristics
+            double magL = 1000.0;         // Minimal observed magnitude
+            double magH = 0.0;            // Maximal observed magnitude
+            unsigned long lastStartT = 0; // Time of the current bit start (ms)
+            unsigned int state0 = 0;      // ZEROs detected since bit start
+            unsigned int state1 = 0;      // ONEs detected since bit start
+
+            // Current RTTY code
+            unsigned int code = 1;        // Currently accumulated RTTY code or 1
+            bool figsMode = false;        // TRUE for FIGS mode, FALSE for LTRS
+
+            // Code to character conversion table
+            static const char ita2Table[];
+
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
+
+            // Convert code to a character
+            char ita2char(unsigned int data)
+            { return(data<32? ita2Table[data + (figsMode? 32:0)] : '#'); }
 
             // Get current time in milliseconds
             unsigned long msecs()
