@@ -60,11 +60,15 @@ RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsig
   targetWidth(targetWidth),
   baudRate(baudRate),
   quTime(5),      // Quantization step (ms)
-  dbgTime(0)      // Debug printout period (ms)
+  dbgTime(30000)  // Debug printout period (ms)
 {
-    buckets = sampleRate/targetWidth; // Number of FFT buckets
-    step    = quTime*sampleRate/1000; // Quantization step in samples
-    buf     = new float[buckets];     // Temporary sample buffer
+    unsigned int i;
+
+    buckets = sampleRate/50;           // Number of 50Hz FFT buckets
+    i       = 1000*buckets/sampleRate;
+    quTime  = quTime<i? quTime : i;    // Make quTime smaller than a bucket
+    step    = quTime*sampleRate/1000;  // Quantization step in samples
+    buf     = new float[buckets];      // Temporary sample buffer
 
     // Goertzel algorithm coefficients
     double v1 = round((double)buckets * targetFreq / sampleRate);
@@ -205,6 +209,7 @@ void RttyDecoder::printDebug()
 
     // @@@ WRITE CODE HERE!
     buf[0] = '\0';
+    sprintf(buf, "%lu: magL=%.3f, magH=%.3f, [0]x%d, [1]x%d\n", msecs(), magL, magH, state0, state1);
 
     // If there is enough output buffer available...
     if(writer->writeable()>=strlen(buf))
