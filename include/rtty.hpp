@@ -50,6 +50,7 @@ namespace Csdr {
             double baudRate;           // Baud rate
             unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
+            bool reverse;              // TRUE to reverse SPACE and MARK
 
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds

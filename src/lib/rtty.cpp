@@ -43,6 +43,14 @@ using namespace Csdr;
 #define FIGS '\002'
 #define ENQ  '\003'
 
+// CQ CQ RU3AMO RU3AMO RU3AMO
+// CQ PSE K
+//
+// CQ RU3AMO =
+//   C=0|01110|11 Q=0|10111|11  =0|00100|11 R=0|01010|11
+//   U=0|00111|11 ^=0|11011|11 3=0|00001|11 v=0|11111|11
+//   A=0|00011|11 M=0|11100|11 O=0|11000|11
+//
 const char RttyDecoder::ita2Table[2*32] =
 {
   // LTRS mode
@@ -54,13 +62,20 @@ const char RttyDecoder::ita2Table[2*32] =
   '5','+',')','2','$','6','0','1','9','?','&',FIGS,'.','/',';',LTRS
 };
 
+static const int rev[32] =
+{
+  0, 16, 8, 24, 4, 20, 12, 28, 2, 18, 10, 26, 6, 22, 14, 30,
+  1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31
+};
+
 RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth, double baudRate)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   targetWidth(targetWidth),
   baudRate(baudRate),
-  quTime(5),      // Quantization step (ms)
-  dbgTime(30000)  // Debug printout period (ms)
+  reverse(false),
+  quTime(2),//5),      // Quantization step (ms)
+  dbgTime(0)  // Debug printout period (ms)
 {
     unsigned int i;
 
@@ -121,7 +136,71 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q10, q11, q12;
     double q20, q21, q22;
-    unsigned int i, j;
+    unsigned int i;
+static int lastState = -1;
+
+    // If done with the current bit...
+    if(millis-lastStartT >= 1000.0/baudRate)
+    {
+        // Detect ONE or ZERO bit, reset code if none detected
+        code = (code<<1) | (state1>state0? 1:0);
+#if 0
+        if(state0>state1*2)
+            code = (code<<1) | 0;
+        else if(state1>state0*2)
+            code = (code<<1) | 1;
+        else
+            code = 1;
+#endif
+
+        // Print current digit
+        if(code>1)
+        {
+//            *(writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
+//            writer->advance(1);
+        }
+
+        // Done with the bit
+        lastStartT = millis;
+        state0 = 0;
+        state1 = 0;
+
+        // If we collected enough bits, decode character
+        if(code>=0x40)
+        {
+#if 0
+char aaa[8];
+sprintf(aaa,"%02X",code&0x1F);
+*(writer->getWritePointer()) = '[';
+writer->advance(1);
+*(writer->getWritePointer()) = aaa[0];
+writer->advance(1);
+*(writer->getWritePointer()) = aaa[1];
+writer->advance(1);
+*(writer->getWritePointer()) = ']';
+writer->advance(1);
+#endif
+
+            // Convert ITA2 code to ASCII character
+            char chr = ita2char(rev[code & 0x1F]);
+            switch(chr)
+            {
+                // Switch between LTRS and FIGS modes
+                case LTRS: figsMode = false;break;
+                case FIGS: figsMode = true;break;
+            }
+
+            // Print character
+            if(chr>=' ')
+            {
+                *(writer->getWritePointer()) = chr;
+                writer->advance(1);
+            }
+
+            // Done with the code
+            code = 1;
+        }
+    }
 
     // Read samples
     for(i=0, q11=q12=q21=q22=0.0 ; i<size ; ++i)
@@ -139,60 +218,28 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     double mag2 = sqrt(q21*q21 + q22*q22 - q21*q22*coeff2);
 
     // Compute current state based on the magnitude
-    if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) ++state0;
-    if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) ++state1;
+    int state = lastState;
+    if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) state = reverse? 1:0;
+    if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) state = reverse? 0:1;
+    if(state==1) state1++; else if(state==0) state0++;
+    lastState = state;
+
+    // Sync to SPACEs
+    if((code==1) && (state1>=state0))
+    {
+       state1 = state==1? 1:0;
+       state0 = state==0? 1:0;
+       lastStartT = millis;
+    }
+
+    // Print current level (SPACE, MARK or nothing)
+//    *(writer->getWritePointer()) = state==1? '-':state==0? '_':' ';
+//    writer->advance(1);
 
     // Keep track of minimal/maximal magnitude
     if(mag1>mag2) { double mag=mag1;mag1=mag2;mag2=mag1; }
     magL += mag1<magL? (mag1-magL)/10.0 : (magH-magL)/1000.0;
     magH += mag2>magH? (mag2-magH)/10.0 : (magL-magH)/1000.0;
-
-    // If done with the current bit...
-    if(millis-lastStartT >= 1000.0/baudRate)
-    {
-        // Detect ONE or ZERO bit, reset code if none detected
-        if(state0>state1*2)
-            code = (code<<1) | 0;
-        else if(state1>state0*2)
-            code = (code<<1) | 1;
-        else
-            code = 1;
-
-        // Done with the bit
-        lastStartT = millis;
-        state0 = 0;
-        state1 = 0;
-
-        // If we collected enough bits, decode character
-        if(code>=0x100)
-        {
-            // Verify start=0 and stop=11 bits
-            if(!(code & 0x80) && (code & 0x02) && (code & 0x01))
-            {
-                // Convert ITA2 code to ASCII character
-                char chr = ita2char((code>>2) & 0x1F);
-                switch(chr)
-                {
-                    // Switch between LTRS and FIGS modes
-                    case LTRS: figsMode = false;break;
-                    case FIGS: figsMode = true;break;
-
-                    default:
-                        // If it is a printable character...
-                        if(chr>=' ')
-                        {
-                            // Print character
-                            *(writer->getWritePointer()) = chr;
-                            writer->advance(1);
-                        }
-                        break;
-                }
-            }
-
-            // Done with the code
-            code = 1;
-        }
-    }
 
     // Periodically print debug information, if enabled
     if(dbgTime && (millis-lastDebugT >= dbgTime))
