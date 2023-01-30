@@ -35,6 +35,25 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace Csdr;
 
+#define NUL  '\0'
+#define LF   '\n'
+#define CR   '\r'
+#define BEL  '\007'
+#define LTRS '\001'
+#define FIGS '\002'
+#define ENQ  '\003'
+
+const char RttyDecoder::ita2Table[2*32] =
+{
+  // LTRS mode
+  NUL,'E',LF,'A',' ','S','I','U',CR,'D','R','J','N','F','C','K',
+  'T','Z','L','W','H','Y','P','Q','O','B','G',FIGS,'M','X','V',LTRS,
+
+  // FIGS mode
+  NUL,'3',LF,'-',' ','\'','8','7',CR,ENQ,'4',BEL,',','!',':','(',
+  '5','+',')','2','$','6','0','1','9','?','&',FIGS,'.','/',';',LTRS
+};
+
 RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth, double baudRate)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
@@ -114,8 +133,62 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     // We only need the real part
     double mag1 = sqrt(q11*q11 + q12*q12 - q11*q12*coeff1);
     double mag2 = sqrt(q21*q21 + q22*q22 - q21*q22*coeff2);
+    double mag  = mag1>mag2? mag1 : mag2;
 
-    // @@@ WRITE CODE HERE!
+    // Keep track of minimal/maximal magnitude
+    magL += mag<magL? (mag-magL)/10.0 : (magH-magL)/1000.0;
+    magH += mag>magH? (mag-magH)/10.0 : (magL-magH)/1000.0;
+
+    // Compute current state based on the magnitude
+    if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) ++state0;
+    if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) ++state1;
+
+    // If done with the current bit...
+    if(millis-lastStartT >= 1000/baudRate)
+    {
+        // Detect ONE or ZERO bit, reset code if none detected
+        if(state0>state1*2)
+            code = (code<<1) | 0;
+        else if(state1>state0*2)
+            code = (code<<1) | 1;
+        else
+            code = 1;
+
+        // Done with the bit
+        lastStartT = millis;
+        state0 = 0;
+        state1 = 0;
+
+        // If we collected enough bits, decode character
+        if(code>=0x100)
+        {
+            // Verify start=0 and stop=11 bits
+            if(!(code & 0x80) && (code & 0x02) && (code & 0x01))
+            {
+                // Convert ITA2 code to ASCII character
+                char chr = ita2char((code>>2) & 0x1F);
+                switch(chr)
+                {
+                    // Switch between LTRS and FIGS modes
+                    case LTRS: figsMode = false;break;
+                    case FIGS: figsMode = true;break;
+
+                    default:
+                        // If it is a printable character...
+                        if(chr>=' ')
+                        {
+                            // Print character
+                            *(writer->getWritePointer()) = chr;
+                            writer->advance(1);
+                        }
+                        break;
+                }
+            }
+
+            // Done with the code
+            code = 1;
+        }
+    }
 
     // Periodically print debug information, if enabled
     if(dbgTime && (millis-lastDebugT >= dbgTime))
@@ -123,9 +196,6 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
         lastDebugT = millis;
         printDebug();
     }
-
-    // Update state
-    // @@@ WRITE CODE HERE!
 }
 
 void RttyDecoder::printDebug()
