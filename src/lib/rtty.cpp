@@ -136,22 +136,14 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q10, q11, q12;
     double q20, q21, q22;
-    unsigned int i;
-static int lastState = -1;
+    unsigned int state, i;
 
     // If done with the current bit...
     if(millis-lastStartT >= 1000.0/baudRate)
     {
-        // Detect ONE or ZERO bit, reset code if none detected
-        code = (code<<1) | (state1>state0? 1:0);
-#if 0
-        if(state0>state1*2)
-            code = (code<<1) | 0;
-        else if(state1>state0*2)
-            code = (code<<1) | 1;
-        else
-            code = 1;
-#endif
+        // Detect ONE or ZERO bit
+        state = state1>state0? 1 : 0;
+        code = (code<<1) | state;
 
         // Print current digit
         if(code>1)
@@ -161,37 +153,34 @@ static int lastState = -1;
         }
 
         // Done with the bit
-        lastStartT = millis;
-        state0 = 0;
-        state1 = 0;
+        if(state!=lastState)
+        {
+            lastStartT = lastChangeT;
+            if(lastState==1) state0 = 0;
+            if(lastState==0) state1 = 0;
+        }
+        else
+        {
+            lastStartT = millis;
+            state0 = 0;
+            state1 = 0;
+        }
 
         // If we collected enough bits, decode character
         if(code>=0x40)
         {
-#if 0
-char aaa[8];
-sprintf(aaa,"%02X",code&0x1F);
-*(writer->getWritePointer()) = '[';
-writer->advance(1);
-*(writer->getWritePointer()) = aaa[0];
-writer->advance(1);
-*(writer->getWritePointer()) = aaa[1];
-writer->advance(1);
-*(writer->getWritePointer()) = ']';
-writer->advance(1);
-#endif
-
             // Convert ITA2 code to ASCII character
-            char chr = ita2char(rev[code & 0x1F]);
+            char chr = ita2char(/*rev[*/code & 0x1F/*]*/);
+
+            // Switch between LTRS and FIGS modes
             switch(chr)
             {
-                // Switch between LTRS and FIGS modes
                 case LTRS: figsMode = false;break;
                 case FIGS: figsMode = true;break;
             }
 
             // Print character
-            if(chr>=' ')
+            if((chr>=' ') || (chr==LF))// || (chr==CR))
             {
                 *(writer->getWritePointer()) = chr;
                 writer->advance(1);
@@ -218,18 +207,23 @@ writer->advance(1);
     double mag2 = sqrt(q21*q21 + q22*q22 - q21*q22*coeff2);
 
     // Compute current state based on the magnitude
-    int state = lastState;
+    state = lastState;
     if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) state = reverse? 1:0;
     if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) state = reverse? 0:1;
     if(state==1) state1++; else if(state==0) state0++;
-    lastState = state;
+
+    if(state!=lastState)
+    {
+        lastChangeT = millis;
+        lastState = state;
+    }
 
     // Sync to SPACEs
     if((code==1) && (state1>=state0))
     {
-       state1 = state==1? 1:0;
-       state0 = state==0? 1:0;
-       lastStartT = millis;
+        state1 = state==1? 1:0;
+        state0 = state==0? 1:0;
+        lastStartT = millis;
     }
 
     // Print current level (SPACE, MARK or nothing)
