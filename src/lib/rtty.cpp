@@ -137,18 +137,18 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     // We only need the real part
     double mag1 = sqrt(q11*q11 + q12*q12 - q11*q12*coeff1);
     double mag2 = sqrt(q21*q21 + q22*q22 - q21*q22*coeff2);
-    double mag  = mag1>mag2? mag1 : mag2;
-
-    // Keep track of minimal/maximal magnitude
-    magL += mag<magL? (mag-magL)/10.0 : (magH-magL)/1000.0;
-    magH += mag>magH? (mag-magH)/10.0 : (magL-magH)/1000.0;
 
     // Compute current state based on the magnitude
     if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) ++state0;
     if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) ++state1;
 
+    // Keep track of minimal/maximal magnitude
+    if(mag1>mag2) { double mag=mag1;mag1=mag2;mag2=mag1; }
+    magL += mag1<magL? (mag1-magL)/10.0 : (magH-magL)/1000.0;
+    magH += mag2>magH? (mag2-magH)/10.0 : (magL-magH)/1000.0;
+
     // If done with the current bit...
-    if(millis-lastStartT >= 1000/baudRate)
+    if(millis-lastStartT >= 1000.0/baudRate)
     {
         // Detect ONE or ZERO bit, reset code if none detected
         if(state0>state1*2)
