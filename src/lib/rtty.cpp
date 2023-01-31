@@ -68,14 +68,14 @@ static const int rev[32] =
   1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31
 };
 
-RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth, double baudRate)
+RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth, double baudRate, bool reverse)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   targetWidth(targetWidth),
   baudRate(baudRate),
-  reverse(false),
-  quTime(2),//5),      // Quantization step (ms)
-  dbgTime(0)  // Debug printout period (ms)
+  reverse(reverse),
+  quTime(2),        // Quantization step (ms)
+  dbgTime(0)        // Debug printout period (ms)
 {
     unsigned int i;
 
