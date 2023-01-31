@@ -152,34 +152,37 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
 //            writer->advance(1);
         }
 
-        // Done with the bit
+        // If current state differs from computed recent state...
         if(state!=lastState)
         {
+            // Sync to when current state supposedly started
             lastStartT = lastChangeT;
             if(lastState==1) state0 = 0;
             if(lastState==0) state1 = 0;
         }
         else
         {
+            // Done with the bit
             lastStartT = millis;
             state0 = 0;
             state1 = 0;
         }
 
-        // If we collected enough bits, decode character
-        if(code>=0x40)
+        // If collected 5xDATA + 1xSTOP bits, decode character
+        if(code>=0x80)
         {
-            // Convert ITA2 code to ASCII character
-            char chr = ita2char(/*rev[*/code & 0x1F/*]*/);
+            // Convert 5bit ITA2 code to ASCII character
+            char chr = ita2char(rev[(code>>1) & 0x1F]);
 
-            // Switch between LTRS and FIGS modes
+            // Handle special characters
             switch(chr)
             {
+                // Switch between LTRS and FIGS modes
                 case LTRS: figsMode = false;break;
                 case FIGS: figsMode = true;break;
             }
 
-            // Print character
+            // Print decoded character
             if((chr>=' ') || (chr==LF))// || (chr==CR))
             {
                 *(writer->getWritePointer()) = chr;
