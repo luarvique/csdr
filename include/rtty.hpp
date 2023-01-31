@@ -36,7 +36,7 @@ namespace Csdr {
 
     class RttyDecoder: public Module<float, unsigned char> {
         public:
-            RttyDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=2125, unsigned int targetWidth=170, double baudRate=45.45, bool reverse=false);
+            RttyDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=450, unsigned int targetWidth=170, double baudRate=45.45, bool reverse=false);
             ~RttyDecoder();
 
             bool canProcess() override;
