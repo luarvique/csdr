@@ -75,7 +75,8 @@ RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsig
   baudRate(baudRate),
   reverse(reverse),
   quTime(2),        // Quantization step (ms)
-  dbgTime(0)        // Debug printout period (ms)
+  dbgTime(30000),   // Debug printout period (ms)
+  showRaw(false)    // TRUE: print raw data
 {
     unsigned int i;
 
@@ -142,14 +143,14 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     if(millis-lastStartT >= 1000.0/baudRate)
     {
         // Detect ONE or ZERO bit
-        state = state1>state0? 1 : 0;
+        state = state1>2*state0? 1 : state0>2*state1? 0 : lastState;
         code = (code<<1) | state;
 
         // Print current digit
-        if(code>1)
+        if((code>1) && showRaw)
         {
-//            *(writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
-//            writer->advance(1);
+            *(writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
+            writer->advance(1);
         }
 
         // If current state differs from computed recent state...
@@ -157,8 +158,8 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
         {
             // Sync to when current state supposedly started
             lastStartT = lastChangeT;
-            if(lastState==1) state0 = 0;
-            if(lastState==0) state1 = 0;
+            if(lastState==1) { state0 = 0; state1 = lastChange; }
+            if(lastState==0) { state1 = 0; state0 = lastChange; }
         }
         else
         {
@@ -208,35 +209,64 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     // We only need the real part
     double mag1 = sqrt(q11*q11 + q12*q12 - q11*q12*coeff1);
     double mag2 = sqrt(q21*q21 + q22*q22 - q21*q22*coeff2);
+    double mag;
+
+    // Keep track of minimal/maximal magnitude
+    mag   = mag1<mag2? mag1 : mag2;
+    magL += mag<magL? (mag-magL)/10.0 : (magH-magL)/1000.0;
+    mag   = mag1>mag2? mag1 : mag2;
+    magH += mag>magH? (mag-magH)/10.0 : (magL-magH)/1000.0;
 
     // Compute current state based on the magnitude
-    state = lastState;
-    if((mag1>(magL+(magH-magL)*0.6)) && (mag2<(magL+(magH-magL)*0.4))) state = reverse? 1:0;
-    if((mag2>(magL+(magH-magL)*0.6)) && (mag1<(magL+(magH-magL)*0.4))) state = reverse? 0:1;
-    if(state==1) state1++; else if(state==0) state0++;
+    state = mag2>mag1? (reverse? 0:1) : mag1>mag2? (reverse? 1:0) : lastState;
 
-    if(state!=lastState)
+    // Keep count of observed states
+    i = 100*fabs((mag2-mag1)/(magH-magL));
+    if(state==1) state1+=i; else if(state==0) state0+=i;
+
+#if 0
+for(i=0 ; i<40 ; ++i)
+if(i==(int)(mag1/10.0)) printf("1");
+else if(i==(int)(mag2/10.0)) printf("2");
+else if(i==(int)(magL/10.0)) printf("L");
+else if(i==(int)(magH/10.0)) printf("H");
+else printf(".");
+printf("\n");
+#endif
+
+    if(state==lastState)
     {
+        lastChange += i;
+    }
+    else
+    {
+        lastState   = state;
         lastChangeT = millis;
-        lastState = state;
+        lastChange  = i;
     }
 
     // Sync to SPACEs
-    if((code==1) && (state1>=state0))
+    if((code==1) && (state1>=2*state0))
     {
-        state1 = state==1? 1:0;
-        state0 = state==0? 1:0;
+        state1 = 0;
+        state0 = 0;
+        lastStartT = millis;
+    }
+
+    // Sync to MARKs
+    if((code>=0x40) && (code<0x80) && (state0>=2*state1))
+    {
+        state1 = 0;
+        state0 = 0;
         lastStartT = millis;
     }
 
     // Print current level (SPACE, MARK or nothing)
-//    *(writer->getWritePointer()) = state==1? '-':state==0? '_':' ';
-//    writer->advance(1);
-
-    // Keep track of minimal/maximal magnitude
-    if(mag1>mag2) { double mag=mag1;mag1=mag2;mag2=mag1; }
-    magL += mag1<magL? (mag1-magL)/10.0 : (magH-magL)/1000.0;
-    magH += mag2>magH? (mag2-magH)/10.0 : (magL-magH)/1000.0;
+    if(showRaw)
+    {
+        *(writer->getWritePointer()) = state==1? '-':state==0? '_':' ';
+        writer->advance(1);
+    }
 
     // Periodically print debug information, if enabled
     if(dbgTime && (millis-lastDebugT >= dbgTime))
@@ -251,9 +281,7 @@ void RttyDecoder::printDebug()
     char buf[256];
     int j;
 
-    // @@@ WRITE CODE HERE!
-    buf[0] = '\0';
-    sprintf(buf, "%lu: magL=%.3f, magH=%.3f, [0]x%d, [1]x%d\n", msecs(), magL, magH, state0, state1);
+    sprintf(buf, "[sample=%d, targetF=%d, targetW=%d, baud=%.2f, reverse=%d, magL=%.3f, magH=%.3f]", sampleRate, targetFreq, targetWidth, baudRate, reverse, magL, magH);
 
     // If there is enough output buffer available...
     if(writer->writeable()>=strlen(buf))

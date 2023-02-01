@@ -72,9 +72,10 @@ namespace Csdr {
             double magH = 0.0;            // Maximal observed magnitude
             unsigned long lastStartT  = 0; // Time of the current bit start (ms)
             unsigned long lastChangeT = 0; // Time of the last signal change (ms)
-            unsigned int state0    = 0;   // ZEROs detected since bit start
-            unsigned int state1    = 0;   // ONEs detected since bit start
-            unsigned int lastState = -1;  // Last signal state
+            unsigned int state0     = 0;  // ZEROs detected since bit start
+            unsigned int state1     = 0;  // ONEs detected since bit start
+            unsigned int lastState  = -1; // Last signal state
+            unsigned int lastChange = 0;  // Number of same readings in a row
 
             // Current RTTY code
             unsigned int code = 1;        // Currently accumulated RTTY code or 1
