@@ -68,7 +68,7 @@ static const int rev[32] =
   1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31
 };
 
-RttyDecoder::RttyDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth, double baudRate, bool reverse)
+RttyDecoder::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetWidth, double baudRate, bool reverse)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   targetWidth(targetWidth),
@@ -133,6 +133,9 @@ void RttyDecoder::process() {
     bufPos -= i;
 }
 
+static unsigned int cnt0 = 0;
+static unsigned int cnt1 = 0;
+
 void RttyDecoder::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q10, q11, q12;
@@ -145,7 +148,8 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
         // Detect ONE or ZERO bit
         state = state1>2*state0? 1 : state0>2*state1? 0 : lastState;
         code = (code<<1) | state;
-
+cnt0+=state0;
+cnt1+=state1;
         // Print current digit
         if((code>1) && showRaw)
         {
@@ -224,16 +228,6 @@ void RttyDecoder::processInternal(float *data, unsigned int size) {
     i = 100*fabs((mag2-mag1)/(magH-magL));
     if(state==1) state1+=i; else if(state==0) state0+=i;
 
-#if 0
-for(i=0 ; i<40 ; ++i)
-if(i==(int)(mag1/10.0)) printf("1");
-else if(i==(int)(mag2/10.0)) printf("2");
-else if(i==(int)(magL/10.0)) printf("L");
-else if(i==(int)(magH/10.0)) printf("H");
-else printf(".");
-printf("\n");
-#endif
-
     if(state==lastState)
     {
         lastChange += i;
@@ -261,6 +255,16 @@ printf("\n");
         lastStartT = millis;
     }
 
+#if 0
+for(i=0 ; i<40 ; ++i)
+if(i==(int)(mag1/10.0)) printf("1");
+else if(i==(int)(mag2/10.0)) printf("2");
+else if(i==(int)(magL/10.0)) printf("L");
+else if(i==(int)(magH/10.0)) printf("H");
+else printf(".");
+printf("\n");
+#endif
+
     // Print current level (SPACE, MARK or nothing)
     if(showRaw)
     {
@@ -279,15 +283,18 @@ printf("\n");
 void RttyDecoder::printDebug()
 {
     char buf[256];
-    int j;
+    sprintf(buf, "[%u - %u, magL=%.3f, magH=%.3f]", cnt0, cnt1, magL, magH);
+    printString(buf);
+    cnt0 = cnt1 = 0;
+}
 
-    sprintf(buf, "[sample=%d, targetF=%d, targetW=%d, baud=%.2f, reverse=%d, magL=%.3f, magH=%.3f]", sampleRate, targetFreq, targetWidth, baudRate, reverse, magL, magH);
-
+void RttyDecoder::printString(const char *buf)
+{
     // If there is enough output buffer available...
     if(writer->writeable()>=strlen(buf))
     {
         // Place each string character into the output buffer
-        for(j=0 ; buf[j] ; ++j)
+        for(int j=0 ; buf[j] ; ++j)
         {
             *(writer->getWritePointer()) = buf[j];
             writer->advance(1);

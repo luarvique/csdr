@@ -272,8 +272,8 @@ namespace Csdr {
             RttyDecoderCommand();
         private:
             unsigned int sampleRate;
-            unsigned int targetFreq = 450;
-            unsigned int targetWidth = 170;
+            int targetFreq = 450;
+            int targetWidth = 170;
             double baudRate = 45.45;
             bool reverse = false;
     };
