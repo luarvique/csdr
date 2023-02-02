@@ -36,7 +36,7 @@ namespace Csdr {
 
     class RttyDecoder: public Module<float, unsigned char> {
         public:
-            RttyDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=450, unsigned int targetWidth=170, double baudRate=45.45, bool reverse=false);
+            RttyDecoder(unsigned int sampleRate=12000, int targetFreq=450, int targetWidth=170, double baudRate=45.45, bool reverse=false);
             ~RttyDecoder();
 
             bool canProcess() override;
@@ -45,8 +45,8 @@ namespace Csdr {
         private:
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int targetFreq;   // Frequency (Hz)
-            unsigned int targetWidth;  // Frequency shift (Hz)
+            int targetFreq;            // Frequency (Hz)
+            int targetWidth;           // Frequency shift (Hz)
             double baudRate;           // Baud rate
             unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
@@ -101,6 +101,9 @@ namespace Csdr {
 
             // Process a quantum of input data
             void processInternal(float *data, unsigned int size);
+
+            // Print given string to the output
+            void printString(const char *buf);
 
             // Print debug information
             void printDebug();
