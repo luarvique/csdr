@@ -35,7 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace Csdr;
 
-const char CwDecoder::cwTable[] =
+template <typename T>
+const char CwDecoder<T>::cwTable[] =
     "##TEMNAIOGKDWRUS" // 00000000
     "##QZYCXBJP#L#FVH"
     "09#8#<#7#(###/-6" // <AR>
@@ -53,7 +54,8 @@ const char CwDecoder::cwTable[] =
     "################"
     "######$#########";
 
-CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth)
+template <typename T>
+CwDecoder<T>::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   quTime(5),      // Quantization step (ms)
@@ -70,22 +72,27 @@ CwDecoder::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned 
     coeff = 2.0 * cos(2.0 * M_PI * v / buckets);
 }
 
-CwDecoder::~CwDecoder() {
+template <typename T>
+CwDecoder<T>::~CwDecoder() {
     if(buf) { delete[] buf;buf=0; }
 }
 
-bool CwDecoder::canProcess() {
+template <typename T>
+bool CwDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available()>=(buckets-bufPos)) && (writer->writeable()>=2);
+    return (this->reader->available()>=(buckets-bufPos)) && (this->writer->writeable()>=2);
 }
 
-void CwDecoder::process() {
+template <typename T>
+void CwDecoder<T>::process() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+
     unsigned int i, j;
 
     // Read input data into the buffer
     while(bufPos<buckets) {
-        buf[bufPos++] = *(reader->getReadPointer());
-        reader->advance(1);
+        buf[bufPos++] = *(this->reader->getReadPointer());
+        this->reader->advance(1);
     }
 
     // Process buffered data
@@ -110,7 +117,8 @@ void CwDecoder::process() {
     bufPos -= i;
 }
 
-void CwDecoder::processInternal(float *data, unsigned int size) {
+template <typename T>
+void CwDecoder<T>::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q0, q1, q2;
     unsigned int i, j;
@@ -167,8 +175,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
                 if((durationL>=2*avgBrkT) && (durationL<5*avgBrkT))
                 {
                     // Print character
-                    *(writer->getWritePointer()) = cw2char(code);
-                    writer->advance(1);
+                    *(this->writer->getWritePointer()) = cw2char(code);
+                    this->writer->advance(1);
 
                     // Start new character
                     code = 1;
@@ -177,12 +185,12 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
                 else if(durationL>=5*avgBrkT)
                 {
                     // Print character
-                    *(writer->getWritePointer()) = cw2char(code);
-                    writer->advance(1);
+                    *(this->writer->getWritePointer()) = cw2char(code);
+                    this->writer->advance(1);
 
                     // Print word BREAK
-                    *(writer->getWritePointer()) = ' ';
-                    writer->advance(1);
+                    *(this->writer->getWritePointer()) = ' ';
+                    this->writer->advance(1);
 
                     // Start new character
                     code = 1;
@@ -216,8 +224,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
                 // Print a DIT
                 if(showCw)
                 {
-                    *(writer->getWritePointer()) = '.';
-                    writer->advance(1);
+                    *(this->writer->getWritePointer()) = '.';
+                    this->writer->advance(1);
                 }
             }
             else if((durationH<2*avgDahT) && (durationH>2*avgDahT/3))
@@ -231,8 +239,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
                 // Print a DAH
                 if(showCw)
                 {
-                    *(writer->getWritePointer()) = '-';
-                    writer->advance(1);
+                    *(this->writer->getWritePointer()) = '-';
+                    this->writer->advance(1);
                 }
             }
 
@@ -253,12 +261,12 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
         if(code>1)
         {
             // Print character
-            *(writer->getWritePointer()) = cw2char(code);
-            writer->advance(1);
+            *(this->writer->getWritePointer()) = cw2char(code);
+            this->writer->advance(1);
 
             // Print word break
-            *(writer->getWritePointer()) = ' ';
-            writer->advance(1);
+            *(this->writer->getWritePointer()) = ' ';
+            this->writer->advance(1);
 
             // Start new character
             code = 1;
@@ -279,7 +287,8 @@ void CwDecoder::processInternal(float *data, unsigned int size) {
     filtState0 = filtState;
 }
 
-void CwDecoder::printDebug()
+template <typename T>
+void CwDecoder<T>::printDebug()
 {
     char buf[256];
     int i, j;
@@ -307,14 +316,26 @@ void CwDecoder::printDebug()
     // Create complete string to print
     sprintf(buf+2*i+3, "] [%d-%d .%d -%d _%dms WPM%d]\n", (int)magL, (int)magH, avgDitT, avgDahT, avgBrkT, wpm);
 
+    // Print
+    printString(buf);
+}
+
+template <typename T>
+void CwDecoder<T>::printString(const char *buf)
+{
     // If there is enough output buffer available...
-    if(writer->writeable()>=strlen(buf))
+    if(this->writer->writeable()>=strlen(buf))
     {
         // Place each string character into the output buffer
-        for(j=0 ; buf[j] ; ++j)
+        for(int j=0 ; buf[j] ; ++j)
         {
-            *(writer->getWritePointer()) = buf[j];
-            writer->advance(1);
+            *(this->writer->getWritePointer()) = buf[j];
+            this->writer->advance(1);
         }
     }
+}
+
+namespace Csdr {
+    template class CwDecoder<complex<float>>;
+    template class CwDecoder<float>;
 }

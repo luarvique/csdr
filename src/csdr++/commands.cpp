@@ -566,6 +566,6 @@ TimingRecoveryCommand::TimingRecoveryCommand(): Command("timingrecovery", "Timin
 CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
     callback( [this] () {
-        runModule(new CwDecoder(sampleRate));
+        runModule(new CwDecoder<float>(sampleRate));
     });
 }
