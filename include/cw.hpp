@@ -31,11 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "module.hpp"
-#include "complex.hpp"
 
 namespace Csdr {
 
-    class CwDecoder: public Module<float, unsigned char> {
+    template <typename T>
+    class CwDecoder: public Module<T, unsigned char> {
         public:
             CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int targetWidth=100);
             ~CwDecoder();
@@ -115,5 +115,8 @@ namespace Csdr {
 
             // Print debug information
             void printDebug();
+
+            // Print given string
+            void printString(const char *buf);
     };
 }
