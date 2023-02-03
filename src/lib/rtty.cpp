@@ -51,7 +51,8 @@ using namespace Csdr;
 //   U=0|00111|11 ^=0|11011|11 3=0|00001|11 v=0|11111|11
 //   A=0|00011|11 M=0|11100|11 O=0|11000|11
 //
-const char RttyDecoder::ita2Table[2*32] =
+template <typename T>
+const char RttyDecoder<T>::ita2Table[2*32] =
 {
   // LTRS mode
   NUL,'E',LF,'A',' ','S','I','U',CR,'D','R','J','N','F','C','K',
@@ -68,7 +69,8 @@ static const int rev[32] =
   1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31
 };
 
-RttyDecoder::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetWidth, double baudRate, bool reverse)
+template <typename T>
+RttyDecoder<T>::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetWidth, double baudRate, bool reverse)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
   targetWidth(targetWidth),
@@ -93,22 +95,27 @@ RttyDecoder::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetWidt
     coeff2 = 2.0 * cos(2.0 * M_PI * v2 / buckets);
 }
 
-RttyDecoder::~RttyDecoder() {
+template <typename T>
+RttyDecoder<T>::~RttyDecoder() {
     if(buf) { delete[] buf;buf=0; }
 }
 
-bool RttyDecoder::canProcess() {
+template <typename T>
+bool RttyDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available()>=(buckets-bufPos)) && (writer->writeable()>=1);
+    return (this->reader->available()>=(buckets-bufPos)) && (this->writer->writeable()>=1);
 }
 
-void RttyDecoder::process() {
+template <typename T>
+void RttyDecoder<T>::process() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+
     unsigned int i, j;
 
     // Read input data into the buffer
     while(bufPos<buckets) {
-        buf[bufPos++] = *(reader->getReadPointer());
-        reader->advance(1);
+        buf[bufPos++] = *(this->reader->getReadPointer());
+        this->reader->advance(1);
     }
 
     // Process buffered data
@@ -136,7 +143,8 @@ void RttyDecoder::process() {
 static unsigned int cnt0 = 0;
 static unsigned int cnt1 = 0;
 
-void RttyDecoder::processInternal(float *data, unsigned int size) {
+template <typename T>
+void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
     double q10, q11, q12;
     double q20, q21, q22;
@@ -153,8 +161,8 @@ cnt1+=state1;
         // Print current digit
         if((code>1) && showRaw)
         {
-            *(writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
-            writer->advance(1);
+            *(this->writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
+            this->writer->advance(1);
         }
 
         // If current state differs from computed recent state...
@@ -190,8 +198,8 @@ cnt1+=state1;
             // Print decoded character
             if((chr>=' ') || (chr==LF))// || (chr==CR))
             {
-                *(writer->getWritePointer()) = chr;
-                writer->advance(1);
+                *(this->writer->getWritePointer()) = chr;
+                this->writer->advance(1);
             }
 
             // Done with the code
@@ -268,8 +276,8 @@ printf("\n");
     // Print current level (SPACE, MARK or nothing)
     if(showRaw)
     {
-        *(writer->getWritePointer()) = state==1? '-':state==0? '_':' ';
-        writer->advance(1);
+        *(this->writer->getWritePointer()) = state==1? '-':state==0? '_':' ';
+        this->writer->advance(1);
     }
 
     // Periodically print debug information, if enabled
@@ -280,7 +288,8 @@ printf("\n");
     }
 }
 
-void RttyDecoder::printDebug()
+template <typename T>
+void RttyDecoder<T>::printDebug()
 {
     char buf[256];
     sprintf(buf, "[%u - %u, magL=%.3f, magH=%.3f]", cnt0, cnt1, magL, magH);
@@ -288,16 +297,22 @@ void RttyDecoder::printDebug()
     cnt0 = cnt1 = 0;
 }
 
-void RttyDecoder::printString(const char *buf)
+template <typename T>
+void RttyDecoder<T>::printString(const char *buf)
 {
     // If there is enough output buffer available...
-    if(writer->writeable()>=strlen(buf))
+    if(this->writer->writeable()>=strlen(buf))
     {
         // Place each string character into the output buffer
         for(int j=0 ; buf[j] ; ++j)
         {
-            *(writer->getWritePointer()) = buf[j];
-            writer->advance(1);
+            *(this->writer->getWritePointer()) = buf[j];
+            this->writer->advance(1);
         }
     }
+}
+
+namespace Csdr {
+    template class RttyDecoder<complex<float>>;
+    template class RttyDecoder<float>;
 }

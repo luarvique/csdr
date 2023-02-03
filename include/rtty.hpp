@@ -34,7 +34,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace Csdr {
 
-    class RttyDecoder: public Module<float, unsigned char> {
+    template <typename T>
+    class RttyDecoder: public Module<T, unsigned char> {
         public:
             RttyDecoder(unsigned int sampleRate=12000, int targetFreq=450, int targetWidth=170, double baudRate=45.45, bool reverse=false);
             ~RttyDecoder();
