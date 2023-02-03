@@ -140,9 +140,6 @@ void RttyDecoder<T>::process() {
     bufPos -= i;
 }
 
-static unsigned int cnt0 = 0;
-static unsigned int cnt1 = 0;
-
 template <typename T>
 void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
     unsigned long millis = msecs();
@@ -156,8 +153,11 @@ void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
         // Detect ONE or ZERO bit
         state = state1>2*state0? 1 : state0>2*state1? 0 : lastState;
         code = (code<<1) | state;
-cnt0+=state0;
-cnt1+=state1;
+
+        // Count MARKs and SPACEs for debugging purposes
+        cnt0 += state0;
+        cnt1 += state1;
+
         // Print current digit
         if((code>1) && showRaw)
         {

@@ -87,6 +87,8 @@ namespace Csdr {
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
+            unsigned int cnt0 = 0;        // Current count of SPACEs
+            unsigned int cnt1 = 0;        // Current count of MARKs
 
             // Convert code to a character
             char ita2char(unsigned int data)
