@@ -581,14 +581,3 @@ RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") 
         runModule(new RttyDecoder<float>(sampleRate, targetFreq, targetWidth, baudRate, reverse));
     });
 }
-
-RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") {
-    add_option("sample_rate", sampleRate, "Sample rate")->required();
-    add_option("freq", targetFreq, "Frequency base");
-    add_option("shift", targetWidth, "Frequency shift");
-    add_option("baud_rate", baudRate, "Baud rate");
-    add_option("reverse", reverse, "Reverse space and mark");
-    callback( [this] () {
-        runModule(new RttyDecoder<float>(sampleRate, targetFreq, targetWidth, baudRate, reverse));
-    });
-}
