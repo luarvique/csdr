@@ -1,3 +1,11 @@
+csdr (0.18.4) bullseye jammy; urgency=low
+
+  * Added RTTY decoder.
+  * Improved CW decoder.
+  * Switched both decoders to complex input.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 4 Feb 2023 16:12:00 +0000
+
 csdr (0.18.3) bullseye jammy; urgency=low
 
   * Added experimental CW decoder.
