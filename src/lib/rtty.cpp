@@ -161,7 +161,11 @@ void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
         // Print current digit
         if((code>1) && showRaw)
         {
-            *(this->writer->getWritePointer()) = code==2? '>' : '0'+(code&1);
+            // >: START bit
+            // |: STOP bit CORRECT
+            // ?: STOP bit WRONG
+            *(this->writer->getWritePointer()) =
+                code==2? '>' : code<0x80? '0'+(code&1) : code&1? '|' : '?';
             this->writer->advance(1);
         }
 
@@ -185,7 +189,8 @@ void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
         if(code>=0x80)
         {
             // Convert 5bit ITA2 code to ASCII character
-            char chr = ita2char(rev[(code>>1) & 0x1F]);
+            // Check that START=0 and STOP=1
+            char chr = (code&0x41)==0x01? ita2char(rev[(code>>1) & 0x1F]) : '#';
 
             // Handle special characters
             switch(chr)
