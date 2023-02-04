@@ -60,7 +60,7 @@ CwDecoder<T>::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsign
   targetFreq(targetFreq),
   quTime(5),      // Quantization step (ms)
   nbTime(20),     // Noise blanking width (ms)
-  dbgTime(30000), // Debug printout period (ms)
+  dbgTime(0),     // Debug printout period (ms)
   showCw(false)   // TRUE: print DITs/DAHs
 {
     buckets = sampleRate/targetWidth; // Number of FFT buckets
@@ -172,7 +172,7 @@ void CwDecoder<T>::processInternal(float *data, unsigned int size) {
             if(code>1)
             {
                 // If a letter BREAK...
-                if((durationL>=2*avgBrkT) && (durationL<5*avgBrkT))
+                if((durationL>=5*avgBrkT/2) && (durationL<5*avgBrkT))
                 {
                     // Print character
                     *(this->writer->getWritePointer()) = cw2char(code);
@@ -198,7 +198,7 @@ void CwDecoder<T>::processInternal(float *data, unsigned int size) {
             }
 
             // Keep track of the average small BREAK duration
-            if((durationL>20) && (durationL<2*avgBrkT) && (durationL>2*avgDitT/3))
+            if((durationL>20) && (durationL<3*avgDitT/2) && (durationL>2*avgDitT/3))
                 avgBrkT += (int)(durationL - avgBrkT)/10;
         }
         else
@@ -216,7 +216,7 @@ void CwDecoder<T>::processInternal(float *data, unsigned int size) {
             histCntH++;
 
             // 2/3 to filter out false DITs
-            if((durationH<2*avgDitT) && (durationH>2*avgDitT/3))
+            if((durationH<3*avgDitT/2) && (durationH>avgDitT/2))
             {
                 // Add a DIT to the code
                 code = (code<<1) | 1;
@@ -228,7 +228,7 @@ void CwDecoder<T>::processInternal(float *data, unsigned int size) {
                     this->writer->advance(1);
                 }
             }
-            else if((durationH<2*avgDahT) && (durationH>2*avgDahT/3))
+            else if((durationH<3*avgDahT) && (durationH>2*avgDahT/3))
             {
                 // Add a DAH to the code
                 code = (code<<1) | 0;
@@ -249,7 +249,7 @@ void CwDecoder<T>::processInternal(float *data, unsigned int size) {
                 avgDitT += (int)(durationH - avgDitT)/10;
 
             // Keep track of the average DAH duration
-            if((durationH<300) && (durationH>3*avgDitT))
+            if((durationH<300) && (durationH>5*avgDitT/2))
                 avgDahT += (int)(durationH - avgDahT)/10;
         }
     }
