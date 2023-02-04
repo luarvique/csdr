@@ -77,7 +77,7 @@ RttyDecoder<T>::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetW
   baudRate(baudRate),
   reverse(reverse),
   quTime(2),        // Quantization step (ms)
-  dbgTime(30000),   // Debug printout period (ms)
+  dbgTime(0),       // Debug printout period (ms)
   showRaw(false)    // TRUE: print raw data
 {
     unsigned int i;
