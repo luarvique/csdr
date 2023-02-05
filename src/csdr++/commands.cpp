@@ -43,6 +43,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "timingrecovery.hpp"
 #include "cw.hpp"
 #include "rtty.hpp"
+#include "sstv.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -579,5 +580,13 @@ RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") 
     add_option("reverse", reverse, "Reverse space and mark");
     callback( [this] () {
         runModule(new RttyDecoder<float>(sampleRate, targetFreq, targetWidth, baudRate, reverse));
+    });
+}
+
+SstvDecoderCommand::SstvDecoderCommand(): Command("sstvdecode", "SSTV decoder") {
+    add_option("sample_rate", sampleRate, "Sample rate")->required();
+    add_option("freq", targetFreq, "Frequency base");
+    callback( [this] () {
+        runModule(new SstvDecoder<float>(sampleRate, targetFreq));
     });
 }

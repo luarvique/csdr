@@ -67,6 +67,7 @@ int Cli::main(int argc, char** argv) {
     app.add_subcommand(std::shared_ptr<CLI::App>(new TimingRecoveryCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new CwDecoderCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new RttyDecoderCommand()));
+    app.add_subcommand(std::shared_ptr<CLI::App>(new SstvDecoderCommand()));
 
     app.add_subcommand(std::shared_ptr<CLI::App>(new BenchmarkCommand()));
 
