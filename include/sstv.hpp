@@ -32,7 +32,43 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "module.hpp"
 
+#include <fftw3.h>
+
 namespace Csdr {
+    typedef unsigned char pixel;
+
+    class SSTVMode {
+        public:
+        const char *NAME;
+
+        int ID;
+        int COLOR;
+        int LINE_WIDTH;
+        int LINE_COUNT;
+
+        double SCAN_TIME;
+        double SYNC_PULSE;
+        double SYNC_PORCH;
+        double SEP_PULSE;
+        double SEP_PORCH;
+
+        int CHAN_COUNT;
+        int CHAN_SYNC;
+        double CHAN_TIME;
+
+        double CHAN_OFFSETS[8];
+        double LINE_TIME;
+        double PIXEL_TIME;
+        double WINDOW_FACTOR;
+
+        bool HAS_START_SYNC;
+        bool HAS_HALF_SCAN;
+        bool HAS_ALT_SCAN;
+
+        double HALF_SCAN_TIME;
+        double HALF_PIXEL_TIME;
+        double HALF_CHAN_TIME;
+    };
 
     template <typename T>
     class SstvDecoder: public Module<T, unsigned char> {
@@ -47,7 +83,6 @@ namespace Csdr {
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
             unsigned int targetFreq;   // SSTV sync offset (Hz)
-            unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
 
             // Time counting
@@ -55,12 +90,18 @@ namespace Csdr {
             unsigned int  curSamples = 0; // Sample count since last second mark
 
             // Sample buffer
-            float *buf = 0;
-            unsigned int bufPos = 0;
+            float *buf = 0;               // Buffer holding current samples
+            unsigned int curSize = 0;     // Current data size in buf[]
+            unsigned int maxSize = 0;     // Total buf[] size
 
-            // Computed FFT parameters
-            unsigned int buckets;        // Number of FFT buckets (samples)
-            unsigned int step;           // Quantization step (samples)
+            // Main FFT
+            float *fftIn;                // Input buffer
+            fftwf_complex *fftOut;       // Output FFT
+            fftwf_plan fftPlan;          // FFTW3 plan
+
+            // Decoder state
+            const SSTVMode *curMode;     // Current SSTV mode + parameters
+            int curState;                // Current decoder state
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
@@ -73,13 +114,31 @@ namespace Csdr {
             unsigned int ms2smp(unsigned int msec)
             { return(sampleRate * msec / 1000); }
 
-            // Process a quantum of input data
-            void processInternal(float *data, unsigned int size);
-
             // Print debug information
             void printDebug();
 
             // Print given string
             void printString(const char *buf);
+
+            // Find peak frequency
+            int fftPeakFreq(const float *buf, unsigned int size);
+
+            // Find SSTV header
+            unsigned int findHeader(const float *buf, unsigned int size);
+
+            // Decode SSTV VIS section and return mode
+            const SSTVMode *decodeVIS(const float *buf, unsigned int size);
+
+            // Find SYNC signal
+            unsigned int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync=true);
+
+            // Decode single scanline
+            pixel *decodeLine(const SSTVMode *mode, const float *buf, unsigned int size);
+
+            // Decode entite image
+            pixel *decode(const float *Buf, unsigned int size);
+
+            // Skip input samples
+            void skipInput(unsigned int size);
     };
 }
