@@ -47,6 +47,7 @@ namespace Csdr {
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
             unsigned int targetFreq;   // SSTV sync offset (Hz)
+            unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
 
             // Time counting
@@ -56,6 +57,13 @@ namespace Csdr {
             // Sample buffer
             float *buf = 0;
             unsigned int bufPos = 0;
+
+            // Computed FFT parameters
+            unsigned int buckets;        // Number of FFT buckets (samples)
+            unsigned int step;           // Quantization step (samples)
+
+            // Debugging data
+            unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Get current time in milliseconds
             unsigned long msecs()

@@ -277,4 +277,12 @@ namespace Csdr {
             double baudRate = 45.45;
             bool reverse = false;
     };
+
+    class SstvDecoderCommand: public Command {
+        public:
+            SstvDecoderCommand();
+        private:
+            unsigned int sampleRate;
+            int targetFreq = 3000;
+    };
 }

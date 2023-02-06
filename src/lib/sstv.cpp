@@ -39,11 +39,12 @@ template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int targetFreq)
 : sampleRate(sampleRate),
   targetFreq(targetFreq),
-  dbgTime(0),     // Debug printout period (ms)
+  buckets(1024), // Number of FFT buckets
+  quTime(5),     // Quantization step (ms)
+  dbgTime(0)     // Debug printout period (ms)
 {
-    buckets = sampleRate/targetWidth; // Number of FFT buckets
-    step    = quTime*sampleRate/1000; // Quantization step in samples
-    buf     = new float[buckets];     // Temporary sample buffer
+    step = quTime*sampleRate/1000; // Quantization step in samples
+    buf  = new float[buckets];     // Temporary sample buffer
 }
 
 template <typename T>
