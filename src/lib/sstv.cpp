@@ -186,7 +186,7 @@ if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),ms
 {char buf[128];sprintf(buf," [S %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<j) break;
             // Detect SSTV frame sync
-            i = findSync(curMode, buf, curSize);
+            i = findSync(curMode, buf, curSize, false);
 if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             // If sync detected, decoding image next
             if(i) curState = STATE_LINE0;
@@ -343,6 +343,142 @@ void SstvDecoder<T>::skipInput(unsigned int size)
             curSamples -= secs*sampleRate;
         }
     }
+}
+
+template <typename T>
+void SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size)
+{
+    // Temporary output buffer
+    unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
+
+    unsigned int windowFactor = mode->WINDOW_FACTOR;
+    unsigned int centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2;
+    unsigned int pxWindow = round(centerWindowTime * 2 * sampleRate);
+
+    // If first line...
+    if(!line)
+    {
+        // Start on a frame
+        seqStart = 0;
+
+        // Align to the beginning of the previous sync pulse
+        if((mode->CHAN_SYNC>0) && !line)
+            seqStart -= round((mode->CHAN_OFFSETS[mode->CHAN_SYNC] + mode->SCAN_TIME) * sampleRate);
+    }
+
+    for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
+    {
+        // If this is a sync channel...
+        if(ch==mode->CHAN_SYNC)
+        {
+            // Set base offset to the next line
+            if((line>0) || (ch>0))
+                seqStart += round(mode->LINE_TIME * sampleRate);
+
+            // Find sync
+            seqStart = findSync(mode, buf+seqStart, size-seqStart, true);
+            if(!seqStart)
+            {
+                fprintf(stderr, "DecodeLine('%s', %d): Could not find line sync!\n", mode->NAME, line);
+                return;
+            }
+        }
+
+        unsigned int pxTime = mode->PIXEL_TIME;
+        if(mode->HAS_HALF_SCAN)
+        {
+            // Robot mode has half-length second/third scans
+            if(ch>0) pxTime = mode->HALF_PIXEL_TIME;
+
+            centerWindowTime = (pxTime * windowFactor) / 2.0;
+            pxWindow         = round(centerWindowTime * 2 * sampleRate);
+        }
+
+        // For each pixel in line...
+        for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
+        {
+            unsigned int chOffset = mode->CHAN_OFFSETS[ch];
+            unsigned int pxPos = round(seqStart + (chOffset + px*pxTime - centerWindowTime) * sampleRate);
+
+            if(pxPos+pxWindow>size)
+            {
+                fprintf(stderr, "DecodeLine('%s', %d): Reached the end of input!\n", mode->NAME, line);
+                return;
+            }
+
+            // Decode pixel
+            out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
+        }
+    }
+
+    // If there is enough output space available for this scanline...
+    if(this->writer->writeable()>=3*mode->LINE_WIDTH)
+    {
+        // R36: This is the only case where two channels are valid
+        if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
+        {
+            // @@@ TODO!!!
+            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
+            {
+                *(this->writer->getWritePointer()) = out[0][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[1][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = 0;
+                this->writer->advance(1);
+            }
+        }
+
+        // M1, M2, S1, S2, SDX: GBR color
+        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
+        {
+            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
+            {
+                *(this->writer->getWritePointer()) = out[2][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[1][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[0][px];
+                this->writer->advance(1);
+            }
+        }
+
+        // R72: YUV color
+        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
+        {
+            // @@@ TODO!!!
+            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
+            {
+                *(this->writer->getWritePointer()) = out[0][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[2][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[1][px];
+                this->writer->advance(1);
+            }
+        }
+
+        // Normal RGB color
+        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
+        {
+            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
+            {
+                *(this->writer->getWritePointer()) = out[0][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[1][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[2][px];
+                this->writer->advance(1);
+            }
+        }
+    }
+}
+
+template <typename T>
+unsigned char SstvDecoder<T>::luminance(unsigned int freq)
+{
+    int lum = round((freq - 1500) / 3.1372549);
+    return(lum<0? 0 : lum>255? 255 : lum);
 }
 
 class Martin1: public SSTVMode

@@ -115,6 +115,7 @@ namespace Csdr {
             // Decoder state
             const SSTVMode *curMode;     // Current SSTV mode + parameters
             int curState;                // Current decoder state
+            int seqStart;                // Current scanline start
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
@@ -143,15 +144,15 @@ namespace Csdr {
             const SSTVMode *decodeVIS(const float *buf, unsigned int size);
 
             // Find SYNC signal
-            unsigned int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync=true);
+            unsigned int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync);
 
             // Decode single scanline
-            pixel *decodeLine(const SSTVMode *mode, const float *buf, unsigned int size);
-
-            // Decode entite image
-            pixel *decode(const float *Buf, unsigned int size);
+            void decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);
 
             // Skip input samples
             void skipInput(unsigned int size);
+
+            // Compute luminance from frequency
+            unsigned char luminance(unsigned int freq);
     };
 }
