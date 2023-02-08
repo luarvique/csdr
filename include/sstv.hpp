@@ -99,6 +99,19 @@ namespace Csdr {
             fftwf_complex *fftOut;       // Output FFT
             fftwf_plan fftPlan;          // FFTW3 plan
 
+            // Total sizes and 2msec step, in samples
+            unsigned int hdrSize;        // SSTV header size
+            unsigned int wndSize;        // Tone search window size
+            unsigned int bitSize;        // VIS bit size
+            unsigned int visSize;        // Total VIS size
+            unsigned int step;           // 2ms step size
+
+            // Header tone offsets
+            unsigned int lead1_Start;
+            unsigned int break_Start;
+            unsigned int lead2_Start;
+            unsigned int vis_Start;
+
             // Decoder state
             const SSTVMode *curMode;     // Current SSTV mode + parameters
             int curState;                // Current decoder state
@@ -107,8 +120,8 @@ namespace Csdr {
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Get current time in milliseconds
-            unsigned long msecs()
-            { return(1000*curSeconds + 1000*curSamples/sampleRate); }
+            unsigned long msecs(int dSamples=0)
+            { return(1000*curSeconds + 1000*(curSamples+dSamples)/sampleRate); }
 
             // Get number of samples in given number of milliseconds
             unsigned int ms2smp(unsigned int msec)
