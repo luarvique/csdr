@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <climits>
 
 using namespace Csdr;
 
@@ -55,6 +56,9 @@ using namespace Csdr;
 #define STATE_VIS       (-2)
 #define STATE_SYNC      (-1)
 #define STATE_LINE0     (0)
+
+// findSync() result
+#define NOT_FOUND       (INT_MAX)
 
 //
 // Forward class declarations
@@ -87,15 +91,18 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int targetFreq)
     lead2_Start = (LEADER_OFFSET * sampleRate) / 1000;
     vis_Start   = (VIS_OFFSET * sampleRate) / 1000;
 
-    // Allocate FFT plan and buffers
-    fftIn   = new float[wndSize];
-    fftOut  = new fftwf_complex[wndSize];
-    fftPlan = fftwf_plan_dft_r2c_1d(wndSize, fftIn, fftOut, FFTW_ESTIMATE);
+    // Allocate FFT buffers
+    fftIn   = new float[wndSize*2];
+    fftOut  = new fftwf_complex[wndSize*2];
 }
 
 template <typename T>
 SstvDecoder<T>::~SstvDecoder() {
     if(buf) { delete[] buf;buf=0; }
+
+    if(fftSize) fftwf_destroy_plan(fftPlan);
+    fftwf_free(fftIn);
+    fftwf_free(fftOut);
 }
 
 template <typename T>
@@ -111,7 +118,7 @@ void SstvDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     unsigned int size = this->reader->available();
-    unsigned int j, i;
+    int j, i;
 
     // If not enough space in the buffer...
     if(!buf || (curSize+size > maxSize))
@@ -174,8 +181,12 @@ if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),ms
 {char buf[128];sprintf(buf," [MODE='%s']",curMode? curMode->NAME:"???");printString(buf);}
             // If failed, go back to header detection, else wait for scanlines
             curState = !curMode? STATE_HEADER : curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
-            // Drop decoded input data
-            if(curMode) skipInput(visSize);
+            // If succeeded decoding mode...
+            if(curMode)
+            {
+                // Drop decoded input data
+                skipInput(visSize);
+            }
             // Done
             break;
 
@@ -189,7 +200,7 @@ if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),ms
             i = findSync(curMode, buf, curSize, false);
 if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             // If sync detected, decoding image next
-            if(i) curState = STATE_LINE0;
+            if((i!=NOT_FOUND) && (i>=0)) curState = STATE_LINE0;
             else
             {
                 // Sync not found, skip input
@@ -201,15 +212,28 @@ if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             break;
 
         default:
-{char buf[128];sprintf(buf," [L %d..%d]",msecs(),msecs(curSize));printString(buf);}
             // If invalid state or done with a frame, go back to header detection
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
                 curState = STATE_HEADER;
                 break;
             }
-            // Done, wait for the next scanline
-            ++curState;
+            // We will need this many input samples for scanline
+            j = round(curMode->LINE_TIME * sampleRate);
+            // Do not detect until we have this many
+{char buf[128];sprintf(buf," [L %d..%d]",msecs(),msecs(curSize));printString(buf);}
+            if(curSize<j) break;
+            // Try decoding a scanline
+            i = decodeLine(curMode, curState, buf, curSize);
+if(i){char buf[128];sprintf(buf," [LINE%d @ %dms]",curState,msecs());printString(buf);}
+            // If decoding successful...
+            if(i>0)
+            {
+                // Drop processed input data
+                skipInput(i);
+                // Next scanline
+                ++curState;
+            }
             break;
     }
 
@@ -247,6 +271,14 @@ template <typename T>
 int SstvDecoder<T>::fftPeakFreq(const float *buf, unsigned int size)
 {
   unsigned int xMax, j;
+
+  // Recreate FFT plan as needed
+  if(size!=fftSize)
+  {
+    if(fftSize) fftwf_destroy_plan(fftPlan);
+    fftPlan = fftwf_plan_dft_r2c_1d(size, fftIn, fftOut, FFTW_ESTIMATE);
+    fftSize = size;
+  }
 
   // Multiply by Hann window
   double CONST_2PI_BY_SIZE = 2.0 * 3.1415926525 / (size - 1);
@@ -299,7 +331,7 @@ unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
 }
 
 template <typename T>
-unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync)
+int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync)
 {
     unsigned int wndSize = round(mode->SYNC_PULSE * 1.4 * sampleRate);
 
@@ -307,7 +339,8 @@ unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, un
     if(wndSize>size) return(0);
 
     // Search for the sync signal
-    for(unsigned int j=0 ; j<=size-wndSize ; ++j)
+unsigned int aaa = startOfSync? round(mode->SYNC_PULSE*sampleRate) - wndSize/2 : 0;
+    for(unsigned int j=aaa ; j<=size-wndSize ; ++j)
     {
         if(fftPeakFreq(buf + j, wndSize)>1350)
         {
@@ -318,7 +351,7 @@ unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, un
     }
 
     // Not found
-    return(0);
+    return(NOT_FOUND);
 }
 
 template <typename T>
@@ -346,24 +379,26 @@ void SstvDecoder<T>::skipInput(unsigned int size)
 }
 
 template <typename T>
-void SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size)
+unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size)
 {
     // Temporary output buffer
     unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
 
-    unsigned int windowFactor = mode->WINDOW_FACTOR;
-    unsigned int centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2;
-    unsigned int pxWindow = round(centerWindowTime * 2 * sampleRate);
+    double windowFactor = mode->WINDOW_FACTOR;
+    double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
+    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
+    unsigned int done = 0;
+
+    // Start on a scanline
+    seqStart = 0;
 
     // If first line...
     if(!line)
     {
-        // Start on a frame
-        seqStart = 0;
-
         // Align to the beginning of the previous sync pulse
-        if((mode->CHAN_SYNC>0) && !line)
-            seqStart -= round((mode->CHAN_OFFSETS[mode->CHAN_SYNC] + mode->SCAN_TIME) * sampleRate);
+// @@@ TODO!!!
+//        if(mode->CHAN_SYNC>0)
+//            seqStart -= round((mode->CHAN_OFFSETS[mode->CHAN_SYNC] + mode->SCAN_TIME) * sampleRate);
     }
 
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
@@ -377,40 +412,45 @@ void SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const f
 
             // Find sync
             seqStart = findSync(mode, buf+seqStart, size-seqStart, true);
-            if(!seqStart)
-            {
-                fprintf(stderr, "DecodeLine('%s', %d): Could not find line sync!\n", mode->NAME, line);
-                return;
-            }
+
+            // If no sync, do not decode yet
+            if(seqStart==NOT_FOUND) return(0);
+
+{char buf[128];sprintf(buf," [S %dms]",msecs(seqStart));printString(buf);}
         }
 
-        unsigned int pxTime = mode->PIXEL_TIME;
+        double pxTime = mode->PIXEL_TIME;
         if(mode->HAS_HALF_SCAN)
         {
             // Robot mode has half-length second/third scans
             if(ch>0) pxTime = mode->HALF_PIXEL_TIME;
 
             centerWindowTime = (pxTime * windowFactor) / 2.0;
-            pxWindow         = round(centerWindowTime * 2 * sampleRate);
+            pxWindow         = round(centerWindowTime * 2.0 * sampleRate);
         }
 
         // For each pixel in line...
         for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
         {
-            unsigned int chOffset = mode->CHAN_OFFSETS[ch];
-            unsigned int pxPos = round(seqStart + (chOffset + px*pxTime - centerWindowTime) * sampleRate);
+            double chOffset = mode->CHAN_OFFSETS[ch];
+            unsigned int pxPos = seqStart + round((chOffset + pxTime*px - centerWindowTime) * sampleRate);
+            unsigned int pxEnd = pxPos + pxWindow;
 
-            if(pxPos+pxWindow>size)
+            if(pxEnd>size)
             {
-                fprintf(stderr, "DecodeLine('%s', %d): Reached the end of input!\n", mode->NAME, line);
-                return;
+                char msg[256];
+                sprintf(msg, "DecodeLine('%s', %d): Reached end of input!", mode->NAME, line);
+                printString(msg);
+                return(0);
             }
 
             // Decode pixel
             out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
+            done = pxEnd>done? pxEnd : done;
         }
     }
 
+#if 0
     // If there is enough output space available for this scanline...
     if(this->writer->writeable()>=3*mode->LINE_WIDTH)
     {
@@ -472,6 +512,10 @@ void SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const f
             }
         }
     }
+#endif
+
+    // Done, return the number of input samples consumed
+    return(done);
 }
 
 template <typename T>

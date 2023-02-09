@@ -95,9 +95,10 @@ namespace Csdr {
             unsigned int maxSize = 0;     // Total buf[] size
 
             // Main FFT
-            float *fftIn;                // Input buffer
-            fftwf_complex *fftOut;       // Output FFT
-            fftwf_plan fftPlan;          // FFTW3 plan
+            float *fftIn = 0;            // Input buffer
+            fftwf_complex *fftOut = 0;   // Output FFT
+            fftwf_plan fftPlan;          // FFT plan
+            unsigned int fftSize = 0;    // Current FFT size
 
             // Total sizes and 2msec step, in samples
             unsigned int hdrSize;        // SSTV header size
@@ -144,10 +145,10 @@ namespace Csdr {
             const SSTVMode *decodeVIS(const float *buf, unsigned int size);
 
             // Find SYNC signal
-            unsigned int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync);
+            int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync);
 
             // Decode single scanline
-            void decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);
+            unsigned int decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);
 
             // Skip input samples
             void skipInput(unsigned int size);
