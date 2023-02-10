@@ -160,7 +160,7 @@ namespace Csdr {
             void skipInput(unsigned int size);
 
             // Compute luminance from frequency
-            unsigned char luminance(unsigned int freq);
+            unsigned char luminance(int freq);
 
             // Convert YUV to RGB values
             unsigned int yuv2rgb(unsigned char y, unsigned char u, unsigned char v);

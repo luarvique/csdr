@@ -610,7 +610,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 }
 
 template <typename T>
-unsigned char SstvDecoder<T>::luminance(unsigned int freq)
+unsigned char SstvDecoder<T>::luminance(int freq)
 {
     int lum = round((freq - 1500) / 3.1372549);
     return(lum<0? 0 : lum>255? 255 : lum);
