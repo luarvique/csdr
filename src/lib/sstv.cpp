@@ -71,6 +71,29 @@ class Scottie1;
 class Scottie2;
 class ScottieDX;
 
+//
+// BMP file header
+//
+typedef struct
+{
+  unsigned char magic[2];
+  unsigned char fileSize[4];
+  unsigned char reserved[4];
+  unsigned char dataOffset[4];
+
+  unsigned char dibSize[4];
+  unsigned char width[4];
+  unsigned char height[4];
+  unsigned char planes[2];
+  unsigned char bitCount[2];
+  unsigned char compression[4];
+  unsigned char imageSize[4];
+  unsigned char xPixelsPerM[4];
+  unsigned char yPixelsPerM[4];
+  unsigned char colorsUsed[4];
+  unsigned char colorsImportant[4];
+} BMPHeader;
+
 template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int targetFreq)
 : sampleRate(sampleRate),
@@ -155,11 +178,11 @@ void SstvDecoder<T>::process() {
     {
         case STATE_HEADER:
             // Do not detect until we have enough samples for SSTV header
-{char buf[128];sprintf(buf," [H %d..%d]",msecs(),msecs(curSize));printString(buf);}
+//{char buf[128];sprintf(buf," [H %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<hdrSize) break;
             // Detect SSTV frame header
             i = findHeader(buf, curSize);
-if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),msecs(i));printString(buf);}
+//if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),msecs(i));printString(buf);}
             // If header detected, decoding VIS next
             if(i) curState = STATE_VIS;
             else
@@ -174,16 +197,18 @@ if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),ms
 
         case STATE_VIS:
             // Do not decode until we have enough samples for VIS record
-{char buf[128];sprintf(buf," [V %d..%d]",msecs(),msecs(curSize));printString(buf);}
+//{char buf[128];sprintf(buf," [V %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<visSize) break;
             // Try decoding
             curMode = decodeVIS(buf, visSize);
-{char buf[128];sprintf(buf," [MODE='%s']",curMode? curMode->NAME:"???");printString(buf);}
+//{char buf[128];sprintf(buf," [MODE='%s']",curMode? curMode->NAME:"???");printString(buf);}
             // If failed, go back to header detection, else wait for scanlines
             curState = !curMode? STATE_HEADER : curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
             // If succeeded decoding mode...
             if(curMode)
             {
+                // Output BMP file header
+                printBmpHeader(curMode);
                 // Drop decoded input data
                 skipInput(visSize);
             }
@@ -194,11 +219,11 @@ if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),ms
             // We will need this many input samples for SYNC
             j = round(curMode->SYNC_PULSE * 1.4 * sampleRate);
             // Do not detect until we have this many
-{char buf[128];sprintf(buf," [S %d..%d]",msecs(),msecs(curSize));printString(buf);}
+//{char buf[128];sprintf(buf," [S %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<j) break;
             // Detect SSTV frame sync
             i = findSync(curMode, buf, curSize, false);
-if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
+//if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             // If sync detected, decoding image next
             if((i!=NOT_FOUND) && (i>=0)) curState = STATE_LINE0;
             else
@@ -221,11 +246,11 @@ if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             // We will need this many input samples for scanline
             j = round(curMode->LINE_TIME * sampleRate);
             // Do not detect until we have this many
-{char buf[128];sprintf(buf," [L %d..%d]",msecs(),msecs(curSize));printString(buf);}
+//{char buf[128];sprintf(buf," [L %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<j) break;
             // Try decoding a scanline
             i = decodeLine(curMode, curState, buf, curSize);
-if(i){char buf[128];sprintf(buf," [LINE%d @ %dms]",curState,msecs());printString(buf);}
+//if(i){char buf[128];sprintf(buf," [LINE%d @ %dms]",curState,msecs());printString(buf);}
             // If decoding successful...
             if(i>0)
             {
@@ -243,6 +268,69 @@ if(i){char buf[128];sprintf(buf," [LINE%d @ %dms]",curState,msecs());printString
     {
         lastDebugT = millis;
         printDebug();
+    }
+}
+
+template <typename T>
+void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
+{
+    BMPHeader bmp;
+
+    // If there is enough output buffer available...
+    if(this->writer->writeable()>=sizeof(bmp))
+    {
+        unsigned int fileSize  = (mode->LINE_WIDTH * mode->LINE_COUNT * 3) + sizeof(bmp);
+        unsigned int imageSize = mode->LINE_WIDTH * mode->LINE_COUNT * 3;
+
+        memset(&bmp, 0, sizeof(bmp));
+
+        bmp.magic[0]      = 'B';
+        bmp.magic[1]      = 'M';
+        bmp.fileSize[0]   = fileSize & 0xFF;
+        bmp.fileSize[1]   = (fileSize >> 8) & 0xFF;
+        bmp.fileSize[2]   = (fileSize >> 16) & 0xFF;
+        bmp.fileSize[3]   = (fileSize >> 24) & 0xFF;
+        bmp.dataOffset[0] = sizeof(bmp);
+
+        bmp.dibSize[0]    = 40;
+        bmp.width[0]      = mode->LINE_WIDTH & 0xFF;
+        bmp.width[1]      = (mode->LINE_WIDTH >> 8) & 0xFF;
+        bmp.height[0]     = mode->LINE_COUNT & 0xFF;
+        bmp.height[1]     = (mode->LINE_COUNT >> 8) & 0xFF;
+        bmp.planes[0]     = 1;
+        bmp.bitCount[0]   = 24;
+        bmp.imageSize[0]  = imageSize & 0xFF;
+        bmp.imageSize[1]  = (imageSize >> 8) & 0xFF;
+        bmp.imageSize[2]  = (imageSize >> 16) & 0xFF;
+        bmp.imageSize[3]  = (imageSize >> 24) & 0xFF;
+
+        // Place BMP header into the output buffer
+        char *p = (char *)&bmp;
+        for(int j=0 ; j<sizeof(bmp) ; ++j)
+        {
+            *(this->writer->getWritePointer()) = p[j];
+            this->writer->advance(1);
+        }
+    }
+}
+
+template <typename T>
+void SstvDecoder<T>::printBmpFooter(const SSTVMode *mode, unsigned int linesDone)
+{
+    if(linesDone<mode->LINE_COUNT)
+    {
+        unsigned int footerSize =
+            (mode->LINE_COUNT - linesDone) * mode->LINE_WIDTH * 3;
+
+        // If there is enough output buffer available...
+        if(this->writer->writeable()>=footerSize)
+        {
+            for(int j=0 ; j<footerSize ; ++j)
+            {
+                *(this->writer->getWritePointer()) = 0x00;
+                this->writer->advance(1);
+            }
+        }
     }
 }
 
@@ -386,7 +474,8 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 
     double windowFactor = mode->WINDOW_FACTOR;
     double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
-    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
+//    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
+    unsigned int pxWindow = round(centerWindowTime * 4.0 * sampleRate);
     unsigned int done = 0;
 
     // Start on a scanline
@@ -416,7 +505,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             // If no sync, do not decode yet
             if(seqStart==NOT_FOUND) return(0);
 
-{char buf[128];sprintf(buf," [S %dms]",msecs(seqStart));printString(buf);}
+//{char buf[128];sprintf(buf," [S %dms]",msecs(seqStart));printString(buf);}
         }
 
         double pxTime = mode->PIXEL_TIME;
@@ -450,7 +539,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         }
     }
 
-#if 0
     // If there is enough output space available for this scanline...
     if(this->writer->writeable()>=3*mode->LINE_WIDTH)
     {
@@ -474,11 +562,11 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         {
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[2][px];
-                this->writer->advance(1);
                 *(this->writer->getWritePointer()) = out[1][px];
                 this->writer->advance(1);
                 *(this->writer->getWritePointer()) = out[0][px];
+                this->writer->advance(1);
+                *(this->writer->getWritePointer()) = out[2][px];
                 this->writer->advance(1);
             }
         }
@@ -503,16 +591,15 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         {
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[0][px];
+                *(this->writer->getWritePointer()) = out[2][px];
                 this->writer->advance(1);
                 *(this->writer->getWritePointer()) = out[1][px];
                 this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[2][px];
+                *(this->writer->getWritePointer()) = out[0][px];
                 this->writer->advance(1);
             }
         }
     }
-#endif
 
     // Done, return the number of input samples consumed
     return(done);
@@ -522,6 +609,7 @@ template <typename T>
 unsigned char SstvDecoder<T>::luminance(unsigned int freq)
 {
     int lum = round((freq - 1500) / 3.1372549);
+//{char s[128];sprintf(s," [%dHz -> %d]",freq,lum);printString(s);}
     return(lum<0? 0 : lum>255? 255 : lum);
 }
 
@@ -764,7 +852,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
   for(j=0, i=0, mode=0 ; j<8 ; ++j)
   {
     int peak = fftPeakFreq(buf + bitSize*j, wndSize);
-{char s[128];sprintf(s," [V BIT%d=%d %dms %dHz]",j,peak<=1200,msecs(bitSize*j),peak);printString(s);}
+//{char s[128];sprintf(s," [V BIT%d=%d %dms %dHz]",j,peak<=1200,msecs(bitSize*j),peak);printString(s);}
 
     if(peak<=1200)
     {
@@ -773,7 +861,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
     }
   }
 
-{char buf[128];sprintf(buf," [MID=0x%02X, P=%d]",mode,i);printString(buf);}
+//{char buf[128];sprintf(buf," [MID=0x%02X, P=%d]",mode,i);printString(buf);}
 
   // Check parity (must be even)
   if(i)

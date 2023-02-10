@@ -129,6 +129,12 @@ namespace Csdr {
             unsigned int ms2smp(unsigned int msec)
             { return(sampleRate * msec / 1000); }
 
+            // Print BMP file header
+            void printBmpHeader(const SSTVMode *mode);
+
+            // Print BMP file footer
+            void printBmpFooter(const SSTVMode *mode, unsigned int linesDone);
+
             // Print debug information
             void printDebug();
 
