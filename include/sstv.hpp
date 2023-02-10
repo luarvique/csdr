@@ -133,7 +133,7 @@ namespace Csdr {
             void printBmpHeader(const SSTVMode *mode);
 
             // Print BMP file footer
-            void printBmpFooter(const SSTVMode *mode, unsigned int linesDone);
+            void printBmpEmptyLines(const SSTVMode *mode, unsigned int lines);
 
             // Print debug information
             void printDebug();

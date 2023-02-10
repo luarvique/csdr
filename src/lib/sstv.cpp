@@ -319,21 +319,17 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
 }
 
 template <typename T>
-void SstvDecoder<T>::printBmpFooter(const SSTVMode *mode, unsigned int linesDone)
+void SstvDecoder<T>::printBmpEmptyLines(const SSTVMode *mode, unsigned int lines)
 {
-    if(linesDone<mode->LINE_COUNT)
-    {
-        unsigned int footerSize =
-            (mode->LINE_COUNT - linesDone) * mode->LINE_WIDTH * 3;
+    unsigned int size = lines * mode->LINE_WIDTH * 3;
 
-        // If there is enough output buffer available...
-        if(this->writer->writeable()>=footerSize)
+    // If there is enough output buffer available...
+    if(this->writer->writeable()>=size)
+    {
+        for(int j=0 ; j<size ; ++j)
         {
-            for(int j=0 ; j<footerSize ; ++j)
-            {
-                *(this->writer->getWritePointer()) = 0x00;
-                this->writer->advance(1);
-            }
+            *(this->writer->getWritePointer()) = 0x00;
+            this->writer->advance(1);
         }
     }
 }
