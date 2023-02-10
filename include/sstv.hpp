@@ -161,5 +161,8 @@ namespace Csdr {
 
             // Compute luminance from frequency
             unsigned char luminance(unsigned int freq);
+
+            // Convert YUV to RGB values
+            unsigned int yuv2rgb(unsigned char y, unsigned char u, unsigned char v);
     };
 }

@@ -295,8 +295,12 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
         bmp.dibSize[0]    = 40;
         bmp.width[0]      = mode->LINE_WIDTH & 0xFF;
         bmp.width[1]      = (mode->LINE_WIDTH >> 8) & 0xFF;
-        bmp.height[0]     = mode->LINE_COUNT & 0xFF;
-        bmp.height[1]     = (mode->LINE_COUNT >> 8) & 0xFF;
+        bmp.width[2]      = (mode->LINE_WIDTH >> 16) & 0xFF;
+        bmp.width[3]      = (mode->LINE_WIDTH >> 24) & 0xFF;
+        bmp.height[0]     = (-mode->LINE_COUNT) & 0xFF;
+        bmp.height[1]     = (-mode->LINE_COUNT >> 8) & 0xFF;
+        bmp.height[2]     = (-mode->LINE_COUNT >> 16) & 0xFF;
+        bmp.height[3]     = (-mode->LINE_COUNT >> 24) & 0xFF;
         bmp.planes[0]     = 1;
         bmp.bitCount[0]   = 24;
         bmp.imageSize[0]  = imageSize & 0xFF;
@@ -474,8 +478,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 
     double windowFactor = mode->WINDOW_FACTOR;
     double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
-//    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
-    unsigned int pxWindow = round(centerWindowTime * 4.0 * sampleRate);
+    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
     unsigned int done = 0;
 
     // Start on a scanline
@@ -574,14 +577,15 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         // R72: YUV color
         else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
         {
-            // @@@ TODO!!!
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[0][px];
+                unsigned int rgb = yuv2rgb(out[0][px], out[1][px], out[2][px]);
+
+                *(this->writer->getWritePointer()) = rgb & 0xFF;
                 this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[2][px];
+                *(this->writer->getWritePointer()) = (rgb >> 8) & 0xFF;
                 this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[1][px];
+                *(this->writer->getWritePointer()) = (rgb >> 16) & 0xFF;
                 this->writer->advance(1);
             }
         }
@@ -609,8 +613,21 @@ template <typename T>
 unsigned char SstvDecoder<T>::luminance(unsigned int freq)
 {
     int lum = round((freq - 1500) / 3.1372549);
-//{char s[128];sprintf(s," [%dHz -> %d]",freq,lum);printString(s);}
     return(lum<0? 0 : lum>255? 255 : lum);
+}
+
+template <typename T>
+unsigned int SstvDecoder<T>::yuv2rgb(unsigned char y, unsigned char u, unsigned char v)
+{
+    int r = y + ((351 * (v-128)) >> 8);
+    int g = y - ((179 * (v-128) + 86 * (u-128)) >> 8);
+    int b = y + ((443 * (u-128)) >> 8);
+
+    r = r>255? 255 : r<0? 0 : r;
+    g = g>255? 255 : g<0? 0 : g;
+    b = b>255? 255 : b<0? 0 : b;
+
+    return((r << 16) | (g << 8) | b);
 }
 
 class Martin1: public SSTVMode
