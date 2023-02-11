@@ -73,7 +73,7 @@ namespace Csdr {
     template <typename T>
     class SstvDecoder: public Module<T, unsigned char> {
         public:
-            SstvDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=3000);
+            SstvDecoder(unsigned int sampleRate=44100);
             ~SstvDecoder();
 
             bool canProcess() override;
@@ -82,7 +82,6 @@ namespace Csdr {
         private:
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int targetFreq;   // SSTV sync offset (Hz)
             unsigned int dbgTime;      // Debug printout time (ms)
 
             // Time counting

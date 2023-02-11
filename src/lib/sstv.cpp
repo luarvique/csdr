@@ -95,9 +95,8 @@ typedef struct
 } BMPHeader;
 
 template <typename T>
-SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int targetFreq)
+SstvDecoder<T>::SstvDecoder(unsigned int sampleRate)
 : sampleRate(sampleRate),
-  targetFreq(targetFreq),
   curState(STATE_HEADER),
   dbgTime(0)     // Debug printout period (ms)
 {
@@ -178,11 +177,9 @@ void SstvDecoder<T>::process() {
     {
         case STATE_HEADER:
             // Do not detect until we have enough samples for SSTV header
-//{char buf[128];sprintf(buf," [H %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<hdrSize) break;
             // Detect SSTV frame header
             i = findHeader(buf, curSize);
-//if(i){char buf[128];sprintf(buf," [HDR @ %dms] [VIS @ %dms]",msecs(i-hdrSize),msecs(i));printString(buf);}
             // If header detected, decoding VIS next
             if(i) curState = STATE_VIS;
             else
@@ -197,11 +194,9 @@ void SstvDecoder<T>::process() {
 
         case STATE_VIS:
             // Do not decode until we have enough samples for VIS record
-//{char buf[128];sprintf(buf," [V %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<visSize) break;
             // Try decoding
             curMode = decodeVIS(buf, visSize);
-//{char buf[128];sprintf(buf," [MODE='%s']",curMode? curMode->NAME:"???");printString(buf);}
             // If failed, go back to header detection, else wait for scanlines
             curState = !curMode? STATE_HEADER : curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
             // If succeeded decoding mode...
@@ -219,11 +214,9 @@ void SstvDecoder<T>::process() {
             // We will need this many input samples for SYNC
             j = round(curMode->SYNC_PULSE * 1.4 * sampleRate);
             // Do not detect until we have this many
-//{char buf[128];sprintf(buf," [S %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<j) break;
             // Detect SSTV frame sync
             i = findSync(curMode, buf, curSize, false);
-//if(i){char buf[128];sprintf(buf," [SYNC @ %dms]",msecs(i));printString(buf);}
             // If sync detected, decoding image next
             if((i!=NOT_FOUND) && (i>=0)) curState = STATE_LINE0;
             else
@@ -246,11 +239,9 @@ void SstvDecoder<T>::process() {
             // We will need this many input samples for scanline
             j = round(curMode->LINE_TIME * sampleRate);
             // Do not detect until we have this many
-//{char buf[128];sprintf(buf," [L %d..%d]",msecs(),msecs(curSize));printString(buf);}
             if(curSize<j) break;
             // Try decoding a scanline
             i = decodeLine(curMode, curState, buf, curSize);
-//if(i){char buf[128];sprintf(buf," [LINE%d @ %dms]",curState,msecs());printString(buf);}
             // If decoding successful...
             if(i>0)
             {
@@ -358,64 +349,64 @@ void SstvDecoder<T>::printString(const char *buf)
 template <typename T>
 int SstvDecoder<T>::fftPeakFreq(const float *buf, unsigned int size)
 {
-  unsigned int xMax, j;
+    unsigned int xMax, j;
 
-  // Recreate FFT plan as needed
-  if(size!=fftSize)
-  {
-    if(fftSize) fftwf_destroy_plan(fftPlan);
-    fftPlan = fftwf_plan_dft_r2c_1d(size, fftIn, fftOut, FFTW_ESTIMATE);
-    fftSize = size;
-  }
+    // Recreate FFT plan as needed
+    if(size!=fftSize)
+    {
+        if(fftSize) fftwf_destroy_plan(fftPlan);
+        fftPlan = fftwf_plan_dft_r2c_1d(size, fftIn, fftOut, FFTW_ESTIMATE);
+        fftSize = size;
+    }
 
-  // Multiply by Hann window
-  double CONST_2PI_BY_SIZE = 2.0 * 3.1415926525 / (size - 1);
-  for(j=0 ; j<size ; ++j)
-    fftIn[j] = buf[j] * (0.5 - 0.5 * cos(CONST_2PI_BY_SIZE * j));
+    // Multiply by Hann window
+    double CONST_2PI_BY_SIZE = 2.0 * 3.1415926525 / (size - 1);
+    for(j=0 ; j<size ; ++j)
+        fftIn[j] = buf[j] * (0.5 - 0.5 * cos(CONST_2PI_BY_SIZE * j));
 
-  // Compute FFT
-  fftwf_execute(fftPlan);
+    // Compute FFT
+    fftwf_execute(fftPlan);
 
-  // Go to magnitudes, find highest magnitude bin
-  for(j=0, xMax=0 ; j<size ; ++j)
-  {
-    fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
-    if(fftIn[j]>fftIn[xMax]) xMax=j;
-  }
+    // Go to magnitudes, find highest magnitude bin
+    for(j=0, xMax=0 ; j<size ; ++j)
+    {
+        fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+        if(fftIn[j]>fftIn[xMax]) xMax=j;
+    }
 
-  // Interpolate peak frequency
-  double vNext = fftIn[xMax<size-1? xMax+1 : size-1];
-  double vPrev = fftIn[xMax>0? xMax-1:0];
-  double v     = vPrev + fftIn[xMax] + vNext;
+    // Interpolate peak frequency
+    double vNext = fftIn[xMax<size-1? xMax+1 : size-1];
+    double vPrev = fftIn[xMax>0? xMax-1:0];
+    double v     = vPrev + fftIn[xMax] + vNext;
 
-  // Can't have all three at 0
-  if(v<1.0E-64) return(0);
+    // Can't have all three at 0
+    if(v<1.0E-64) return(0);
 
-  // Return frequency
-  return(((vNext-vPrev)/v + xMax) * sampleRate / size);
+    // Return frequency
+    return(((vNext-vPrev)/v + xMax) * sampleRate / size);
 }
 
 template <typename T>
 unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
 {
-  // Must have enough samples
-  if(hdrSize>size) return(0);
+    // Must have enough samples
+    if(hdrSize>size) return(0);
 
-  // Check buffer for the header, every 2 milliseconds
-  for(unsigned int j=0 ; j<=size-hdrSize ; j+=step)
-  {
-    // Go to the next location if any of these checks fail
-    if(abs(fftPeakFreq(buf + j + lead1_Start, wndSize) - 1900) >= 50) continue;
-    if(abs(fftPeakFreq(buf + j + break_Start, wndSize) - 1200) >= 50) continue;
-    if(abs(fftPeakFreq(buf + j + lead2_Start, wndSize) - 1900) >= 50) continue;
-    if(abs(fftPeakFreq(buf + j + vis_Start, wndSize) - 1200) >= 50)   continue;
+    // Check buffer for the header, every 2 milliseconds
+    for(unsigned int j=0 ; j<=size-hdrSize ; j+=step)
+    {
+        // Go to the next location if any of these checks fail
+        if(abs(fftPeakFreq(buf + j + lead1_Start, wndSize) - 1900) >= 50) continue;
+        if(abs(fftPeakFreq(buf + j + break_Start, wndSize) - 1200) >= 50) continue;
+        if(abs(fftPeakFreq(buf + j + lead2_Start, wndSize) - 1900) >= 50) continue;
+        if(abs(fftPeakFreq(buf + j + vis_Start, wndSize) - 1200) >= 50)   continue;
 
-    // Header found
-    return(j + hdrSize);
-  }
+        // Header found
+        return(j + hdrSize);
+    }
 
-  // Header not found
-  return(0);
+    // Header not found
+    return(0);
 }
 
 template <typename T>
@@ -503,8 +494,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 
             // If no sync, do not decode yet
             if(seqStart==NOT_FOUND) return(0);
-
-//{char buf[128];sprintf(buf," [S %dms]",msecs(seqStart));printString(buf);}
         }
 
         double pxTime = mode->PIXEL_TIME;
@@ -850,61 +839,58 @@ static ScottieDX MODE_ScottieDX;
 template <typename T>
 const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
 {
-  unsigned int j, i, mode;
+    unsigned int j, i, mode;
 
-  // Verify size
-  if(visSize>size)
-  {
-      char msg[256];
-      sprintf(msg, "decodeVIS() got %d<%d samples!", visSize, size);
-      printString(msg);
-      return(0);
-  }
-
-  // Decode bits
-  for(j=0, i=0, mode=0 ; j<8 ; ++j)
-  {
-    int peak = fftPeakFreq(buf + bitSize*j, wndSize);
-//{char s[128];sprintf(s," [V BIT%d=%d %dms %dHz]",j,peak<=1200,msecs(bitSize*j),peak);printString(s);}
-
-    if(peak<=1200)
+    // Verify size
+    if(visSize>size)
     {
-      mode |= 1<<j;
-      i ^= 1;
+        char msg[256];
+        sprintf(msg, "decodeVIS() got %d<%d samples!", visSize, size);
+        printString(msg);
+        return(0);
     }
-  }
 
-//{char buf[128];sprintf(buf," [MID=0x%02X, P=%d]",mode,i);printString(buf);}
+    // Decode bits
+    for(j=0, i=0, mode=0 ; j<8 ; ++j)
+    {
+        int peak = fftPeakFreq(buf + bitSize*j, wndSize);
 
-  // Check parity (must be even)
-  if(i)
-  {
-      char msg[256];
-      sprintf(msg, "decodeVIS() parity check failed for 0x%02X!", mode & 0x7F);
-      printString(msg);
-      return(0);
-  }
+        if(peak<=1200)
+        {
+            mode |= 1<<j;
+            i ^= 1;
+        }
+    }
 
-  // Delete parity bit
-  mode &= 0x7F;
+    // Check parity (must be even)
+    if(i)
+    {
+        char msg[256];
+        sprintf(msg, "decodeVIS() parity check failed for 0x%02X!", mode & 0x7F);
+        printString(msg);
+        return(0);
+    }
 
-  // Get mode
-  switch(mode)
-  {
-    case 8:  return(&MODE_Robot36);
-    case 12: return(&MODE_Robot72);
-    case 40: return(&MODE_Martin2);
-    case 44: return(&MODE_Martin1);
-    case 56: return(&MODE_Scottie2);
-    case 60: return(&MODE_Scottie1);
-    case 76: return(&MODE_ScottieDX);
-  }
+    // Delete parity bit
+    mode &= 0x7F;
 
-  // Failed decoding mode
-  char msg[256];
-  sprintf(msg, "decodeVIS() unknown mode 0x%02X!", mode);
-  printString(msg);
-  return(0);
+    // Get mode
+    switch(mode)
+    {
+        case 8:  return(&MODE_Robot36);
+        case 12: return(&MODE_Robot72);
+        case 40: return(&MODE_Martin2);
+        case 44: return(&MODE_Martin1);
+        case 56: return(&MODE_Scottie2);
+        case 60: return(&MODE_Scottie1);
+        case 76: return(&MODE_ScottieDX);
+    }
+
+    // Failed decoding mode
+    char msg[256];
+    sprintf(msg, "decodeVIS() unknown mode 0x%02X!", mode);
+    printString(msg);
+    return(0);
 }
 
 namespace Csdr {

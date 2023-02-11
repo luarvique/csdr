@@ -585,8 +585,7 @@ RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") 
 
 SstvDecoderCommand::SstvDecoderCommand(): Command("sstvdecode", "SSTV decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
-    add_option("freq", targetFreq, "Frequency base");
     callback( [this] () {
-        runModule(new SstvDecoder<float>(sampleRate, targetFreq));
+        runModule(new SstvDecoder<float>(sampleRate));
     });
 }
