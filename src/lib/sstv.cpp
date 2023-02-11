@@ -98,7 +98,7 @@ template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate)
 : sampleRate(sampleRate),
   curState(STATE_HEADER),
-  dbgTime(0)     // Debug printout period (ms)
+  dbgTime(30000)     // Debug printout period (ms)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
@@ -300,11 +300,10 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
         bmp.imageSize[3]  = (imageSize >> 24) & 0xFF;
 
         // Place BMP header into the output buffer
-        char *p = (char *)&bmp;
-        for(int j=0 ; j<sizeof(bmp) ; ++j)
+        if(this->writer->writeable()>=sizeof(bmp))
         {
-            *(this->writer->getWritePointer()) = p[j];
-            this->writer->advance(1);
+            memcpy(this->writer->getWritePointer(), &bmp, sizeof(bmp));
+            this->writer->advance(sizeof(bmp));
         }
     }
 }
@@ -328,21 +327,24 @@ void SstvDecoder<T>::printBmpEmptyLines(const SSTVMode *mode, unsigned int lines
 template <typename T>
 void SstvDecoder<T>::printDebug()
 {
-    // @@@ TODO!
+    if(curState==STATE_HEADER)
+    {
+        char buf[256];
+        sprintf(buf, " [%d ms]", msecs());
+        printString(buf);
+    }
 }
 
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
     // If there is enough output buffer available...
-    if(this->writer->writeable()>=strlen(buf))
+    unsigned int len = strlen(buf);
+    if(this->writer->writeable()>=len)
     {
         // Place each string character into the output buffer
-        for(int j=0 ; buf[j] ; ++j)
-        {
-            *(this->writer->getWritePointer()) = buf[j];
-            this->writer->advance(1);
-        }
+        strcpy((char *)this->writer->getWritePointer(), buf);
+        this->writer->advance(len);
     }
 }
 
@@ -460,8 +462,9 @@ void SstvDecoder<T>::skipInput(unsigned int size)
 template <typename T>
 unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size)
 {
-    // Temporary output buffer
+    // Temporary output buffers
     unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
+    unsigned char bmp[3 * mode->LINE_WIDTH];
 
     double windowFactor = mode->WINDOW_FACTOR;
     double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
@@ -528,20 +531,21 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     }
 
     // If there is enough output space available for this scanline...
-    if(this->writer->writeable()>=3*mode->LINE_WIDTH)
+    if(this->writer->writeable()>=sizeof(bmp))
     {
+        // No scanline yet
+        memset(bmp, 0, sizeof(bmp));
+        unsigned char *p = bmp;
+
         // R36: This is the only case where two channels are valid
         if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
         {
             // @@@ TODO!!!
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[0][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[1][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = 0;
-                this->writer->advance(1);
+                *p++ = out[0][px];
+                *p++ = out[1][px];
+                *p++ = 0;
             }
         }
 
@@ -550,12 +554,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         {
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[1][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[0][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[2][px];
-                this->writer->advance(1);
+                *p++ = out[1][px];
+                *p++ = out[0][px];
+                *p++ = out[2][px];
             }
         }
 
@@ -565,13 +566,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
                 unsigned int rgb = yuv2rgb(out[0][px], out[1][px], out[2][px]);
-
-                *(this->writer->getWritePointer()) = rgb & 0xFF;
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = (rgb >> 8) & 0xFF;
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = (rgb >> 16) & 0xFF;
-                this->writer->advance(1);
+                *p++ = rgb & 0xFF;
+                *p++ = (rgb >> 8) & 0xFF;
+                *p++ = (rgb >> 16) & 0xFF;
             }
         }
 
@@ -580,14 +577,15 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         {
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *(this->writer->getWritePointer()) = out[2][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[1][px];
-                this->writer->advance(1);
-                *(this->writer->getWritePointer()) = out[0][px];
-                this->writer->advance(1);
+                *p++ = out[2][px];
+                *p++ = out[1][px];
+                *p++ = out[0][px];
             }
         }
+
+        // Output scanline
+        memcpy(this->writer->getWritePointer(), bmp, sizeof(bmp));
+        this->writer->advance(sizeof(bmp));
     }
 
     // Done, return the number of input samples consumed
