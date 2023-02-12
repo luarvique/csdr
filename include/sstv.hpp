@@ -114,8 +114,8 @@ namespace Csdr {
 
             // Decoder state
             const SSTVMode *curMode;     // Current SSTV mode + parameters
+            unsigned int lastLineT;      // Time of last scanline decoded (ms)
             int curState;                // Current decoder state
-            int seqStart;                // Current scanline start
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)

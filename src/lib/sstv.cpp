@@ -197,15 +197,21 @@ void SstvDecoder<T>::process() {
             if(curSize<visSize) break;
             // Try decoding
             curMode = decodeVIS(buf, visSize);
-            // If failed, go back to header detection, else wait for scanlines
-            curState = !curMode? STATE_HEADER : curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
             // If succeeded decoding mode...
             if(curMode)
             {
+                // Receiving scanline next
+                curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
+                lastLineT = msecs(visSize);
                 // Output BMP file header
                 printBmpHeader(curMode);
                 // Drop decoded input data
                 skipInput(visSize);
+            }
+            else
+            {
+                // Go back to header detection
+                curState = STATE_HEADER;
             }
             // Done
             break;
@@ -217,8 +223,13 @@ void SstvDecoder<T>::process() {
             if(curSize<j) break;
             // Detect SSTV frame sync
             i = findSync(curMode, buf, curSize, false);
-            // If sync detected, decoding image next
-            if((i!=NOT_FOUND) && (i>=0)) curState = STATE_LINE0;
+            // If sync detected...
+            if((i!=NOT_FOUND) && (i>=0))
+            {
+                // Receiving scanline next
+                curState  = STATE_LINE0;
+                lastLineT = msecs(i);
+            }
             else
             {
                 // Sync not found, skip input
@@ -230,9 +241,10 @@ void SstvDecoder<T>::process() {
             break;
 
         default:
-            // If invalid state or done with a frame, go back to header detection
+            // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
+                // Go back to header detection
                 curState = STATE_HEADER;
                 break;
             }
@@ -245,10 +257,18 @@ void SstvDecoder<T>::process() {
             // If decoding successful...
             if(i>0)
             {
+                // Mark last scanline decoding time
+                lastLineT = msecs(i);
                 // Drop processed input data
                 skipInput(i);
                 // Next scanline
                 ++curState;
+            }
+            // If have not received scanline for a while...
+            else if(msecs(i)>lastLineT + j * 8)
+            {
+                // Go back to header detection
+                curState = STATE_HEADER;
             }
             break;
     }
@@ -469,7 +489,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     unsigned int done = 0;
 
     // Start on a scanline
-    seqStart = 0;
+    unsigned int seqStart = 0;
 
     // If first line...
     if(!line)
