@@ -98,7 +98,7 @@ template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate)
 : sampleRate(sampleRate),
   curState(STATE_HEADER),
-  dbgTime(30000)     // Debug printout period (ms)
+  dbgTime(0)     // Debug printout period (ms)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
@@ -181,7 +181,11 @@ void SstvDecoder<T>::process() {
             // Detect SSTV frame header
             i = findHeader(buf, curSize);
             // If header detected, decoding VIS next
-            if(i) curState = STATE_VIS;
+            if(i)
+            {
+printString(" [HEADER]");
+                curState = STATE_VIS;
+            }
             else
             {
                 // Header not found, skip input
@@ -200,6 +204,7 @@ void SstvDecoder<T>::process() {
             // If succeeded decoding mode...
             if(curMode)
             {
+{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
@@ -211,7 +216,7 @@ void SstvDecoder<T>::process() {
             else
             {
                 // Go back to header detection
-                curState = STATE_HEADER;
+                finishFrame();
             }
             // Done
             break;
@@ -226,6 +231,7 @@ void SstvDecoder<T>::process() {
             // If sync detected...
             if((i!=NOT_FOUND) && (i>=0))
             {
+printString(" [SYNC]");
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
@@ -234,6 +240,8 @@ void SstvDecoder<T>::process() {
             {
                 // Sync not found, skip input
                 i = curSize>j? curSize-j : 0;
+                // If have not received sync, go back to header detection
+                if(msecs(i)>lastLineT + j * 8) finishFrame();
             }
             // Drop processed input data
             skipInput(i);
@@ -257,6 +265,7 @@ void SstvDecoder<T>::process() {
             // If decoding successful...
             if(i>0)
             {
+{char s[256];sprintf(s," [LINE %d]",curState);printString(s);}
                 // Mark last scanline decoding time
                 lastLineT = msecs(i);
                 // Drop processed input data
@@ -268,7 +277,7 @@ void SstvDecoder<T>::process() {
             else if(msecs(i)>lastLineT + j * 8)
             {
                 // Go back to header detection
-                curState = STATE_HEADER;
+                finishFrame();
             }
             break;
     }
@@ -329,15 +338,31 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
 }
 
 template <typename T>
+void SstvDecoder<T>::finishFrame(void)
+{
+    if(curMode && (curState>=0))
+    {
+        if(curState < curMode->LINE_COUNT)
+            printBmpEmptyLines(curMode, curMode->LINE_COUNT - curState);
+
+        curState = STATE_HEADER;
+printString(" [DONE]");
+    }
+}
+
+template <typename T>
 void SstvDecoder<T>::printBmpEmptyLines(const SSTVMode *mode, unsigned int lines)
 {
-    unsigned int size = lines * mode->LINE_WIDTH * 3;
+    unsigned int size = mode->LINE_WIDTH * 3;
 
     // If there is enough output buffer available...
-    if(this->writer->writeable()>=size)
+    if(this->writer->writeable() >= lines*size)
     {
-        memset(this->writer->getWritePointer(), 0x00, size);
-        this->writer->advance(size);
+        for(int i=0 ; i<lines ; ++i)
+        {
+            memset(this->writer->getWritePointer(), 0x00, size);
+            this->writer->advance(size);
+        }
     }
 }
 

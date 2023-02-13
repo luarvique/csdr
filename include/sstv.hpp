@@ -155,6 +155,9 @@ namespace Csdr {
             // Decode single scanline
             unsigned int decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);
 
+            // Finish frame (if any) and go back to header detection
+            void finishFrame(void);
+
             // Skip input samples
             void skipInput(unsigned int size);
 
