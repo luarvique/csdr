@@ -265,7 +265,6 @@ printString(" [SYNC]");
             // If decoding successful...
             if(i>0)
             {
-{char s[256];sprintf(s," [LINE %d]",curState);printString(s);}
                 // Mark last scanline decoding time
                 lastLineT = msecs(i);
                 // Drop processed input data
@@ -346,8 +345,8 @@ void SstvDecoder<T>::finishFrame(void)
             printBmpEmptyLines(curMode, curMode->LINE_COUNT - curState);
 
         curState = STATE_HEADER;
-printString(" [DONE]");
     }
+printString(" [DONE]");
 }
 
 template <typename T>
