@@ -147,13 +147,7 @@ void SstvDecoder<T>::process() {
     {
         // Extend the buffer
         float *newBuf = new float[curSize+size];
-        if(!newBuf)
-        {
-            char msg[256];
-            sprintf(msg, "Failed to allocate %d-byte buffer!", curSize+size);
-            printString(msg);
-            return;
-        }
+        if(!newBuf) return;
 
         if(buf)
         {
@@ -183,7 +177,7 @@ void SstvDecoder<T>::process() {
             // If header detected, decoding VIS next
             if(i)
             {
-//printString(" [HEADER]");
+printString(" [HEADER]");
                 curState = STATE_VIS;
                 // Drop processed input data
                 skipInput(i);
@@ -197,7 +191,6 @@ void SstvDecoder<T>::process() {
             break;
 
         case STATE_VIS:
-//{char s[256];sprintf(s," [VIS %d/%d]",curSize,visSize);printString(s);}
             // Do not decode until we have enough samples for VIS record
             if(curSize<visSize) break;
             // Try decoding
@@ -205,7 +198,7 @@ void SstvDecoder<T>::process() {
             // If succeeded decoding mode...
             if(curMode)
             {
-//{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
+{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
@@ -218,9 +211,11 @@ void SstvDecoder<T>::process() {
             }
             else
             {
-//printString(" [BAD-VIS]");
+printString(" [BAD-VIS]");
                 // Go back to header detection
                 finishFrame();
+                // Skip input
+                skipInput(visSize);
             }
             // Done
             break;
@@ -233,9 +228,11 @@ void SstvDecoder<T>::process() {
             // Detect SSTV frame sync
             i = findSync(curMode, buf, curSize, false);
             // If sync detected...
-            if((i!=NOT_FOUND) && (i>=0))
+            if(i!=NOT_FOUND)
             {
-//printString(" [SYNC]");
+printString(" [SYNC]");
+                // @@@ FIX THIS!!!
+                if(i<0) i = 0;
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
@@ -243,7 +240,7 @@ void SstvDecoder<T>::process() {
                 skipInput(i);
             }
             // If have not received sync for a while...
-            else if(msecs(i)>lastLineT + j * 8)
+            else if(msecs(i)>lastLineT + j * 32)
             {
                 // Go back to header detection
                 finishFrame();
@@ -251,7 +248,7 @@ void SstvDecoder<T>::process() {
             else
             {
                 // Sync not found, skip some input
-                skipInput(curSize - step);
+                skipInput(curSize - j);
             }
             // Done
             break;
@@ -260,7 +257,7 @@ void SstvDecoder<T>::process() {
             // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
-//printString(" [DONE]");
+printString(" [DONE]");
                 // Go back to header detection
                 curState = STATE_HEADER;
                 break;
@@ -284,14 +281,14 @@ void SstvDecoder<T>::process() {
             // If have not received scanline for a while...
             else if(msecs(curSize)>lastLineT + j * 8)
             {
-//printString(" [TIMEOUT]");
+printString(" [TIMEOUT]");
                 // Go back to header detection
                 finishFrame();
             }
             else
             {
                 // Skip some input
-                skipInput(curSize - step);
+                skipInput(curSize - j);
             }
             break;
     }
@@ -318,12 +315,14 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
 
         memset(&bmp, 0, sizeof(bmp));
 
+        // Use reserved byte at offset 6 to store SSTV mode ID
         bmp.magic[0]      = 'B';
         bmp.magic[1]      = 'M';
         bmp.fileSize[0]   = fileSize & 0xFF;
         bmp.fileSize[1]   = (fileSize >> 8) & 0xFF;
         bmp.fileSize[2]   = (fileSize >> 16) & 0xFF;
         bmp.fileSize[3]   = (fileSize >> 24) & 0xFF;
+        bmp.reserved[0]   = mode->ID;
         bmp.dataOffset[0] = sizeof(bmp);
 
         bmp.dibSize[0]    = 40;
@@ -358,9 +357,10 @@ void SstvDecoder<T>::finishFrame(void)
     {
         if(curState < curMode->LINE_COUNT)
             printBmpEmptyLines(curMode, curMode->LINE_COUNT - curState);
-
-        curState = STATE_HEADER;
     }
+
+    curState = STATE_HEADER;
+    curMode  = 0;
 }
 
 template <typename T>
@@ -475,14 +475,13 @@ int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned in
     if(wndSize>size) return(0);
 
     // Search for the sync signal
-unsigned int aaa = startOfSync? round(mode->SYNC_PULSE*sampleRate) - wndSize/2 : 0;
-    for(unsigned int j=aaa ; j<=size-wndSize ; ++j)
+    for(unsigned int j=0 ; j<=size-wndSize ; ++j)
     {
         if(fftPeakFreq(buf + j, wndSize)>1350)
         {
             // This is the end of sync
             j = j + wndSize/2;
-            return(startOfSync? (j - round(mode->SYNC_PULSE*sampleRate)) : j);
+            return(j - (startOfSync? round(mode->SYNC_PULSE*sampleRate) : 0));
         }
     }
 
@@ -571,13 +570,8 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             unsigned int pxPos = seqStart + round((chOffset + pxTime*px - centerWindowTime) * sampleRate);
             unsigned int pxEnd = pxPos + pxWindow;
 
-            if(pxEnd>size)
-            {
-                char msg[256];
-                sprintf(msg, "DecodeLine('%s', %d): Reached end of input!", mode->NAME, line);
-                printString(msg);
-                return(0);
-            }
+            // Check if we have enough data
+            if(pxEnd>size) return(0);
 
             // Decode pixel
             out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
@@ -903,13 +897,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
     unsigned int j, i, mode;
 
     // Verify size
-    if(visSize>size)
-    {
-        char msg[256];
-        sprintf(msg, "decodeVIS() got %d<%d samples!", visSize, size);
-        printString(msg);
-        return(0);
-    }
+    if(visSize>size) return(0);
 
     // Decode bits
     for(j=0, i=0, mode=0 ; j<8 ; ++j)
@@ -923,14 +911,10 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
         }
     }
 
+{char s[256];sprintf(s," [VIS %d %d]",mode&0x7F,i);printString(s);}
+
     // Check parity (must be even)
-    if(i)
-    {
-        char msg[256];
-        sprintf(msg, "decodeVIS() parity check failed for 0x%02X!", mode & 0x7F);
-        printString(msg);
-        return(0);
-    }
+    if(i) return(0);
 
     // Delete parity bit
     mode &= 0x7F;
@@ -945,12 +929,46 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
         case 56: return(&MODE_Scottie2);
         case 60: return(&MODE_Scottie1);
         case 76: return(&MODE_ScottieDX);
+
+        case 0:  // Robot 12
+        case 1:
+        case 2:
+        case 3:  // Robot BW8
+        case 4:  // Robot 24
+        case 5:
+        case 6:
+        case 7:  // Robot BW12
+        case 9:
+        case 10:
+        case 11: // Robot BW24
+        case 13:
+        case 14:
+        case 15: // Robot BW36
+        case 32: // Martin M4
+        case 36: // Martin M3
+        case 41: // Martin HQ1
+        case 42: // Martin HQ2
+        case 48: // Scottie 4
+        case 52: // Scottie 3
+        case 85: // FAX480
+        case 90: // FAST FM
+        case 93: // PD 50
+        case 95: // PD 120
+        case 96: // PD 180
+        case 97: // PD 240
+        case 98: // PD 160
+        case 99: // PD 90
+        case 100: // Proskan J120
+        case 104: // MSCAN TV-1
+        case 105: // MSCAN TV-2
+        case 113: // Pasokon P3
+        case 114: // Pasokon P5
+        case 115: // Pasokon P7
+            // Not implemented yet
+            break;
     }
 
     // Failed decoding mode
-    char msg[256];
-    sprintf(msg, "decodeVIS() unknown mode 0x%02X!", mode);
-    printString(msg);
     return(0);
 }
 
