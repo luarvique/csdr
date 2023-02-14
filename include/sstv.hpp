@@ -117,6 +117,9 @@ namespace Csdr {
             unsigned int lastLineT;      // Time of last scanline decoded (ms)
             int curState;                // Current decoder state
 
+            // U/V component from a previous line (must be large enough!)
+            unsigned char linebuf[640];
+
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 

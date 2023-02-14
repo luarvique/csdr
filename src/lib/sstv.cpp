@@ -183,20 +183,21 @@ void SstvDecoder<T>::process() {
             // If header detected, decoding VIS next
             if(i)
             {
-printString(" [HEADER]");
+//printString(" [HEADER]");
                 curState = STATE_VIS;
+                // Drop processed input data
+                skipInput(i);
             }
             else
             {
                 // Header not found, skip input
-                i = curSize>hdrSize? curSize-hdrSize : 0;
+                skipInput(curSize - hdrSize + step);
             }
-            // Drop processed input data
-            skipInput(i);
             // Done
             break;
 
         case STATE_VIS:
+//{char s[256];sprintf(s," [VIS %d/%d]",curSize,visSize);printString(s);}
             // Do not decode until we have enough samples for VIS record
             if(curSize<visSize) break;
             // Try decoding
@@ -204,10 +205,12 @@ printString(" [HEADER]");
             // If succeeded decoding mode...
             if(curMode)
             {
-{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
+//{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
+                // Clear line buffer, just in case
+                memset(linebuf, 0, sizeof(linebuf));
                 // Output BMP file header
                 printBmpHeader(curMode);
                 // Drop decoded input data
@@ -215,6 +218,7 @@ printString(" [HEADER]");
             }
             else
             {
+//printString(" [BAD-VIS]");
                 // Go back to header detection
                 finishFrame();
             }
@@ -231,20 +235,24 @@ printString(" [HEADER]");
             // If sync detected...
             if((i!=NOT_FOUND) && (i>=0))
             {
-printString(" [SYNC]");
+//printString(" [SYNC]");
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
+                // Drop processed input data
+                skipInput(i);
+            }
+            // If have not received sync for a while...
+            else if(msecs(i)>lastLineT + j * 8)
+            {
+                // Go back to header detection
+                finishFrame();
             }
             else
             {
-                // Sync not found, skip input
-                i = curSize>j? curSize-j : 0;
-                // If have not received sync, go back to header detection
-                if(msecs(i)>lastLineT + j * 8) finishFrame();
+                // Sync not found, skip some input
+                skipInput(curSize - step);
             }
-            // Drop processed input data
-            skipInput(i);
             // Done
             break;
 
@@ -252,6 +260,7 @@ printString(" [SYNC]");
             // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
+//printString(" [DONE]");
                 // Go back to header detection
                 curState = STATE_HEADER;
                 break;
@@ -267,16 +276,22 @@ printString(" [SYNC]");
             {
                 // Mark last scanline decoding time
                 lastLineT = msecs(i);
-                // Drop processed input data
-                skipInput(i);
                 // Next scanline
                 ++curState;
+                // Drop processed input data
+                skipInput(i);
             }
             // If have not received scanline for a while...
-            else if(msecs(i)>lastLineT + j * 8)
+            else if(msecs(curSize)>lastLineT + j * 8)
             {
+//printString(" [TIMEOUT]");
                 // Go back to header detection
                 finishFrame();
+            }
+            else
+            {
+                // Skip some input
+                skipInput(curSize - step);
             }
             break;
     }
@@ -346,7 +361,6 @@ void SstvDecoder<T>::finishFrame(void)
 
         curState = STATE_HEADER;
     }
-printString(" [DONE]");
 }
 
 template <typename T>
@@ -581,12 +595,16 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         // R36: This is the only case where two channels are valid
         if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
         {
-            // @@@ TODO!!!
+            // U in even lines, V in odd lines
+            unsigned char *u = line&1? linebuf : out[1];
+            unsigned char *v = line&1? out[1] : linebuf;
+
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                *p++ = out[0][px];
-                *p++ = out[1][px];
-                *p++ = 0;
+                unsigned int rgb = yuv2rgb(out[0][px], u[px], v[px]);
+                *p++ = rgb & 0xFF;
+                *p++ = (rgb >> 8) & 0xFF;
+                *p++ = (rgb >> 16) & 0xFF;
             }
         }
 
@@ -628,6 +646,10 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         memcpy(this->writer->getWritePointer(), bmp, sizeof(bmp));
         this->writer->advance(sizeof(bmp));
     }
+
+    // R36: Save previous U/V component
+    if(mode->CHAN_COUNT==2)
+        memcpy(linebuf, out[1], mode->LINE_WIDTH);
 
     // Done, return the number of input samples consumed
     return(done);
