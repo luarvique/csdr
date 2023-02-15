@@ -531,8 +531,13 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     // Must have enough input samples
     if(size < round(mode->LINE_TIME * sampleRate)) return(0);
 
+    // Starting sample to look for sync from
+    unsigned int start0 = round((
+        mode->CHAN_OFFSETS[mode->CHAN_SYNC] -
+        mode->SYNC_PULSE - mode->SYNC_PORCH) * sampleRate);
+
     // Find sync, drop out if not found
-    int start = findSync(mode, buf, size);
+    int start = findSync(mode, buf + start0, size - start0);
     if(!start) return(0);
 
     // Determine scanline start
@@ -555,17 +560,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             double pxPosT = mode->CHAN_OFFSETS[ch] + pxTime*px - centerWindowT;
             int pxPos = start + round(pxPosT * sampleRate);
 
-            // Check that the window is inside our available data
-            if((pxPos<0) || (pxPos+pxWindow>size))
-            {
-                // Blank non-existant pixels
-                out[ch][px] = 0;
-            }
-            else
-            {
-                // Decode pixel
-                out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
-            }
+            // Decode valid pixels, blank non-existant pixels
+            out[ch][px] = (pxPos>=0) && (pxPos+pxWindow<=size)?
+                luminance(fftPeakFreq(buf + pxPos, pxWindow)) : 0;
         }
     }
 
@@ -741,9 +738,9 @@ class Scottie1: public SSTVMode
       CHAN_SYNC  = 2;
       CHAN_TIME  = SEP_PULSE + SCAN_TIME;
 
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH + CHAN_TIME;
-      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
-      CHAN_OFFSETS[2] = SYNC_PULSE + SYNC_PORCH;
+      CHAN_OFFSETS[0] = SEP_PULSE;
+      CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
+      CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
 
       LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
       PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
@@ -770,9 +767,9 @@ class Scottie2: public Scottie1
 
       CHAN_TIME   = SEP_PULSE + SCAN_TIME;
 
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH + CHAN_TIME;
-      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
-      CHAN_OFFSETS[2] = SYNC_PULSE + SYNC_PORCH;
+      CHAN_OFFSETS[0] = SEP_PULSE;
+      CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
+      CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
 
       LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
       PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
@@ -795,9 +792,9 @@ class ScottieDX: public Scottie2
 
       CHAN_TIME  = SEP_PULSE + SCAN_TIME;
 
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH + CHAN_TIME;
-      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
-      CHAN_OFFSETS[2] = SYNC_PULSE + SYNC_PORCH;
+      CHAN_OFFSETS[0] = SEP_PULSE;
+      CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
+      CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
 
       LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
       PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
