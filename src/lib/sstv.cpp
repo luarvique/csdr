@@ -174,7 +174,6 @@ void SstvDecoder<T>::process() {
             // If header detected...
             if(i)
             {
-print(" [HEADER @ %d]", msecs(i));
                 // Decoding VIS next, drop processed input data
                 curState = STATE_VIS;
                 skipInput(i);
@@ -195,7 +194,6 @@ print(" [HEADER @ %d]", msecs(i));
             // If succeeded decoding VIS...
             if(curMode)
             {
-print(" [MODE %s @ %d]", curMode->NAME, msecs(visSize));
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
@@ -208,7 +206,6 @@ print(" [MODE %s @ %d]", curMode->NAME, msecs(visSize));
             }
             else
             {
-print(" [BAD-VIS @ %d]", msecs(visSize));
                 // Go back to header detection, skip input data
                 finishFrame();
                 skipInput(visSize);
@@ -226,7 +223,6 @@ print(" [BAD-VIS @ %d]", msecs(visSize));
             // If sync detected...
             if(i)
             {
-print(" [SYNC @ %d]", msecs(i));
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
@@ -251,7 +247,6 @@ print(" [SYNC @ %d]", msecs(i));
             // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
-print(" [DONE @ %d]", msecs());
                 // Go back to header detection
                 finishFrame();
                 break;
@@ -275,7 +270,6 @@ print(" [DONE @ %d]", msecs());
             // If have not received scanline for a while...
             else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
             {
-print(" [TIMEOUT @ %d]", msecs());
                 // Go back to header detection
                 finishFrame();
             }
@@ -403,12 +397,9 @@ void SstvDecoder<T>::print(const char *format, ...)
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
-//@@@@@
-return;
-fprintf(stderr, buf);
-    // If there is enough output buffer available...
+    // If we are in debug mode and have enough output buffer available...
     unsigned int len = strlen(buf);
-    if(this->writer->writeable()>=len)
+    if(dbgTime && (this->writer->writeable()>=len))
     {
         // Place each string character into the output buffer
         strcpy((char *)this->writer->getWritePointer(), buf);
