@@ -281,8 +281,12 @@ print(" [TIMEOUT @ %d]", msecs());
             }
             else
             {
-                // Scanline not found, skip some input
-                skipInput(curSize - j);
+                // Scanline not found, draw empty line
+                printBmpEmptyLines(curMode, 1);
+                // Go to the next scanline
+                ++curState;
+                // Skip scanline worth of input
+                skipInput(j);
             }
             break;
     }
@@ -434,7 +438,8 @@ int SstvDecoder<T>::fftPeakFreq(const float *buf, unsigned int size)
     fftwf_execute(fftPlan);
 
     // Go to magnitudes, find highest magnitude bin
-    for(j=0, xMax=0 ; j<size ; ++j)
+    // Ignore top FFT bins (Scottie does not like these)
+    for(j=0, xMax=0 ; j<size/2 ; ++j)
     {
         fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
         if(fftIn[j]>fftIn[xMax]) xMax=j;
