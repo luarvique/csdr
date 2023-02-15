@@ -143,6 +143,9 @@ namespace Csdr {
             // Print given string
             void printString(const char *buf);
 
+            // Print formatted string
+            void print(const char *format, ...);
+
             // Find peak frequency
             int fftPeakFreq(const float *buf, unsigned int size);
 

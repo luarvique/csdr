@@ -31,8 +31,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "sstv.hpp"
 #include <cmath>
 #include <cstring>
+#include <cstdarg>
 #include <cstdio>
-#include <climits>
 
 using namespace Csdr;
 
@@ -174,7 +174,7 @@ void SstvDecoder<T>::process() {
             // If header detected...
             if(i)
             {
-if(dbgTime) printString(" [HEADER]");
+print(" [HEADER @ %d]", msecs(i));
                 // Decoding VIS next, drop processed input data
                 curState = STATE_VIS;
                 skipInput(i);
@@ -195,7 +195,7 @@ if(dbgTime) printString(" [HEADER]");
             // If succeeded decoding VIS...
             if(curMode)
             {
-if(dbgTime) {char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
+print(" [MODE %s @ %d]", curMode->NAME, msecs(visSize));
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
@@ -208,7 +208,7 @@ if(dbgTime) {char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
             }
             else
             {
-if(dbgTime) printString(" [BAD-VIS]");
+print(" [BAD-VIS @ %d]", msecs(visSize));
                 // Go back to header detection, skip input data
                 finishFrame();
                 skipInput(visSize);
@@ -226,7 +226,7 @@ if(dbgTime) printString(" [BAD-VIS]");
             // If sync detected...
             if(i)
             {
-if(dbgTime) printString(" [SYNC]");
+print(" [SYNC @ %d]", msecs(i));
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
@@ -251,7 +251,7 @@ if(dbgTime) printString(" [SYNC]");
             // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
-if(dbgTime) printString(" [DONE]");
+print(" [DONE @ %d]", msecs());
                 // Go back to header detection
                 finishFrame();
                 break;
@@ -275,7 +275,7 @@ if(dbgTime) printString(" [DONE]");
             // If have not received scanline for a while...
             else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
             {
-if(dbgTime) printString(" [TIMEOUT]");
+print(" [TIMEOUT @ %d]", msecs());
                 // Go back to header detection
                 finishFrame();
             }
@@ -385,8 +385,23 @@ void SstvDecoder<T>::printDebug()
 }
 
 template <typename T>
+void SstvDecoder<T>::print(const char *format, ...)
+{
+    char buf[256];
+
+    va_list args;
+    va_start(args, format);
+    vsprintf(buf, format, args);
+    printString(buf);
+    va_end(args);
+}
+
+template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
+//@@@@@
+return;
+fprintf(stderr, buf);
     // If there is enough output buffer available...
     unsigned int len = strlen(buf);
     if(this->writer->writeable()>=len)
@@ -922,7 +937,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
         }
     }
 
-if(dbgTime) {char s[256];sprintf(s," [VIS %d %d]",mode&0x7F,i);printString(s);}
+print(" [VIS %d %d]",mode&0x7F,i);
 
     // Check parity (must be even)
     if(i) return(0);
