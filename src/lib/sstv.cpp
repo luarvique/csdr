@@ -528,10 +528,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
     unsigned char bmp[3 * mode->LINE_WIDTH];
 
-    double windowFactor = mode->WINDOW_FACTOR;
-    double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
-    unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
-
     // Must have enough input samples
     if(size < round(mode->LINE_TIME * sampleRate)) return(0);
 
@@ -545,21 +541,18 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
     {
-        // Determine pixel time and window size
-        double pxTime = mode->PIXEL_TIME;
-        if(mode->HAS_HALF_SCAN)
-        {
-            // Robot mode has half-length second/third scans
-            if(ch>0) pxTime = mode->HALF_PIXEL_TIME;
+        // Robot mode has half-length second/third scans
+        double pxTime = mode->HAS_HALF_SCAN && (ch>0)?
+            mode->HALF_PIXEL_TIME : mode->PIXEL_TIME;
 
-            centerWindowTime = (pxTime * windowFactor) / 2.0;
-            pxWindow         = round(centerWindowTime * 2.0 * sampleRate);
-        }
+        // Determine pixel time and window size
+        double centerWindowT = (pxTime * mode->WINDOW_FACTOR) / 2.0;
+        unsigned int pxWindow = round(centerWindowT * 2.0 * sampleRate);
 
         // For each pixel in line...
         for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
         {
-            double pxPosT = mode->CHAN_OFFSETS[ch] + pxTime*px - centerWindowTime;
+            double pxPosT = mode->CHAN_OFFSETS[ch] + pxTime*px - centerWindowT;
             int pxPos = start + round(pxPosT * sampleRate);
 
             // Check that the window is inside our available data
