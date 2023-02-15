@@ -531,45 +531,21 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     double windowFactor = mode->WINDOW_FACTOR;
     double centerWindowTime = (mode->PIXEL_TIME * windowFactor) / 2.0;
     unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
-    unsigned int done = 0;
 
-    // Length of a sync pulse
-    unsigned int syncSize = round(mode->SYNC_PULSE * sampleRate);
+    // Must have enough input samples
+    if(size < round(mode->LINE_TIME * sampleRate)) return(0);
 
-    // Start of a scanline
-    unsigned int seqStart = 0;
+    // Find sync, drop out if not found
+    int start = findSync(mode, buf, size);
+    if(!start) return(0);
 
-    // If first line...
-    if(!line)
-    {
-        // Align to the beginning of the previous sync pulse
-// @@@ TODO!!!
-//        if(mode->CHAN_SYNC>0)
-//            seqStart -= round((mode->CHAN_OFFSETS[mode->CHAN_SYNC] + mode->SCAN_TIME) * sampleRate);
-    }
+    // Determine scanline start
+    start -= round(mode->SYNC_PULSE * sampleRate);
 
+    // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
     {
-        // If this is a sync channel...
-        if(ch==mode->CHAN_SYNC)
-        {
-            // Set base offset to the next line
-            if((line>0) || (ch>0))
-                seqStart += round(mode->LINE_TIME * sampleRate);
-
-            // If not enough samples, do not decode yet
-            if(seqStart>size) return(0);
-
-            // Find sync
-            seqStart = findSync(mode, buf+seqStart, size-seqStart);
-
-            // If no sync, do not decode yet
-            if(!seqStart) return(0);
-
-            // Go to the start of the sync
-            seqStart = seqStart>=syncSize? seqStart-syncSize : 0;
-        }
-
+        // Determine pixel time and window size
         double pxTime = mode->PIXEL_TIME;
         if(mode->HAS_HALF_SCAN)
         {
@@ -583,12 +559,11 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         // For each pixel in line...
         for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
         {
-            double chOffset = mode->CHAN_OFFSETS[ch];
-            unsigned int pxPos = seqStart + round((chOffset + pxTime*px - centerWindowTime) * sampleRate);
-            unsigned int pxEnd = pxPos + pxWindow;
+            double pxPosT = mode->CHAN_OFFSETS[ch] + pxTime*px - centerWindowTime;
+            int pxPos = start + round(pxPosT * sampleRate);
 
-            // Check if we have enough data
-            if(pxEnd>size)
+            // Check that the window is inside our available data
+            if((pxPos<0) || (pxPos+pxWindow>size))
             {
                 // Blank non-existant pixels
                 out[ch][px] = 0;
@@ -597,7 +572,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             {
                 // Decode pixel
                 out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
-                done = pxEnd>done? pxEnd : done;
             }
         }
     }
@@ -612,9 +586,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         // R36: This is the only case where two channels are valid
         if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
         {
-            // U in even lines, V in odd lines
-            unsigned char *u = line&1? linebuf : out[1];
-            unsigned char *v = line&1? out[1] : linebuf;
+            // V in even lines, U in odd lines
+            unsigned char *u = line&1? out[1] : linebuf;
+            unsigned char *v = line&1? linebuf : out[1];
 
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
@@ -644,7 +618,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         {
             for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
             {
-                unsigned int rgb = yuv2rgb(out[0][px], out[1][px], out[2][px]);
+                unsigned int rgb = yuv2rgb(out[0][px], out[2][px], out[1][px]);
                 *p++ = rgb & 0xFF;
                 *p++ = (rgb >> 8) & 0xFF;
                 *p++ = (rgb >> 16) & 0xFF;
@@ -672,7 +646,8 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         memcpy(linebuf, out[1], mode->LINE_WIDTH);
 
     // Done, return the number of input samples consumed
-    return(done);
+    start += round(mode->LINE_TIME * sampleRate);
+    return(start<size? start : size);
 }
 
 template <typename T>
