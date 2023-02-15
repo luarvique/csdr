@@ -573,11 +573,17 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             unsigned int pxEnd = pxPos + pxWindow;
 
             // Check if we have enough data
-            if(pxEnd>size) return(0);
-
-            // Decode pixel
-            out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
-            done = pxEnd>done? pxEnd : done;
+            if(pxEnd>size)
+            {
+                // Blank non-existant pixels
+                out[ch][px] = 0;
+            }
+            else
+            {
+                // Decode pixel
+                out[ch][px] = luminance(fftPeakFreq(buf + pxPos, pxWindow));
+                done = pxEnd>done? pxEnd : done;
+            }
         }
     }
 
@@ -602,6 +608,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
                 *p++ = (rgb >> 8) & 0xFF;
                 *p++ = (rgb >> 16) & 0xFF;
             }
+
+            // Retain U/V value until the next scanline
+            memcpy(linebuf, out[1], mode->LINE_WIDTH);
         }
 
         // M1, M2, S1, S2, SDX: GBR color
