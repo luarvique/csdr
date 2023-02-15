@@ -117,8 +117,8 @@ namespace Csdr {
             unsigned int lastLineT;      // Time of last scanline decoded (ms)
             int curState;                // Current decoder state
 
-            // U/V component from a previous line (must be large enough!)
-            unsigned char linebuf[640];
+            // U/V component from a previous scanline (must be large enough!)
+            unsigned char linebuf[1024];
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
@@ -153,7 +153,7 @@ namespace Csdr {
             const SSTVMode *decodeVIS(const float *buf, unsigned int size);
 
             // Find SYNC signal
-            int findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync);
+            unsigned int findSync(const SSTVMode *mode, const float *buf, unsigned int size);
 
             // Decode single scanline
             unsigned int decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);

@@ -57,9 +57,6 @@ using namespace Csdr;
 #define STATE_SYNC      (-1)
 #define STATE_LINE0     (0)
 
-// findSync() result
-#define NOT_FOUND       (INT_MAX)
-
 //
 // Forward class declarations
 //
@@ -140,21 +137,21 @@ void SstvDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     unsigned int size = this->reader->available();
-    int j, i;
+    unsigned int j, i;
 
-    // If not enough space in the buffer...
+    // If not enough space in the current buffer...
     if(!buf || (curSize+size > maxSize))
     {
-        // Extend the buffer
+        // Create the new buffer, drop out if failed
         float *newBuf = new float[curSize+size];
         if(!newBuf) return;
-
+        // Move current data over and delete the old buffer
         if(buf)
         {
             memcpy(newBuf, buf, curSize*sizeof(buf[0]));
             delete[] buf;
         }
-
+        // Now using the new buffer
         buf     = newBuf;
         maxSize = curSize + size;
     }
@@ -174,47 +171,46 @@ void SstvDecoder<T>::process() {
             if(curSize<hdrSize) break;
             // Detect SSTV frame header
             i = findHeader(buf, curSize);
-            // If header detected, decoding VIS next
+            // If header detected...
             if(i)
             {
-printString(" [HEADER]");
+if(dbgTime) printString(" [HEADER]");
+                // Decoding VIS next, drop processed input data
                 curState = STATE_VIS;
-                // Drop processed input data
                 skipInput(i);
             }
             else
             {
-                // Header not found, skip input
+                // Header not found, skip input data
                 skipInput(curSize - hdrSize + step);
             }
             // Done
             break;
 
         case STATE_VIS:
-            // Do not decode until we have enough samples for VIS record
+            // Do not decode until we have enough samples for VIS block
             if(curSize<visSize) break;
-            // Try decoding
+            // Try decoding VIS block
             curMode = decodeVIS(buf, visSize);
-            // If succeeded decoding mode...
+            // If succeeded decoding VIS...
             if(curMode)
             {
-{char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
+if(dbgTime) {char s[256];sprintf(s," [MODE %s]",curMode->NAME);printString(s);}
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
-                // Clear line buffer, just in case
+                // Clear odd/even component buffer, just in case
                 memset(linebuf, 0, sizeof(linebuf));
                 // Output BMP file header
                 printBmpHeader(curMode);
-                // Drop decoded input data
+                // Drop processed input data
                 skipInput(visSize);
             }
             else
             {
-printString(" [BAD-VIS]");
-                // Go back to header detection
+if(dbgTime) printString(" [BAD-VIS]");
+                // Go back to header detection, skip input data
                 finishFrame();
-                // Skip input
                 skipInput(visSize);
             }
             // Done
@@ -226,13 +222,11 @@ printString(" [BAD-VIS]");
             // Do not detect until we have this many
             if(curSize<j) break;
             // Detect SSTV frame sync
-            i = findSync(curMode, buf, curSize, false);
+            i = findSync(curMode, buf, curSize);
             // If sync detected...
-            if(i!=NOT_FOUND)
+            if(i)
             {
-printString(" [SYNC]");
-                // @@@ FIX THIS!!!
-                if(i<0) i = 0;
+if(dbgTime) printString(" [SYNC]");
                 // Receiving scanline next
                 curState  = STATE_LINE0;
                 lastLineT = msecs(i);
@@ -240,7 +234,7 @@ printString(" [SYNC]");
                 skipInput(i);
             }
             // If have not received sync for a while...
-            else if(msecs(i)>lastLineT + j * 32)
+            else if(msecs() > lastLineT + round(curMode->SYNC_PULSE*32.0))
             {
                 // Go back to header detection
                 finishFrame();
@@ -257,9 +251,9 @@ printString(" [SYNC]");
             // If invalid state or done with a frame...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
-printString(" [DONE]");
+if(dbgTime) printString(" [DONE]");
                 // Go back to header detection
-                curState = STATE_HEADER;
+                finishFrame();
                 break;
             }
             // We will need this many input samples for scanline
@@ -269,25 +263,25 @@ printString(" [DONE]");
             // Try decoding a scanline
             i = decodeLine(curMode, curState, buf, curSize);
             // If decoding successful...
-            if(i>0)
+            if(i)
             {
                 // Mark last scanline decoding time
                 lastLineT = msecs(i);
-                // Next scanline
+                // Go to the next scanline
                 ++curState;
                 // Drop processed input data
                 skipInput(i);
             }
             // If have not received scanline for a while...
-            else if(msecs(curSize)>lastLineT + j * 8)
+            else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
             {
-printString(" [TIMEOUT]");
+if(dbgTime) printString(" [TIMEOUT]");
                 // Go back to header detection
                 finishFrame();
             }
             else
             {
-                // Skip some input
+                // Scanline not found, skip some input
                 skipInput(curSize - j);
             }
             break;
@@ -467,26 +461,25 @@ unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
 }
 
 template <typename T>
-int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size, bool startOfSync)
+unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size)
 {
     unsigned int wndSize = round(mode->SYNC_PULSE * 1.4 * sampleRate);
 
     // Must have enough samples
-    if(wndSize>size) return(0);
+    if(size<wndSize) return(0);
 
     // Search for the sync signal
-    for(unsigned int j=0 ; j<=size-wndSize ; ++j)
+    for(unsigned int j=0 ; j+wndSize<=size ; ++j)
     {
         if(fftPeakFreq(buf + j, wndSize)>1350)
         {
             // This is the end of sync
-            j = j + wndSize/2;
-            return(j - (startOfSync? round(mode->SYNC_PULSE*sampleRate) : 0));
+            return(j + wndSize/2);
         }
     }
 
     // Not found
-    return(NOT_FOUND);
+    return(0);
 }
 
 template <typename T>
@@ -525,7 +518,10 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     unsigned int pxWindow = round(centerWindowTime * 2.0 * sampleRate);
     unsigned int done = 0;
 
-    // Start on a scanline
+    // Length of a sync pulse
+    unsigned int syncSize = round(mode->SYNC_PULSE * sampleRate);
+
+    // Start of a scanline
     unsigned int seqStart = 0;
 
     // If first line...
@@ -546,11 +542,17 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             if((line>0) || (ch>0))
                 seqStart += round(mode->LINE_TIME * sampleRate);
 
+            // If not enough samples, do not decode yet
+            if(seqStart>size) return(0);
+
             // Find sync
-            seqStart = findSync(mode, buf+seqStart, size-seqStart, true);
+            seqStart = findSync(mode, buf+seqStart, size-seqStart);
 
             // If no sync, do not decode yet
-            if(seqStart==NOT_FOUND) return(0);
+            if(!seqStart) return(0);
+
+            // Go to the start of the sync
+            seqStart = seqStart>=syncSize? seqStart-syncSize : 0;
         }
 
         double pxTime = mode->PIXEL_TIME;
@@ -911,7 +913,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
         }
     }
 
-{char s[256];sprintf(s," [VIS %d %d]",mode&0x7F,i);printString(s);}
+if(dbgTime) {char s[256];sprintf(s," [VIS %d %d]",mode&0x7F,i);printString(s);}
 
     // Check parity (must be even)
     if(i) return(0);
