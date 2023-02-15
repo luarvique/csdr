@@ -374,12 +374,7 @@ void SstvDecoder<T>::printBmpEmptyLines(const SSTVMode *mode, unsigned int lines
 template <typename T>
 void SstvDecoder<T>::printDebug()
 {
-    if(curState==STATE_HEADER)
-    {
-        char buf[256];
-        sprintf(buf, " [%d ms]", msecs());
-        printString(buf);
-    }
+    // TODO: Insert periodic debug printouts here, as needed
 }
 
 template <typename T>
