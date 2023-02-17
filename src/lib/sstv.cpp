@@ -104,22 +104,33 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate)
     visSize = (8 * VIS_BIT_SIZE * sampleRate) / 1000;
     step    = (HDR_STEP * sampleRate) / 1000;
 
+    // No scanlines or pixels yet
+    syncSize  = 0;
+    pixelSize = 0;
+    halfpSize = 0;
+
     // Header tone offsets
     lead1_Start = 0;
     break_Start = (BREAK_OFFSET * sampleRate) / 1000;
     lead2_Start = (LEADER_OFFSET * sampleRate) / 1000;
     vis_Start   = (VIS_OFFSET * sampleRate) / 1000;
 
-    // Allocate FFT buffers
-    fftIn   = new float[wndSize*2];
-    fftOut  = new fftwf_complex[wndSize*2];
+    // Allocate FFT plan and buffers
+    // (wndSize*2 must be large enough for everyting!)
+    fftIn     = new float[wndSize*2];
+    fftOut    = new fftwf_complex[wndSize*2];
+    fftHeader = fftwf_plan_dft_r2c_1d(wndSize, fftIn, fftOut, FFTW_ESTIMATE);
 }
 
 template <typename T>
 SstvDecoder<T>::~SstvDecoder() {
     if(buf) { delete[] buf;buf=0; }
 
-    if(fftSize) fftwf_destroy_plan(fftPlan);
+    if(syncSize)  fftwf_destroy_plan(fftSync);
+    if(pixelSize) fftwf_destroy_plan(fftPixel);
+    if(halfpSize) fftwf_destroy_plan(fftHalfp);
+    fftwf_destroy_plan(fftHeader);
+
     fftwf_free(fftIn);
     fftwf_free(fftOut);
 }
@@ -199,6 +210,18 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
+                // Delete old FFT plans
+                if(syncSize)  fftwf_destroy_plan(fftSync);
+                if(pixelSize) fftwf_destroy_plan(fftPixel);
+                if(halfpSize) fftwf_destroy_plan(fftHalfp);
+                // Compute scanline sync and pixel sizes
+                syncSize  = round(curMode->SYNC_PULSE * 1.4 * sampleRate);
+                pixelSize = round(curMode->PIXEL_TIME * curMode->WINDOW_FACTOR * sampleRate);
+                halfpSize = round(curMode->HALF_PIXEL_TIME * curMode->WINDOW_FACTOR * sampleRate);
+                // Regenerate FFT plans
+                fftSync   = fftwf_plan_dft_r2c_1d(syncSize, fftIn, fftOut, FFTW_ESTIMATE);
+                fftPixel  = fftwf_plan_dft_r2c_1d(pixelSize, fftIn, fftOut, FFTW_ESTIMATE);
+                fftHalfp  = fftwf_plan_dft_r2c_1d(halfpSize, fftIn, fftOut, FFTW_ESTIMATE);
                 // Clear odd/even component buffer, just in case
                 memset(linebuf, 0, sizeof(linebuf));
                 // Output BMP file header
@@ -216,10 +239,8 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             break;
 
         case STATE_SYNC:
-            // We will need this many input samples for SYNC
-            j = round(curMode->SYNC_PULSE * 1.4 * sampleRate);
             // Do not detect until we have this many
-            if(curSize<j) break;
+            if(curSize<syncSize) break;
             // Detect SSTV frame sync
             i = findSync(curMode, buf, curSize);
             // If sync detected...
@@ -241,7 +262,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             else
             {
                 // Sync not found, skip some input
-                skipInput(curSize - j);
+                skipInput(curSize - syncSize);
             }
             // Done
             break;
@@ -379,6 +400,7 @@ template <typename T>
 void SstvDecoder<T>::printDebug()
 {
     // TODO: Insert periodic debug printouts here, as needed
+    print(" [BUF %d/%d at %dms]", curSize, maxSize, msecs());
 }
 
 template <typename T>
@@ -407,17 +429,12 @@ void SstvDecoder<T>::printString(const char *buf)
 }
 
 template <typename T>
-int SstvDecoder<T>::fftPeakFreq(const float *buf, unsigned int size)
+int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int size)
 {
     unsigned int xMax, j;
 
-    // Recreate FFT plan as needed
-    if(size!=fftSize)
-    {
-        if(fftSize) fftwf_destroy_plan(fftPlan);
-        fftPlan = fftwf_plan_dft_r2c_1d(size, fftIn, fftOut, FFTW_ESTIMATE);
-        fftSize = size;
-    }
+    // Make sure the size makes sense
+    if(size<4) return(0);
 
     // Multiply by Hann window
     double CONST_2PI_BY_SIZE = 2.0 * 3.1415926525 / (size - 1);
@@ -425,7 +442,7 @@ int SstvDecoder<T>::fftPeakFreq(const float *buf, unsigned int size)
         fftIn[j] = buf[j] * (0.5 - 0.5 * cos(CONST_2PI_BY_SIZE * j));
 
     // Compute FFT
-    fftwf_execute(fftPlan);
+    fftwf_execute(fft);
 
     // Go to magnitudes, find highest magnitude bin
     // Ignore top FFT bins (Scottie does not like these)
@@ -457,10 +474,10 @@ unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
     for(unsigned int j=0 ; j<=size-hdrSize ; j+=step)
     {
         // Go to the next location if any of these checks fail
-        if(abs(fftPeakFreq(buf + j + lead1_Start, wndSize) - 1900) >= 50) continue;
-        if(abs(fftPeakFreq(buf + j + break_Start, wndSize) - 1200) >= 50) continue;
-        if(abs(fftPeakFreq(buf + j + lead2_Start, wndSize) - 1900) >= 50) continue;
-        if(abs(fftPeakFreq(buf + j + vis_Start, wndSize) - 1200) >= 50)   continue;
+        if(abs(fftPeakFreq(fftHeader, buf + j + lead1_Start, wndSize) - 1900) >= 50) continue;
+        if(abs(fftPeakFreq(fftHeader, buf + j + break_Start, wndSize) - 1200) >= 50) continue;
+        if(abs(fftPeakFreq(fftHeader, buf + j + lead2_Start, wndSize) - 1900) >= 50) continue;
+        if(abs(fftPeakFreq(fftHeader, buf + j + vis_Start, wndSize) - 1200) >= 50)   continue;
 
         // Header found
         return(j + hdrSize);
@@ -473,19 +490,17 @@ unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
 template <typename T>
 unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size)
 {
-    unsigned int wndSize = round(mode->SYNC_PULSE * 1.4 * sampleRate);
-
     // Must have enough samples
-    if(size<wndSize) return(0);
+    if(size<syncSize) return(0);
 
     // Search for the sync signal
-    for(unsigned int j=0 ; j+wndSize<=size ; ++j)
+    for(unsigned int j=0 ; j+syncSize<=size ; ++j)
     {
-        int peak = fftPeakFreq(buf + j, wndSize);
+        int peak = fftPeakFreq(fftSync, buf + j, syncSize);
         if(peak>1350)
         {
             // This is the end of sync
-            return(j + wndSize/2);
+            return(j + syncSize/2);
         }
     }
 
@@ -532,12 +547,14 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     if(size < lineSize*2) return(0);
 
     // Starting sample to look for sync from
-    unsigned int start0 = round((
+    int start0 = round((
         mode->CHAN_OFFSETS[mode->CHAN_SYNC] -
         mode->SYNC_PULSE - mode->SYNC_PORCH) * sampleRate);
+    start0 = start0>=0? start0 : 0;
 
     // Find sync pulse
-    int start = findSync(mode, buf + start0, lineSize);
+    int start = start0 + lineSize <= size?
+        findSync(mode, buf + start0, lineSize) : 0;
 
     // If sync found, use it for scanline start
     if(start) start -= syncSize;
@@ -545,13 +562,25 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
     {
-        // Robot mode has half-length second/third scans
-        double pxTime = mode->HAS_HALF_SCAN && (ch>0)?
-            mode->HALF_PIXEL_TIME : mode->PIXEL_TIME;
+        double pxTime, pxWindow;
+        fftwf_plan fftPlan;
 
-        // Determine pixel time and window size
+        // Robot mode has half-length second/third scans
+        if(mode->HAS_HALF_SCAN && (ch>0))
+        {
+            pxTime   = mode->HALF_PIXEL_TIME;
+            pxWindow = halfpSize;
+            fftPlan  = fftHalfp;
+        }
+        else
+        {
+            pxTime   = mode->PIXEL_TIME;
+            pxWindow = pixelSize;
+            fftPlan  = fftPixel;
+        }
+
+        // Determine center window position
         double centerWindowT = (pxTime * mode->WINDOW_FACTOR) / 2.0;
-        unsigned int pxWindow = round(centerWindowT * 2.0 * sampleRate);
 
         // For each pixel in line...
         for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
@@ -561,7 +590,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 
             // Decode valid pixels, blank non-existant pixels
             out[ch][px] = (pxPos>=0) && (pxPos+pxWindow<=size)?
-                luminance(fftPeakFreq(buf + pxPos, pxWindow)) : 0;
+                luminance(fftPeakFreq(fftPlan, buf + pxPos, pxWindow)) : 0;
         }
     }
 
@@ -888,8 +917,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
     // Decode bits
     for(j=0, i=0, mode=0 ; j<8 ; ++j)
     {
-        int peak = fftPeakFreq(buf + bitSize*j, wndSize);
-
+        int peak = fftPeakFreq(fftHeader, buf + bitSize*j, wndSize);
         if(peak<=1200)
         {
             mode |= 1<<j;

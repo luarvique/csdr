@@ -96,7 +96,10 @@ namespace Csdr {
             // Main FFT
             float *fftIn = 0;            // Input buffer
             fftwf_complex *fftOut = 0;   // Output FFT
-            fftwf_plan fftPlan;          // FFT plan
+            fftwf_plan fftHeader;        // FFT header detection plan
+            fftwf_plan fftSync;          // FFT sync detection plan
+            fftwf_plan fftPixel;         // FFT pixel decoding plan
+            fftwf_plan fftHalfp;         // FFT half-pixel decoding plan
             unsigned int fftSize = 0;    // Current FFT size
 
             // Total sizes and 2msec step, in samples
@@ -104,6 +107,9 @@ namespace Csdr {
             unsigned int wndSize;        // Tone search window size
             unsigned int bitSize;        // VIS bit size
             unsigned int visSize;        // Total VIS size
+            unsigned int syncSize;       // Sync window size
+            unsigned int pixelSize;      // Pixel window size
+            unsigned int halfpSize;      // Half-pixel window size
             unsigned int step;           // 2ms step size
 
             // Header tone offsets
@@ -147,7 +153,7 @@ namespace Csdr {
             void print(const char *format, ...);
 
             // Find peak frequency
-            int fftPeakFreq(const float *buf, unsigned int size);
+            int fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int size);
 
             // Find SSTV header
             unsigned int findHeader(const float *buf, unsigned int size);
