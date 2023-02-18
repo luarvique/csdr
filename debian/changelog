@@ -1,3 +1,9 @@
+csdr (0.18.5) bullseye jammy; urgency=low
+
+  * Added SSTV decoder that outputs BMP files.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 18 Feb 2023 16:12:00 +0000
+
 csdr (0.18.4) bullseye jammy; urgency=low
 
   * Added RTTY decoder.
