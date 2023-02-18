@@ -491,17 +491,18 @@ template <typename T>
 unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, unsigned int size)
 {
     // Must have enough samples
-    if(size<syncSize) return(0);
+    if(size<3*syncSize/2) return(0);
 
     // Search for the sync signal
-    for(unsigned int j=0 ; j+syncSize<=size ; ++j)
+    for(unsigned int j=0 ; j+3*syncSize/2<=size ; ++j)
     {
-        int peak = fftPeakFreq(fftSync, buf + j, syncSize);
-        if(peak>1350)
-        {
-            // This is the end of sync
-            return(j + syncSize/2);
-        }
+        // Make sure we are at the sync signal
+        if(abs(fftPeakFreq(fftSync, buf + j, syncSize) - 1200) >= 50)
+            continue;
+
+        // Look ahead for the end of sync
+        if(fftPeakFreq(fftSync, buf + syncSize/2 + j, syncSize) > 1350)
+            return(j + syncSize);
     }
 
     // Not found
@@ -659,8 +660,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         this->writer->advance(sizeof(bmp));
     }
 
-    // Done, return the number of input samples consumed
-    start += lineSize;
+    // Done, return the number of input samples consumed,
+    // but leave some samples to look for sync in
+    start += lineSize - syncSize;
     return(start<0? 0 : start<size? start : size);
 }
 
