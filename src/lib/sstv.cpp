@@ -557,8 +557,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     int start = start0 + lineSize <= size?
         findSync(mode, buf + start0, lineSize) : 0;
 
-    // If sync found, use it for scanline start
-    if(start) start -= syncSize;
+    // If sync found, use it for scanline start, else skip <syncSize>
+    // samples left from a previous scanline and assume start there
+    if(start) start -= syncSize; else start = syncSize;
 
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
@@ -660,8 +661,8 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         this->writer->advance(sizeof(bmp));
     }
 
-    // Done, return the number of input samples consumed,
-    // but leave some samples to look for sync in
+    // Done, return the number of input samples consumed, but leave
+    // <syncSize> samples to start looking for sync in
     start += lineSize - syncSize;
     return(start<0? 0 : start<size? start : size);
 }
