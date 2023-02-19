@@ -25,7 +25,7 @@ if (CMAKE_BUILD_TYPE STREQUAL None)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-project (csdr VERSION 0.18.5)
+project (csdr VERSION 0.18.1)
 add_definitions(-DVERSION="${PROJECT_VERSION}")
 
 enable_language(CXX)
