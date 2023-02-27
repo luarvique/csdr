@@ -35,8 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fftw3.h>
 
 namespace Csdr {
-    typedef unsigned char pixel;
-
     class SSTVMode {
         public:
         const char *NAME;
@@ -100,7 +98,6 @@ namespace Csdr {
             fftwf_plan fftSync;          // FFT sync detection plan
             fftwf_plan fftPixel;         // FFT pixel decoding plan
             fftwf_plan fftHalfp;         // FFT half-pixel decoding plan
-            unsigned int fftSize = 0;    // Current FFT size
 
             // Total sizes and 2msec step, in samples
             unsigned int hdrSize;        // SSTV header size
@@ -168,7 +165,7 @@ namespace Csdr {
             unsigned int decodeLine(const SSTVMode *mode, unsigned int line, const float *buf, unsigned int size);
 
             // Finish frame (if any) and go back to header detection
-            void finishFrame(void);
+            void finishFrame();
 
             // Skip input samples
             void skipInput(unsigned int size);

@@ -368,7 +368,7 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
 }
 
 template <typename T>
-void SstvDecoder<T>::finishFrame(void)
+void SstvDecoder<T>::finishFrame()
 {
     if(curMode && (curState>=0))
     {
