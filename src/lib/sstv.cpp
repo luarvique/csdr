@@ -310,9 +310,10 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             break;
     }
 
-    // Periodically print debug information, if enabled
+    // Periodically print debug information, if enabled, but
+    // only if we are not transferring an image
     unsigned long millis = msecs();
-    if(dbgTime && (millis-lastDebugT >= dbgTime))
+    if(dbgTime && (curState<0) && (millis-lastDebugT >= dbgTime))
     {
         lastDebugT = millis;
         printDebug();
@@ -378,6 +379,7 @@ void SstvDecoder<T>::finishFrame()
 
     curState = STATE_HEADER;
     curMode  = 0;
+print(" [FINISH-FRAME]");
 }
 
 template <typename T>
@@ -418,9 +420,10 @@ void SstvDecoder<T>::print(const char *format, ...)
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
-    // If we are in debug mode and have enough output buffer available...
+    // If we are in debug mode, and not outputting an image, and have
+    // enough output buffer available...
     unsigned int len = strlen(buf);
-    if(dbgTime && (this->writer->writeable()>=len))
+    if(dbgTime && (curState<0) && (this->writer->writeable()>=len))
     {
         // Place each string character into the output buffer
         strcpy((char *)this->writer->getWritePointer(), buf);
