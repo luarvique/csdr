@@ -1453,6 +1453,7 @@ int deemphasis_nfm_ff (float* input, float* output, int input_size, int sample_r
     DNFMFF_ADD_ARRAY(8000)
     DNFMFF_ADD_ARRAY(11025)
     DNFMFF_ADD_ARRAY(12000)
+    DNFMFF_ADD_ARRAY(24000)
 
     if(!taps_length) return 0; //sample rate n
     int i;
