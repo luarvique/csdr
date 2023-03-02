@@ -1,3 +1,10 @@
+csdr (0.18.6) bullseye jammy; urgency=low
+
+  * Added 24kHz deemphasis filter.
+  * Improved SSTV decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mar, 4 Feb 2023 16:12:00 +0000
+
 csdr (0.18.5) bullseye jammy; urgency=low
 
   * Added SSTV decoder that outputs BMP files.
