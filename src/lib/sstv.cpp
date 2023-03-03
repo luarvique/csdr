@@ -140,7 +140,7 @@ bool SstvDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     unsigned int space = maxSize - curSize;
     space = space>0? space : sampleRate / 10;
-    return (this->reader->available()>=space) && (this->writer->writeable()>=512);
+    return this->reader->available()>=space;
 }
 
 template <typename T>
@@ -155,7 +155,11 @@ void SstvDecoder<T>::process() {
     {
         // Create the new buffer, drop out if failed
         float *newBuf = new float[curSize+size];
-        if(!newBuf) return;
+        if(!newBuf)
+        {
+print(" [MALLOC %d FAILED]", curSize+size);
+            return;
+        }
         // Move current data over and delete the old buffer
         if(buf)
         {
@@ -931,7 +935,7 @@ const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
         }
     }
 
-print(" [VIS %d %d]", mode&0x7F, i);
+print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
 
     // Check parity (must be even)
     if(i) return(0);
