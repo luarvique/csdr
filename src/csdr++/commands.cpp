@@ -25,6 +25,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "amdemod.hpp"
 #include "dcblock.hpp"
 #include "noisefilter.hpp"
+#include "noiseblanker.hpp"
 #include "converter.hpp"
 #include "fft.hpp"
 #include "logpower.hpp"
@@ -216,6 +217,17 @@ ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise")
     callback( [this] () {
         auto filter = new AFNoiseFilter(dBthreshold, fftSize, wndSize);
         module = new FilterModule<float>(filter);
+        runModule(module);
+    });
+}
+
+BlankNoiseCommand::BlankNoiseCommand(): Command("blanknoise", "Blank RF noise") {
+    addFifoOption();
+    add_option("-t1,--threshold1", threshold1, "First stage threshold");
+    add_option("-t2,--threshold2", threshold2, "Second stage threshold");
+    callback( [this] () {
+        auto filter = new RFNoiseBlanker(threshold1, threshold2);
+        module = new FilterModule<complex<float>>(filter);
         runModule(module);
     });
 }

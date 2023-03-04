@@ -79,6 +79,14 @@ namespace Csdr {
             FilterModule<float>* module;
     };
 
+    class BlankNoiseCommand: public Command {
+        public:
+            BlankNoiseCommand();
+            double threshold1 = 10.0;
+            double threshold2 = 8.0;
+            FilterModule<complex<float>>* module;
+    };
+
     class ConvertCommand: public Command {
         public:
             ConvertCommand();
