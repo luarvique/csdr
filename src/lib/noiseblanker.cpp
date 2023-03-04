@@ -73,6 +73,7 @@ size_t NoiseBlanker<T>::apply(T *input, T *output, size_t size)
 template<typename T>
 void NoiseBlanker<T>::apply_nb1(T *buf, size_t size)
 {
+    T c0 = complex<float>(0.0f, 0.0f);
     float mag;
 
     for(size_t i=0; i<size; ++i)
@@ -85,7 +86,7 @@ void NoiseBlanker<T>::apply_nb1(T *buf, size_t size)
 
         if(hangTime>0)
         {
-            buf[i] = 0;
+            buf[i] = c0;
             --hangTime;
         }
         else
@@ -106,9 +107,9 @@ void NoiseBlanker<T>::apply_nb1(T *buf, size_t size)
 template<typename T>
 void NoiseBlanker<T>::apply_nb2(T *buf, size_t size)
 {
+    T c1 = complex<float>(0.75f, 0.75f);
+    T c2 = complex<float>(0.25f, 0.25f);
     double mag;
-    T c1(0.75);
-    T c2(0.25);
 
     for(size_t i=0; i<size; ++i)
     {
