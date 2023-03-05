@@ -78,6 +78,9 @@ namespace Csdr {
             void process() override;
 
         private:
+            // Maximum scanline width
+            enum { MAX_LINE_WIDTH = 320 };
+
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
             unsigned int dbgTime;      // Debug printout time (ms)
@@ -121,7 +124,7 @@ namespace Csdr {
             int curState;                // Current decoder state
 
             // U/V component from a previous scanline (must be large enough!)
-            unsigned char linebuf[1024];
+            unsigned char linebuf[MAX_LINE_WIDTH];
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
@@ -175,5 +178,8 @@ namespace Csdr {
 
             // Convert YUV to RGB values
             unsigned int yuv2rgb(unsigned char y, unsigned char u, unsigned char v);
+
+            // Write output data
+            bool writeData(const void *buf, unsigned int size);
     };
 }

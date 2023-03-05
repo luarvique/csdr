@@ -138,9 +138,9 @@ SstvDecoder<T>::~SstvDecoder() {
 template <typename T>
 bool SstvDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    unsigned int space = maxSize - curSize;
-    space = space>0? space : sampleRate / 10;
-    return this->reader->available()>=space;
+    return
+        (this->reader->available() >= sampleRate/10) &&
+        (this->writer->writeable() >= MAX_LINE_WIDTH*3);
 }
 
 template <typename T>
@@ -290,26 +290,26 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             {
                 // Mark last scanline decoding time
                 lastLineT = msecs(i);
-                // Go to the next scanline
-                ++curState;
                 // Drop processed input data
                 skipInput(i);
+                // Go to the next scanline
+                if(++curState>=curMode->LINE_COUNT) finishFrame();
             }
             // If have not decoded a scanline for a while...
             else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
             {
                 // Go back to header detection, skip all input
-                finishFrame();
                 skipInput(curSize);
+                finishFrame();
             }
             else
             {
                 // Scanline not found, draw empty line
                 printBmpEmptyLines(curMode, 1);
-                // Go to the next scanline
-                ++curState;
                 // Skip scanline worth of input
                 skipInput(j);
+                // Go to the next scanline
+                if(++curState>=curMode->LINE_COUNT) finishFrame();
             }
             break;
     }
@@ -364,11 +364,7 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
         bmp.imageSize[3]  = (imageSize >> 24) & 0xFF;
 
         // Place BMP header into the output buffer
-        if(this->writer->writeable()>=sizeof(bmp))
-        {
-            memcpy(this->writer->getWritePointer(), &bmp, sizeof(bmp));
-            this->writer->advance(sizeof(bmp));
-        }
+        writeData(&bmp, sizeof(bmp));
     }
 }
 
@@ -424,15 +420,20 @@ void SstvDecoder<T>::print(const char *format, ...)
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
-    // If we are in debug mode, and not outputting an image, and have
-    // enough output buffer available...
-    unsigned int len = strlen(buf);
-    if(dbgTime && (curState<0) && (this->writer->writeable()>=len))
+#if 0
+    // @@@ Enable to dump log into a file
     {
-        // Place each string character into the output buffer
-        strcpy((char *)this->writer->getWritePointer(), buf);
-        this->writer->advance(len);
+        FILE *F = fopen("/tmp/sstv-decoder.log", "a");
+        if(F)
+        {
+            fprintf(F, "%08X: %s\n", (unsigned int)((unsigned long)this),buf);
+            fclose(F);
+        }
     }
+#endif
+
+    // If we are in debug mode, and not outputting an image, print
+    if(dbgTime && (curState<0)) writeData(buf, strlen(buf));
 }
 
 template <typename T>
@@ -606,8 +607,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     // If there is enough output space available for this scanline...
     if(this->writer->writeable()>=sizeof(bmp))
     {
-        // No scanline yet
-        memset(bmp, 0, sizeof(bmp));
         unsigned char *p = bmp;
 
         // R36: This is the only case where two channels are valid
@@ -663,9 +662,15 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             }
         }
 
+        // Unknown mode
+        else
+        {
+            // No scanline
+            memset(bmp, 0, sizeof(bmp));
+        }
+
         // Output scanline
-        memcpy(this->writer->getWritePointer(), bmp, sizeof(bmp));
-        this->writer->advance(sizeof(bmp));
+        writeData(bmp, sizeof(bmp));
     }
 
     // Done, return the number of input samples consumed, but leave
@@ -693,6 +698,24 @@ unsigned int SstvDecoder<T>::yuv2rgb(unsigned char y, unsigned char u, unsigned 
     b = b>255? 255 : b<0? 0 : b;
 
     return((r << 16) | (g << 8) | b);
+}
+
+template <typename T>
+bool SstvDecoder<T>::writeData(const void *buf, unsigned int size)
+{
+    // Must have enough writeable space
+    if(this->writer->writeable()<size) return(false);
+
+    // Write data character by character, in case getWritePointer()
+    // does not point to consequtive space
+    for(unsigned int i=0 ; i<size ; ++i)
+    {
+        *(char *)this->writer->getWritePointer() = ((const char *)buf)[i];
+        this->writer->advance(1);
+    }
+
+    // Done
+    return(true);
 }
 
 class Martin1: public SSTVMode
