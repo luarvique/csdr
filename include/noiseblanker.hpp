@@ -27,7 +27,15 @@ namespace Csdr {
     template <typename T>
     class NoiseBlanker: public Filter<T> {
         public:
-            NoiseBlanker(double thr1 = -1.0, double thr2 = -1.0);
+            enum {
+                DISABLED = -1,
+                NB1_MIN  = 1,
+                NB1_MAX  = 20,
+                NB2_MIN  = 0,
+                NB2_MAX  = 15
+            };
+
+            NoiseBlanker(int thr1 = DISABLED, int thr2 = DISABLED);
             size_t apply(T* input, T* output, size_t size) override;
 
         private:
@@ -47,7 +55,7 @@ namespace Csdr {
 
     class RFNoiseBlanker: public NoiseBlanker<complex<float>> {
         public:
-            RFNoiseBlanker(double thr1 = -1.0, double thr2 = -1.0):
+            RFNoiseBlanker(int thr1 = 10, int thr2 = 8):
                 NoiseBlanker<complex<float>>(thr1, thr2) {}
     };
 }

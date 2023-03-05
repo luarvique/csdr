@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using namespace Csdr;
 
 template <typename T>
-NoiseBlanker<T>::NoiseBlanker(double thr1, double thr2):
+NoiseBlanker<T>::NoiseBlanker(int thr1, int thr2):
     nb1_avgMag(1.0),
     nb2_avgMag(1.0),
     avgSig(0),
@@ -45,8 +45,10 @@ NoiseBlanker<T>::NoiseBlanker(double thr1, double thr2):
     hangTime(0)
 {
     // < 0.0 means "disabled"
-    nb1_threshold = thr1<0.0? -1.0 : thr1<1.0? 1.0 : thr1>20.0? 20.0 : thr1;
-    nb2_threshold = thr2<0.0? -1.0 : thr2>15.0? 15.0 : thr2;
+    nb1_threshold =
+        thr1<0.0? DISABLED : thr1<NB1_MIN? NB1_MIN : thr1>NB1_MAX? NB1_MAX : thr1;
+    nb2_threshold =
+        thr2<0.0? DISABLED : thr2<NB2_MIN? NB2_MIN : thr2>NB2_MAX? NB2_MAX : thr2;
 }
 
 template<typename T>
