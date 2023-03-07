@@ -332,8 +332,8 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
     // If there is enough output buffer available...
     if(this->writer->writeable()>=sizeof(bmp))
     {
-        unsigned int fileSize  = (mode->LINE_WIDTH * mode->LINE_COUNT * 3) + sizeof(bmp);
         unsigned int imageSize = mode->LINE_WIDTH * mode->LINE_COUNT * 3;
+        unsigned int fileSize  = imageSize + sizeof(bmp);
 
         memset(&bmp, 0, sizeof(bmp));
 
