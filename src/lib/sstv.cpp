@@ -390,11 +390,8 @@ void SstvDecoder<T>::printBmpEmptyLines(const SSTVMode *mode, unsigned int lines
     // If there is enough output buffer available...
     if(this->writer->writeable() >= lines*size)
     {
-        for(int i=0 ; i<lines ; ++i)
-        {
-            memset(this->writer->getWritePointer(), 0x00, size);
-            this->writer->advance(size);
-        }
+        char buf[size] = {0};
+        for(int i=0 ; i<lines ; ++i) writeData(buf, size);
     }
 }
 
