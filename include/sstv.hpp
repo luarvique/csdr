@@ -71,7 +71,7 @@ namespace Csdr {
     template <typename T>
     class SstvDecoder: public Module<T, unsigned char> {
         public:
-            SstvDecoder(unsigned int sampleRate=44100);
+            SstvDecoder(unsigned int sampleRate=44100, unsigned int dbgTime=0);
             ~SstvDecoder();
 
             bool canProcess() override;

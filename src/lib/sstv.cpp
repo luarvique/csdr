@@ -92,10 +92,10 @@ typedef struct
 } BMPHeader;
 
 template <typename T>
-SstvDecoder<T>::SstvDecoder(unsigned int sampleRate)
+SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
 : sampleRate(sampleRate),
   curState(STATE_HEADER),
-  dbgTime(0)     // Debug printout period (ms)
+  dbgTime(dbgTime)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
