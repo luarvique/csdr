@@ -1,3 +1,12 @@
+csdr (0.18.7) bullseye jammy; urgency=low
+
+  * Fixed SSTV decoder getting stuck after receiving 2-3 images.
+  * Fixed possible (but unlikely) output buffer overrun.
+  * Added more debugging output to the SSTV decoder, made it safer.
+  * Refactored code.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 11 Mar 2023 16:12:00 +0000
+
 csdr (0.18.6) bullseye jammy; urgency=low
 
   * Added 24kHz deemphasis filter.
