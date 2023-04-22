@@ -285,4 +285,15 @@ namespace Csdr {
             unsigned int sampleRate;
             int targetFreq = 3000;
     };
+
+    class FaxDecoderCommand: public Command {
+        public:
+            FaxDecoderCommand();
+        private:
+            unsigned int sampleRate;
+            unsigned int lpm = 120;
+            bool color = false;
+            bool sync = false;
+            bool am = false;
+    };
 }

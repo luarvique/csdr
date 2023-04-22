@@ -1,3 +1,9 @@
+csdr (0.18.8) bullseye jammy; urgency=low
+
+  * Added FAX decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 22 Mar 2023 16:12:00 +0000
+
 csdr (0.18.7) bullseye jammy; urgency=low
 
   * Fixed SSTV decoder getting stuck after receiving 2-3 images.

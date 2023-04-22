@@ -44,6 +44,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "cw.hpp"
 #include "rtty.hpp"
 #include "sstv.hpp"
+#include "fax.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -587,5 +588,22 @@ SstvDecoderCommand::SstvDecoderCommand(): Command("sstvdecode", "SSTV decoder") 
     add_option("sample_rate", sampleRate, "Sample rate")->required();
     callback( [this] () {
         runModule(new SstvDecoder<float>(sampleRate));
+    });
+}
+
+FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
+    add_option("sample_rate", sampleRate, "Sample rate")->required();
+    add_option("lpm", lpm, "Lines per minute");
+    add_option("am", am, "Use AM modulation");
+    add_option("color", color, "Color fax");
+    add_option("sync", sync, "Sync scanlines");
+
+    unsigned int options =
+        (am?    FaxDecoder<float>::OPT_AM    : 0) |
+        (sync?  FaxDecoder<float>::OPT_SYNC  : 0) |
+        (color? FaxDecoder<float>::OPT_COLOR : 0);
+
+    callback( [this, options] () {
+        runModule(new FaxDecoder<float>(sampleRate, lpm, options));
     });
 }
