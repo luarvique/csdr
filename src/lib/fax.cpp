@@ -553,7 +553,7 @@ void FaxDecoder<T>::printBmpHeader()
         bmp.reserved[0]   = ioc / 4; // IOC576 -> 144, IOC288 -> 72
         bmp.reserved[1]   = lpm;
         bmp.dataOffset[0] = dataOffset & 0xFF;
-        bmp.dataOffset[0] = (dataOffset >> 8) & 0xFF;
+        bmp.dataOffset[1] = (dataOffset >> 8) & 0xFF;
 
         bmp.dibSize[0]    = 40;
         bmp.width[0]      = lineWidth & 0xFF;
