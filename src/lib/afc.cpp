@@ -37,7 +37,6 @@ void Afc<T>::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int s
     coeffL = 2.0 * cos(2.0 * M_PI * v / buckets);
     v = round((double)buckets * syncWidth / sampleRate / 2);
     coeffR = 2.0 * cos(2.0 * M_PI * v / buckets);
-    coeffC = 2.0;
 }
 
 template <typename T>
@@ -53,11 +52,10 @@ void Afc<T>::process()
 {
     T buf[sampleRate];
     double l0, l1, l2;
-    double c0, c1, c2;
     double r0, r1, r2;
     unsigned int j;
 
-    // Fill input buffer
+    // Read input
     for(j=0 ; j<sampleRate ; ++j)
     {
         buf[j] = *(this->reader->getReadPointer());
@@ -65,18 +63,11 @@ void Afc<T>::process()
     }
 
     // Run Goertzel algorithm in three buckets
-    unsigned int i, j;
-
-    // Read samples
-    for(j=0, l1=l2=c1=c2=r1=r2=0.0 ; j<sampleRate ; ++j)
+    for(j=0, l1=l2=r1=r2=0.0 ; j<sampleRate ; ++j)
     {
         l0 = l1 * coeffL - l2 + buf[j];
         l2 = l1;
         l1 = l0;
-
-        c0 = c1 * coeffC - c2 + buf[j];
-        c2 = c1;
-        c1 = c0;
 
         r0 = r1 * coeffR - r2 + buf[j];
         r2 = r1;
@@ -84,12 +75,31 @@ void Afc<T>::process()
     }
 
     // We only need the real part
-    double magL = sqrt(l1*l1 + l2*l2 - l1*l2*coeffL);
-    double magR = sqrt(r1*r1 + r2*r2 - r1*r2*coeffR);
+    double magL   = sqrt(l1*l1 + l2*l2 - l1*l2*coeffL);
+    double magR   = sqrt(r1*r1 + r2*r2 - r1*r2*coeffR);
+    double deltaM = (magR - magL) / std::max(magR, magL);
 
-    (magR - magL) / syncWidth
-    
+    // Adjust frequency shift based on left/right magnitudes
+    if(std::abs(deltaM)>0.1)
+    {
+        if(deltaM>0.0)
+        {
+            deltaF += syncWidth / 10;
+            deltaF  = deltaF<=syncWidth/2? deltaF : syncWidth/2;
+        }
+        else
+        {
+            deltaF -= syncWidth / 10;
+            deltaF  = deltaF>=-syncWidth/2? deltaF : -syncWidth/2;
+        }
+    }
 
+    // Write output
+    for(j=0 ; j<sampleRate ; ++j)
+    {
+        *(this->write->getWritePointer()) = buf[j];
+        this->writer->advance(1);
+    }
 }
 
 namespace Csdr {
