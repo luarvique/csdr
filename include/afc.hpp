@@ -40,7 +40,6 @@ namespace Csdr {
 
             // Goertzel coefficients
             double coeffL;           // Left bucket
-            double coeffC;           // Center bucket
             double coeffR;           // Right bucket
 
             // State
