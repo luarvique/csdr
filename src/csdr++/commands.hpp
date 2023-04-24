@@ -295,5 +295,15 @@ namespace Csdr {
             bool color = false;
             bool sync = false;
             bool am = false;
+
+    };
+
+    class AfcCommand: public Command {
+        public:
+            AfcCommand();
+        private:
+            unsigned int sampleRate;
+            unsigned int bandwidth = 8000;
+            unsigned int syncWidth = 200;
     };
 }

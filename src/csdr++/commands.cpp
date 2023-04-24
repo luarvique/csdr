@@ -45,6 +45,7 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "rtty.hpp"
 #include "sstv.hpp"
 #include "fax.hpp"
+#include "afc.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -605,5 +606,15 @@ FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
 
     callback( [this, options] () {
         runModule(new FaxDecoder<float>(sampleRate, lpm, options));
+    });
+}
+
+AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
+    add_option("sample_rate", sampleRate, "Sample rate")->required();
+    add_option("bandwidth", bandwidth, "Bandwidth");
+    add_option("sync_width", syncWidth, "Synchronization width");
+
+    callback( [this] () {
+        runModule(new Afc(sampleRate, bandwidth, syncWidth));
     });
 }

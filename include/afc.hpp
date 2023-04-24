@@ -20,16 +20,16 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "module.hpp"
+#include "shift.hpp"
 
 namespace Csdr {
 
-    template <typename T>
-    class Afc: public Module<T, T> {
+    class Afc: public ShiftAddfast {
         public:
             Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth);
 
-            bool canProcess() override;
-            void process() override;
+        protected:
+            void process(complex<float>* input, complex<float>* output) override;
 
         private:
             // Configuration

@@ -22,8 +22,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Csdr;
 
-template <typename T>
-void Afc<T>::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth):
+Afc::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth):
+    ShiftAddfast(0.0),
     sampleRate(sampleRate),
     bandwidth(bandwidth<sampleRate/2? bandwidth : sampleRate/2),
     syncWidth(syncWidth<bandwidth/2?  syncWidth : bandwidth/2),
@@ -39,37 +39,24 @@ void Afc<T>::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int s
     coeffR = 2.0 * cos(2.0 * M_PI * v / buckets);
 }
 
-template <typename T>
-bool Afc<T>::canProcess()
+void Afc::process(complex<float>* input, complex<float>* output)
 {
-    std::lock_guard<std::mutex> lock(this->processMutex);
-    return (this->reader->available()>=sampleRate)
-        && (this->writer->writeable()>=sampleRate);
-}
-
-template <typename T>
-void Afc<T>::process()
-{
-    T buf[sampleRate];
+    unsigned int size = getLength();
     double l0, l1, l2;
     double r0, r1, r2;
     unsigned int j;
 
-    // Read input
-    for(j=0 ; j<sampleRate ; ++j)
-    {
-        buf[j] = *(this->reader->getReadPointer());
-        this->reader->advance(1);
-    }
+    // Shift frequency
+    process_fmv(input, output, size);
 
     // Run Goertzel algorithm in three buckets
-    for(j=0, l1=l2=r1=r2=0.0 ; j<sampleRate ; ++j)
+    for(j=0, l1=l2=r1=r2=0.0 ; j<size ; ++j)
     {
-        l0 = l1 * coeffL - l2 + buf[j];
+        l0 = l1 * coeffL - l2 + output[j];
         l2 = l1;
         l1 = l0;
 
-        r0 = r1 * coeffR - r2 + buf[j];
+        r0 = r1 * coeffR - r2 + output[j];
         r2 = r1;
         r1 = r0;
     }
@@ -92,17 +79,8 @@ void Afc<T>::process()
             deltaF -= syncWidth / 10;
             deltaF  = deltaF>=-syncWidth/2? deltaF : -syncWidth/2;
         }
-    }
 
-    // Write output
-    for(j=0 ; j<sampleRate ; ++j)
-    {
-        *(this->write->getWritePointer()) = buf[j];
-        this->writer->advance(1);
+        // Update shifter rate
+        setRate((double)deltaF / sampleRate);
     }
-}
-
-namespace Csdr {
-    template class Afc<float>;
-    template class Afc<complex<float>>;
 }
