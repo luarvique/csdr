@@ -39,10 +39,10 @@ namespace Csdr {
             unsigned int buckets;    // Number of FFT buckets
 
             // Goertzel coefficients
-            double coeffL;           // Left bucket
-            double coeffR;           // Right bucket
+            double omega;
+            double coeff;
 
             // State
-            unsigned int deltaF;     // Current frequency correction
+            int deltaF;              // Current frequency correction
     };
 }

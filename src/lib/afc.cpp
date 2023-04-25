@@ -30,55 +30,50 @@ Afc::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth
     buckets(3 * sampleRate / syncWidth),
     deltaF(0)
 {
-    double v;
-
     // Goertzel algorithm coefficients
-    v = round((double)buckets * -syncWidth / sampleRate / 2);
-    coeffL = 2.0 * cos(2.0 * M_PI * v / buckets);
-    v = round((double)buckets * syncWidth / sampleRate / 2);
-    coeffR = 2.0 * cos(2.0 * M_PI * v / buckets);
+    omega = round((double)buckets * syncWidth / 2 / sampleRate);
+    omega = omega * 2.0 * M_PI / buckets;
+    coeff = 2.0 * cos(omega);
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     unsigned int size = getLength();
-    double l0, l1, l2;
-    double r0, r1, r2;
+    double q0, q1, q2;
     unsigned int j;
 
     // Shift frequency
     process_fmv(input, output, size);
 
     // Run Goertzel algorithm in three buckets
-    for(j=0, l1=l2=r1=r2=0.0 ; j<size ; ++j)
+    for(j=0, q1=q2=0.0 ; j<size ; ++j)
     {
-        l0 = l1 * coeffL - l2 + output[j];
-        l2 = l1;
-        l1 = l0;
-
-        r0 = r1 * coeffR - r2 + output[j];
-        r2 = r1;
-        r1 = r0;
+        q0 = q1 * coeff - q2 + output[j];
+        q2 = q1;
+        q1 = q0;
     }
 
     // We only need the real part
-    double magL   = sqrt(l1*l1 + l2*l2 - l1*l2*coeffL);
-    double magR   = sqrt(r1*r1 + r2*r2 - r1*r2*coeffR);
-    double deltaM = (magR - magL) / std::max(magR, magL);
+    double magnitude = sqrt(q1*q1 + q2*q2 - q1*q2*coeff);
 
     // Adjust frequency shift based on left/right magnitudes
-    if(std::abs(deltaM)>0.1)
+    if(std::abs(q2-q1)>1.0)
     {
-        if(deltaM>0.0)
+        // Need signed integer here
+        int sw = 10 * syncWidth;
+
+        if(q2-q1>0.0)
         {
-            deltaF += syncWidth / 10;
-            deltaF  = deltaF<=syncWidth/2? deltaF : syncWidth/2;
+            deltaF += 5;
+            deltaF  = deltaF<=sw? deltaF : sw;
         }
         else
         {
-            deltaF -= syncWidth / 10;
-            deltaF  = deltaF>=-syncWidth/2? deltaF : -syncWidth/2;
+            deltaF -= 5;
+            deltaF  = deltaF>=-sw? deltaF : -sw;
         }
+
+fprintf(stderr, "%f %f => %dHz\n", q1, q2, deltaF);
 
         // Update shifter rate
         setRate((double)deltaF / sampleRate);
