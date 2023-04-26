@@ -28,7 +28,7 @@ namespace Csdr {
 
     class Afc: public ShiftAddfast {
         public:
-            Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth);
+            Afc(unsigned int updatePeriod = 4);
             ~Afc();
 
         protected:
@@ -36,9 +36,11 @@ namespace Csdr {
 
         private:
             // Configuration
-            unsigned int sampleRate; // Sample rate
-            unsigned int bandwidth;  // Usable signal bandwidth
-            unsigned int syncWidth;  // Center window width
+            unsigned int updatePeriod; // Update period
+
+            // State
+            unsigned int updateCount;  // Update counter
+            double curShift;           // Current frequency correction
 
             // FFT setup
             fftwf_complex *fftIn;

@@ -610,11 +610,9 @@ FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
 }
 
 AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
-    add_option("sample_rate", sampleRate, "Sample rate")->required();
-    add_option("bandwidth", bandwidth, "Bandwidth");
-    add_option("sync_width", syncWidth, "Synchronization width");
+    add_option("update_period", updatePeriod, "Update period");
 
     callback( [this] () {
-        runModule(new Afc(sampleRate, bandwidth, syncWidth));
+        runModule(new Afc(updatePeriod));
     });
 }

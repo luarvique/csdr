@@ -302,8 +302,6 @@ namespace Csdr {
         public:
             AfcCommand();
         private:
-            unsigned int sampleRate;
-            unsigned int bandwidth = 8000;
-            unsigned int syncWidth = 200;
+            unsigned int updatePeriod = 4;
     };
 }

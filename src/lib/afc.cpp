@@ -30,9 +30,11 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
-Afc::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth):
+Afc::Afc(unsigned int updatePeriod):
     ShiftAddfast(0.0),
-    sampleRate(sampleRate)
+    updatePeriod(updatePeriod),
+    updateCount(0),
+    curShift(0.0)
 {
     unsigned int size = getLength();
 
@@ -53,26 +55,34 @@ Afc::~Afc()
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     unsigned int size = getLength();
-    float fft[size];
-    int j, i;
 
-    // Calculate FFT on the input buffer
-    memcpy(fftIn, input, size * sizeof(fftIn[0]));
-    fftwf_execute(fftPlan);
-
-    // Find the carrier frequency
-    float maxMag = fftOut[0][0]*fftOut[0][0] + fftOut[0][1]*fftOut[0][1];
-    for(j=1, i=0 ; j<size ; ++j)
+    if(++updateCount>=updatePeriod)
     {
-        float mag = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
-        if(mag>maxMag) { i=j;maxMag=mag; }
+        float maxMag;
+        int j, i;
+
+        // Reset update counter
+        updateCount = 0;
+
+        // Calculate FFT on the input buffer
+        memcpy(fftIn, input, size * sizeof(fftIn[0]));
+        fftwf_execute(fftPlan);
+
+        // Find the carrier frequency
+        maxMag = fftOut[0][0]*fftOut[0][0] + fftOut[0][1]*fftOut[0][1];
+        for(j=1, i=0 ; j<size ; ++j)
+        {
+            float mag = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+            if(mag>maxMag) { i=j;maxMag=mag; }
+        }
+
+        // Take negative shifts into account
+        i = i>=size/2? size-i : -i;
+
+        // Slowly update frequency shift
+        curShift += ((double)i/size - curShift) / 10.0;
+        setRate(curShift);
     }
-
-    // Take negative shifts into account
-    i = i>=size/2? size-i : -i;
-
-    // Adjust shift
-    setRate((double)i / size);
 
     // Shift frequency
     process_fmv(input, output, size);

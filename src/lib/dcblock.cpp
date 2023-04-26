@@ -47,11 +47,12 @@ void DcBlock::process(float* input, float* output) {
     avg /= input_size;
 
     float avgdiff = avg - last_dc_level;
-    last_dc_level = avg;
 
     //DC removal level will change lineraly from last_dc_level to avg.
     for(int i = 0; i < input_size; i++) {
         float dc_removal_level = last_dc_level + avgdiff * ((float) i / input_size);
         output[i] = input[i] - dc_removal_level;
     }
+
+    last_dc_level = avg;
 }
