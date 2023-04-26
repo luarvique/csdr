@@ -303,5 +303,6 @@ namespace Csdr {
             AfcCommand();
         private:
             unsigned int updatePeriod = 4;
+            unsigned int samplePeriod = 1;
     };
 }

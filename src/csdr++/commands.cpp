@@ -610,9 +610,10 @@ FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
 }
 
 AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
-    add_option("update_period", updatePeriod, "Update period");
+    add_option("update_period", updatePeriod, "Update period (>= sample_period)");
+    add_option("sample_period", samplePeriod, "Sample period (>= 1)");
 
     callback( [this] () {
-        runModule(new Afc(updatePeriod));
+        runModule(new Afc(updatePeriod, samplePeriod));
     });
 }

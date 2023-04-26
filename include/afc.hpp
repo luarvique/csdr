@@ -28,7 +28,7 @@ namespace Csdr {
 
     class Afc: public ShiftAddfast {
         public:
-            Afc(unsigned int updatePeriod = 4);
+            Afc(unsigned int updatePeriod = 4, unsigned int samplePeriod = 1);
             ~Afc();
 
         protected:
@@ -37,6 +37,7 @@ namespace Csdr {
         private:
             // Configuration
             unsigned int updatePeriod; // Update period
+            unsigned int samplePeriod; // Sampling period (<=updatePeriod)
 
             // State
             unsigned int updateCount;  // Update counter
@@ -46,5 +47,9 @@ namespace Csdr {
             fftwf_complex *fftIn;
             fftwf_complex *fftOut;
             fftwf_plan fftPlan;
+
+            // Compute squared magnitude of a complex value
+            static float mag2(const fftwf_complex &v)
+            { return(v[0]*v[0] + v[1]*v[1]); }
     };
 }

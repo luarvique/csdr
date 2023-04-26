@@ -20,7 +20,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "afc.hpp"
 #include "complex.hpp"
 #include <string.h>
-#include <stdio.h>
+#include <stdlib.h>
 
 using namespace Csdr;
 
@@ -30,18 +30,19 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
-Afc::Afc(unsigned int updatePeriod):
-    ShiftAddfast(0.0),
-    updatePeriod(updatePeriod),
-    updateCount(0),
-    curShift(0.0)
+Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
 {
-    unsigned int size = getLength();
+    // Verify and initialize configuration
+    this->samplePeriod = samplePeriod = samplePeriod>1? samplePeriod : 1;
+    this->updatePeriod = updatePeriod = updatePeriod>samplePeriod? updatePeriod : samplePeriod;
+    updateCount = updatePeriod;
+    curShift    = 0.0;
 
     // Set up FFT
-    fftIn   = fftwf_alloc_complex(size);
-    fftOut  = fftwf_alloc_complex(size);
-    fftPlan = fftwf_plan_dft_1d(size, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+    unsigned int fftSize = samplePeriod * getLength();
+    fftIn   = fftwf_alloc_complex(fftSize);
+    fftOut  = fftwf_alloc_complex(fftSize);
+    fftPlan = fftwf_plan_dft_1d(fftSize, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
 }
 
 Afc::~Afc()
@@ -55,33 +56,44 @@ Afc::~Afc()
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     unsigned int size = getLength();
+    int j, i;
 
-    if(++updateCount>=updatePeriod)
+    // Count updates
+    updateCount--;
+
+    // If sampling input signal...
+    if(updateCount<samplePeriod)
     {
-        float maxMag;
-        int j, i;
+        // Copy input signal into the buffer
+        j = samplePeriod - updateCount - 1;
+        memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
 
-        // Reset update counter
-        updateCount = 0;
-
-        // Calculate FFT on the input buffer
-        memcpy(fftIn, input, size * sizeof(fftIn[0]));
-        fftwf_execute(fftPlan);
-
-        // Find the carrier frequency
-        maxMag = fftOut[0][0]*fftOut[0][0] + fftOut[0][1]*fftOut[0][1];
-        for(j=1, i=0 ; j<size ; ++j)
+        // If detecting the carrier...
+        if(!updateCount)
         {
-            float mag = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
-            if(mag>maxMag) { i=j;maxMag=mag; }
+            // Reset update counter
+            updateCount = updatePeriod;
+
+            // Calculate FFT on the input buffer
+            fftwf_execute(fftPlan);
+
+            unsigned int fftSize = size * samplePeriod;
+            float maxMag = mag2(fftOut[0]);
+
+            // Find the carrier frequency
+            for(j=1, i=0 ; j<fftSize ; ++j)
+            {
+                float mag = mag2(fftOut[j]);
+                if(mag>maxMag) { i=j;maxMag=mag; }
+            }
+
+            // Take negative shifts into account
+            i = i>=fftSize/2? fftSize-i : -i;
+
+            // Update frequency shift, if the change is large enough
+            double newShift = (double)i / fftSize;
+            if(fabs(newShift-curShift)>0.0001) setRate(curShift = newShift);
         }
-
-        // Take negative shifts into account
-        i = i>=size/2? size-i : -i;
-
-        // Update frequency shift, if the change is large enough
-        double newShift = (double)i / size;
-        if(fabs(newShift - curShift)>0.001) setRate(curShift = newShift);
     }
 
     // Shift frequency
