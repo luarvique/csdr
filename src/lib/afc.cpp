@@ -80,7 +80,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
         i = i>=size/2? size-i : -i;
 
         // Slowly update frequency shift
-        curShift += ((double)i/size - curShift) / 10.0;
+        curShift += ((double)i/size - curShift) / 4.0;
         setRate(curShift);
     }
 
