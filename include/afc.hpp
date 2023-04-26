@@ -22,11 +22,14 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "module.hpp"
 #include "shift.hpp"
 
+#include <fftw3.h>
+
 namespace Csdr {
 
     class Afc: public ShiftAddfast {
         public:
             Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth);
+            ~Afc();
 
         protected:
             void process(complex<float>* input, complex<float>* output) override;
@@ -36,13 +39,10 @@ namespace Csdr {
             unsigned int sampleRate; // Sample rate
             unsigned int bandwidth;  // Usable signal bandwidth
             unsigned int syncWidth;  // Center window width
-            unsigned int buckets;    // Number of FFT buckets
 
-            // Goertzel coefficients
-            double omega;
-            double coeff;
-
-            // State
-            int deltaF;              // Current frequency correction
+            // FFT setup
+            fftwf_complex *fftIn;
+            fftwf_complex *fftOut;
+            fftwf_plan fftPlan;
     };
 }

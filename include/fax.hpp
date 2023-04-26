@@ -71,8 +71,11 @@ namespace Csdr {
                 FREQ_CARRIER   = 1900,
                 FREQ_DEVIATION = 400,
 
-                HEIGHT_IOC576  = 1220, // Adding 20 lines to the bottom
-                HEIGHT_IOC288  = 620,
+                HEIGHT_IOC576  = 1400,
+                HEIGHT_IOC288  = 700,
+
+//                HEIGHT_IOC576  = 1200,
+//                HEIGHT_IOC288  = 600,
 
                 WIDTH_IOC576   = 1812,
                 WIDTH_IOC288   = 908,

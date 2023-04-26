@@ -19,63 +19,61 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "afc.hpp"
 #include "complex.hpp"
+#include <string.h>
+#include <stdio.h>
 
 using namespace Csdr;
 
+#if defined __arm__ || __aarch64__
+#define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_ESTIMATE)
+#else
+#define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
+#endif
+
 Afc::Afc(unsigned int sampleRate, unsigned int bandwidth, unsigned int syncWidth):
     ShiftAddfast(0.0),
-    sampleRate(sampleRate),
-    bandwidth(bandwidth<sampleRate/2? bandwidth : sampleRate/2),
-    syncWidth(syncWidth<bandwidth/2?  syncWidth : bandwidth/2),
-    buckets(3 * sampleRate / syncWidth),
-    deltaF(0)
+    sampleRate(sampleRate)
 {
-    // Goertzel algorithm coefficients
-    omega = round((double)buckets * syncWidth / 2 / sampleRate);
-    omega = omega * 2.0 * M_PI / buckets;
-    coeff = 2.0 * cos(omega);
+    unsigned int size = getLength();
+
+    // Set up FFT
+    fftIn   = fftwf_alloc_complex(size);
+    fftOut  = fftwf_alloc_complex(size);
+    fftPlan = fftwf_plan_dft_1d(size, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+}
+
+Afc::~Afc()
+{
+    // Destroy FFT
+    fftwf_destroy_plan(fftPlan);
+    fftwf_free(fftIn);
+    fftwf_free(fftOut);
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     unsigned int size = getLength();
-    double q0, q1, q2;
-    unsigned int j;
+    float fft[size];
+    int j, i;
+
+    // Calculate FFT on the input buffer
+    memcpy(fftIn, input, size * sizeof(fftIn[0]));
+    fftwf_execute(fftPlan);
+
+    // Find the carrier frequency
+    float maxMag = fftOut[0][0]*fftOut[0][0] + fftOut[0][1]*fftOut[0][1];
+    for(j=1, i=0 ; j<size ; ++j)
+    {
+        float mag = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+        if(mag>maxMag) { i=j;maxMag=mag; }
+    }
+
+    // Take negative shifts into account
+    i = i>=size/2? size-i : -i;
+
+    // Adjust shift
+    setRate((double)i / size);
 
     // Shift frequency
     process_fmv(input, output, size);
-
-    // Run Goertzel algorithm in three buckets
-    for(j=0, q1=q2=0.0 ; j<size ; ++j)
-    {
-        q0 = q1 * coeff - q2 + output[j];
-        q2 = q1;
-        q1 = q0;
-    }
-
-    // We only need the real part
-    double magnitude = sqrt(q1*q1 + q2*q2 - q1*q2*coeff);
-
-    // Adjust frequency shift based on left/right magnitudes
-    if(std::abs(q2-q1)>1.0)
-    {
-        // Need signed integer here
-        int sw = 10 * syncWidth;
-
-        if(q2-q1>0.0)
-        {
-            deltaF += 5;
-            deltaF  = deltaF<=sw? deltaF : sw;
-        }
-        else
-        {
-            deltaF -= 5;
-            deltaF  = deltaF>=-sw? deltaF : -sw;
-        }
-
-fprintf(stderr, "%f %f => %dHz\n", q1, q2, deltaF);
-
-        // Update shifter rate
-        setRate((double)deltaF / sampleRate);
-    }
 }
