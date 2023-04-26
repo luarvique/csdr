@@ -79,9 +79,9 @@ void Afc::process(complex<float>* input, complex<float>* output)
         // Take negative shifts into account
         i = i>=size/2? size-i : -i;
 
-        // Slowly update frequency shift
-        curShift += ((double)i/size - curShift) / 4.0;
-        setRate(curShift);
+        // Update frequency shift, if the change is large enough
+        double newShift = (double)i / size;
+        if(fabs(newShift - curShift)>0.001) setRate(curShift = newShift);
     }
 
     // Shift frequency
