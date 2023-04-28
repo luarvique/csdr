@@ -1,3 +1,11 @@
+csdr (0.18.9) bullseye jammy; urgency=low
+
+  * Added automatic frequency control (AFC) module.
+  * Fixed several bugs in the FAX decoder.
+  * Increased default FAX page length to 1400 lines.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 29 Mar 2023 16:12:00 +0000
+
 csdr (0.18.8) bullseye jammy; urgency=low
 
   * Added FAX decoder.
