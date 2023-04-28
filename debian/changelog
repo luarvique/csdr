@@ -4,13 +4,13 @@ csdr (0.18.9) bullseye jammy; urgency=low
   * Fixed several bugs in the FAX decoder.
   * Increased default FAX page length to 1400 lines.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Sat, 29 Mar 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 29 Apr 2023 16:12:00 +0000
 
 csdr (0.18.8) bullseye jammy; urgency=low
 
   * Added FAX decoder.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Sat, 22 Mar 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 22 Apr 2023 16:12:00 +0000
 
 csdr (0.18.7) bullseye jammy; urgency=low
 
@@ -19,20 +19,20 @@ csdr (0.18.7) bullseye jammy; urgency=low
   * Added more debugging output to the SSTV decoder, made it safer.
   * Refactored code.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Sat, 11 Mar 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 11 Apr 2023 16:12:00 +0000
 
 csdr (0.18.6) bullseye jammy; urgency=low
 
   * Added 24kHz deemphasis filter.
   * Improved SSTV decoder.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Sat, 4 Mar 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 4 Apr 2023 16:12:00 +0000
 
 csdr (0.18.5) bullseye jammy; urgency=low
 
   * Added SSTV decoder that outputs BMP files.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Sat, 18 Feb 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 18 Mar 2023 16:12:00 +0000
 
 csdr (0.18.4) bullseye jammy; urgency=low
 
