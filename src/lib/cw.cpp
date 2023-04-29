@@ -314,7 +314,7 @@ void CwDecoder<T>::printDebug()
     buf[i+2] = '|';
 
     // Create complete string to print
-    sprintf(buf+2*i+3, "] [%d-%d .%d -%d _%dms WPM%d]\n", (int)magL, (int)magH, avgDitT, avgDahT, avgBrkT, wpm);
+    sprintf(buf+2*i+3, "] [%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, avgDitT, avgDahT, avgBrkT, wpm);
 
     // Print
     printString(buf);
