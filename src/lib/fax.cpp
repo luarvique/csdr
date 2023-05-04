@@ -93,6 +93,7 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
   lastType(TYPE_INVALID),
   typeCount(0),
   curLine(0),
+  tailLines(0),
   dbgTime(dbgTime)  // Debug printout period (ms)
 {
     phasingPos = new int[phasingLines];
@@ -122,7 +123,7 @@ bool FaxDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return
         (this->reader->available() >= 2*blockSize-curSize) &&
-        (this->writer->writeable() >= lineWidth*colors);
+        (this->writer->writeable() >= 4*lineWidth*colors);
 }
 
 template <typename T>
@@ -178,7 +179,7 @@ void FaxDecoder<T>::process() {
             if(mag<1) buf[curSize++] = 0;
             else
             {
-                double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff * 2;
+                double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff * 2.0;
 //                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
                 buf[curSize++] = x>=0.0? 255:0;
             }
@@ -232,6 +233,7 @@ void FaxDecoder<T>::process() {
                 lineWidth = (int)(ioc * M_PI + 3.5) & ~3;
                 curState  = STATE_SYNC;
                 curLine   = 0;
+                tailLines = 0;
 
                 // Create line buffers
                 for(int j=0 ; j<3 ; ++j)
@@ -252,7 +254,9 @@ void FaxDecoder<T>::process() {
     switch(curState)
     {
         default:
-            // Do nothing
+            // Keep printing tail lines as long as necessary
+            if(tailLines) tailLines -= printBmpEmptyLines(tailLines);
+            // Skip input data, do not do anything with it
             skipInput(blockSize);
             break;
 
@@ -515,7 +519,10 @@ void FaxDecoder<T>::finishPage()
 {
     // Complete current image
     if((curState==STATE_IMAGE) && (curLine<maxLines))
-        printBmpEmptyLines(maxLines - curLine);
+    {
+        tailLines  = maxLines - curLine;
+        tailLines -= printBmpEmptyLines(tailLines);
+    }
 
     // Delete current line buffers, if any
     for(int j=0 ; j<3 ; ++j)
@@ -627,16 +634,22 @@ void FaxDecoder<T>::printBmpLine(int lineN)
 }
 
 template <typename T>
-void FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
+unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
 {
     unsigned int size = lineWidth * colors;
+    unsigned int todo = this->writer->writeable() / size;
     char buf[size];
 
     memset(buf, 0xFF, size);
 
-    // If there is enough output buffer available...
-    for(int i=0 ; (i<lines) && (this->writer->writeable()>=size) ; ++i)
-        writeData(buf, size);
+    // Compute the number of lines we can write
+    todo = lines<todo? lines : todo;
+
+    // Write empty lines
+    for(int i=0 ; i<todo ; ++i) writeData(buf, size);
+
+    // Number of lines written
+    return(todo);
 }
 
 template <typename T>

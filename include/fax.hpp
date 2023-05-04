@@ -143,6 +143,7 @@ namespace Csdr {
             int curLine;                 // Current scanline
             int lastType;                // Last scanline type
             int typeCount;               // Number of times lastType repeated
+            int tailLines;               // Empty tail lines left to output
 
             // Demodulator state
             FirFilter filters[2];
@@ -173,8 +174,8 @@ namespace Csdr {
             // Process and print BMP scanline
             void printBmpLine(int lineN);
 
-            // Print BMP file footer
-            void printBmpEmptyLines(unsigned int lines);
+            // Print BMP file footer, returns number of lines actually printed
+            unsigned int printBmpEmptyLines(unsigned int lines);
 
             // Print debug information
             void printDebug();
