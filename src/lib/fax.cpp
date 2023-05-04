@@ -519,10 +519,10 @@ void FaxDecoder<T>::finishPage()
 {
     // Complete current image
     if((curState==STATE_IMAGE) && (curLine<maxLines))
-    {
         tailLines  = maxLines - curLine;
-        tailLines -= printBmpEmptyLines(tailLines);
-    }
+
+    // Attempt to complete the image by printing empty lines
+    tailLines -= printBmpEmptyLines(tailLines);
 
     // Delete current line buffers, if any
     for(int j=0 ; j<3 ; ++j)
@@ -646,7 +646,8 @@ unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
     todo = lines<todo? lines : todo;
 
     // Write empty lines
-    for(int i=0 ; i<todo ; ++i) writeData(buf, size);
+    for(int i=0 ; i<todo ; ++i)
+        if(!writeData(buf, size)) break;
 
     // Number of lines written
     return(todo);
@@ -687,7 +688,8 @@ void FaxDecoder<T>::printString(const char *buf)
 #endif
 
     // If we are in debug mode, and not outputting an image, print
-    if(dbgTime && (curState!=STATE_IMAGE)) writeData(buf, strlen(buf));
+    if(dbgTime && !tailLines && (curState!=STATE_IMAGE))
+        writeData(buf, strlen(buf));
 }
 
 template <typename T>
