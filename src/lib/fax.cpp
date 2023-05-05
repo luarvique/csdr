@@ -102,7 +102,8 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
     // Incoming filters setup
     filters[0] = FirFilter(filter);
     filters[1] = FirFilter(filter);
-    coeff      = (double)sampleRate / deviation / 2.0 / M_PI;
+//    coeff      = (double)sampleRate / deviation / 2.0 / M_PI;
+    coeff      = (double)sampleRate / deviation * 2.0 / M_PI;
     fstep      = (double)carrier * 2.0 * M_PI / sampleRate;
 }
 
@@ -129,7 +130,6 @@ void FaxDecoder<T>::process() {
 
     unsigned int size = this->reader->available();
     unsigned int j, i;
-    double f;
 
     // If not enough space in the current buffer...
     if(!buf || (curSize+size > maxSize))
@@ -152,13 +152,14 @@ void FaxDecoder<T>::process() {
     double qFirOld = 0.0;
 
     // Demodulate new data into the buffer
-    for(j=0, f=0.0 ; (j<size) && (curSize<maxSize) ; ++j, f+=fstep)
+    for(j=0 ; (j<size) && (curSize<maxSize) ; ++j)
     {
         // Read incoming data
         float in = *(this->reader->getReadPointer());
         this->reader->advance(1);
 
         // Apply FIR filters
+        double f = fstep * j;
         double iFirOut = filters[0].process(in * cos(f));
         double qFirOut = filters[1].process(in * sin(f));
 
