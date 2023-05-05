@@ -147,11 +147,8 @@ namespace Csdr {
 
             // Demodulator state
             FirFilter filters[2];
-            double fCount;
-            double fStep;
+            double fstep;
             double coeff;
-            double iFirOld;
-            double qFirOld;
 
             // Phasing state
             int phasingSkipData;

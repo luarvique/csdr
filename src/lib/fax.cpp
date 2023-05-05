@@ -103,10 +103,7 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
     filters[0] = FirFilter(filter);
     filters[1] = FirFilter(filter);
     coeff      = (double)sampleRate / deviation / 2.0 / M_PI;
-    fStep      = (double)carrier * 2.0 * M_PI / sampleRate;
-    fCount     = 0.0;
-    iFirOld    = 0.0;
-    qFirOld    = 0.0;
+    fstep      = (double)carrier * 2.0 * M_PI / sampleRate;
 }
 
 template <typename T>
@@ -126,12 +123,18 @@ bool FaxDecoder<T>::canProcess() {
         (this->writer->writeable() >= 4*lineWidth*colors);
 }
 
+//static double minMag = 1000000.0;
+//static double maxMag = 0.0;
+//static double minPix = 1000000.0;
+//static double maxPix = -1000000.0;
+
 template <typename T>
 void FaxDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     unsigned int size = this->reader->available();
     unsigned int j, i;
+    double f;
 
     // If not enough space in the current buffer...
     if(!buf || (curSize+size > maxSize))
@@ -150,16 +153,19 @@ void FaxDecoder<T>::process() {
         maxSize = curSize + size;
     }
 
+    double iFirOld = 0.0;
+    double qFirOld = 0.0;
+
     // Demodulate new data into the buffer
-    for(j=0 ; (j<size) && (curSize<maxSize) ; ++j, fCount+=fStep)
+    for(j=0, f=0.0 ; (j<size) && (curSize<maxSize) ; ++j, f+=fstep)
     {
         // Read incoming data
         float in = *(this->reader->getReadPointer());
         this->reader->advance(1);
 
         // Apply FIR filters
-        double iFirOut = filters[0].process(in * cos(fCount));
-        double qFirOut = filters[1].process(in * sin(fCount));
+        double iFirOut = filters[0].process(in * cos(f));
+        double qFirOut = filters[1].process(in * sin(f));
 
         // Demodulate
         if(!fm)
@@ -176,12 +182,20 @@ void FaxDecoder<T>::process() {
             iFirOut /= mag;
             qFirOut /= mag;
 
-            if(mag<1) buf[curSize++] = 0;
+//if(mag<minMag) minMag = mag;
+//else if(mag>maxMag) maxMag = mag;
+//else { double d=abs(maxMag-minMag);maxMag-=d/1000000.0;minMag+=d/1000000.0; }
+
+            if(mag<1.0) buf[curSize++] = 0;
             else
             {
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff * 2.0;
 //                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
                 buf[curSize++] = x>=0.0? 255:0;
+
+//if(x<minPix) minPix = x;
+//else if(x>maxPix) maxPix = x;
+//else { double d=abs(maxPix-minPix);maxPix-=d/1000000.0;minPix+=d/1000000.0; }
             }
         }
 
@@ -658,6 +672,7 @@ void FaxDecoder<T>::printDebug()
 {
     // TODO: Insert periodic debug printouts here, as needed
     print(" [BUF %d/%d at %dms]", curSize, maxSize, msecs());
+//    print(" [BUF %d/%d at %dms, Mag=%f..%f, Pix=%f..%f]", curSize, maxSize, msecs(), minMag, maxMag, minPix, maxPix);
 }
 
 template <typename T>
