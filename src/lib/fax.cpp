@@ -652,9 +652,6 @@ unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
     // Compute the number of lines we can write
     todo = lines<todo? lines : todo;
 
-    // Let us artifically limit the output bandwidth here
-    todo = todo<16? todo : 16;
-
     // Write empty lines
     for(int i=0 ; i<todo ; ++i)
         if(!writeData(buf, size)) break;
