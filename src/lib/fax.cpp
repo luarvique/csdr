@@ -87,6 +87,7 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
 : sampleRate(sampleRate),
   lpm(lpm),
   fm(!(options & OPT_AM)),
+  bw(!(options & (OPT_MONO | OPT_COLOR))),
   colors(options & OPT_COLOR? 3:1),
   syncLines(options & OPT_SYNC),
   curState(STATE_HEADER),
@@ -94,6 +95,8 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
   typeCount(0),
   curLine(0),
   tailLines(0),
+  iFirOld(0.0),
+  qFirOld(0.0),
   dbgTime(dbgTime)  // Debug printout period (ms)
 {
     phasingPos = new int[phasingLines];
@@ -148,9 +151,6 @@ void FaxDecoder<T>::process() {
         maxSize = curSize + size;
     }
 
-    double iFirOld = 0.0;
-    double qFirOld = 0.0;
-
     // Demodulate new data into the buffer
     for(j=0 ; (j<size) && (curSize<maxSize) ; ++j)
     {
@@ -182,8 +182,11 @@ void FaxDecoder<T>::process() {
             else
             {
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff;
-//                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
-                buf[curSize++] = x>=0.0? 255:0;
+
+                if(bw)
+                    buf[curSize++] = x>=0.0? 255:0;
+                else
+                    buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
             }
         }
 
@@ -332,7 +335,10 @@ void FaxDecoder<T>::process() {
                 if(!curLine++) printBmpHeader();
 
                 // Process and write out the scanline
-                printBmpLine(curLine-1);
+                if(bw)
+                    printBmpLine(curLine-1);
+                else
+                    writeData(line[2], sizeof(line[2]));
 
                 // Rotate scanline buffers
                 unsigned char *p = line[0];
@@ -632,8 +638,7 @@ void FaxDecoder<T>::printBmpLine(int lineN)
     }
 
     // Output the scanline
-//@@@    writeData(image, sizeof(image));
-    writeData(line[1], sizeof(image));
+    writeData(image, sizeof(image));
 }
 
 template <typename T>

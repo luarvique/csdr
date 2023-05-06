@@ -40,9 +40,10 @@ namespace Csdr {
             {
                 OPT_FM     = 0x0000,
                 OPT_AM     = 0x0001,
-                OPT_MONO   = 0x0000,
-                OPT_COLOR  = 0x0002,
-                OPT_SYNC   = 0x0004,
+                OPT_BW     = 0x0000,
+                OPT_MONO   = 0x0002,
+                OPT_COLOR  = 0x0004,
+                OPT_SYNC   = 0x0008,
             };
 
             FaxDecoder(
@@ -130,6 +131,7 @@ namespace Csdr {
             int deviation    = FREQ_DEVIATION;
             int filter       = FIR_NARROW;
             int fm           = 1;
+            int bw           = 1;
             int syncLines    = 0;
             int startFreq    = FREQ_IOC576;
             int stopFreq     = FREQ_STOP;
@@ -149,6 +151,8 @@ namespace Csdr {
             FirFilter filters[2];
             double fstep;
             double coeff;
+            double iFirOld;
+            double qFirOld;
 
             // Phasing state
             int phasingSkipData;
