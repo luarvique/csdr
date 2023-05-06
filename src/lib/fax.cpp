@@ -183,6 +183,7 @@ void FaxDecoder<T>::process() {
             {
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff;
 
+                // In B/W mode, just sense black and white
                 if(bw)
                     buf[curSize++] = x>=0.0? 255:0;
                 else
@@ -334,11 +335,9 @@ void FaxDecoder<T>::process() {
                 // Write out BMP header before the first scanline
                 if(!curLine++) printBmpHeader();
 
-                // Process and write out the scanline
-                if(bw)
-                    printBmpLine(curLine-1);
-                else
-                    writeData(line[2], sizeof(line[2]));
+                // In B/W mode, process the scanline before writing it out
+                if(bw) printBmpLine(curLine-1);
+                else   writeData(line[2], sizeof(line[2]));
 
                 // Rotate scanline buffers
                 unsigned char *p = line[0];
