@@ -182,8 +182,8 @@ void FaxDecoder<T>::process() {
             else
             {
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff;
-                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
-//                buf[curSize++] = x>=0.0? 255:0;
+//                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
+                buf[curSize++] = x>=0.0? 255:0;
             }
         }
 
@@ -632,7 +632,8 @@ void FaxDecoder<T>::printBmpLine(int lineN)
     }
 
     // Output the scanline
-    writeData(image, sizeof(image));
+//@@@    writeData(image, sizeof(image));
+    writeData(line[1], sizeof(image));
 }
 
 template <typename T>
@@ -648,7 +649,7 @@ unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
     todo = lines<todo? lines : todo;
 
     // Let us artifically limit the output bandwidth here
-    todo = todo<4? todo : 4;
+    todo = todo<16? todo : 16;
 
     // Write empty lines
     for(int i=0 ; i<todo ; ++i)
