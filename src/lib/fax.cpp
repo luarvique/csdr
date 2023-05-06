@@ -521,10 +521,10 @@ void FaxDecoder<T>::finishPage()
 {
     // Complete current image
     if((curState==STATE_IMAGE) && (curLine<maxLines))
+    {
         tailLines  = maxLines - curLine;
-
-    // Attempt to complete the image by printing empty lines
-    tailLines -= printBmpEmptyLines(tailLines);
+        tailLines -= printBmpEmptyLines(tailLines);
+    }
 
     // Delete current line buffers, if any
     for(int j=0 ; j<3 ; ++j)
