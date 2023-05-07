@@ -1,3 +1,12 @@
+csdr (0.18.10) bullseye jammy; urgency=low
+
+  * Hopefully fixed brightness calculation in the FAX decoder.
+  * Added separate B/W and MONO FAX options (default is B/W).
+  * Made FAX decoder output training white lines gradually.
+  * Made several small fixes to the FAX decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 6 May 2023 16:12:00 +0000
+
 csdr (0.18.9) bullseye jammy; urgency=low
 
   * Added automatic frequency control (AFC) module.
