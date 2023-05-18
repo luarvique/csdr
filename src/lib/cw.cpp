@@ -323,15 +323,14 @@ void CwDecoder<T>::printDebug()
 template <typename T>
 void CwDecoder<T>::printString(const char *buf)
 {
+    unsigned int l = strlen(buf);
+
     // If there is enough output buffer available...
-    if(this->writer->writeable()>=strlen(buf))
+    if(this->writer->writeable()>=l)
     {
-        // Place each string character into the output buffer
-        for(int j=0 ; buf[j] ; ++j)
-        {
-            *(this->writer->getWritePointer()) = buf[j];
-            this->writer->advance(1);
-        }
+        // Write data then advance pointer
+        memcpy(this->writer->getWritePointer(), buf, l);
+        this->writer->advance(l);
     }
 }
 

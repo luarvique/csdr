@@ -705,13 +705,9 @@ bool FaxDecoder<T>::writeData(const void *buf, unsigned int size)
     // Must have enough writeable space
     if(this->writer->writeable()<size) return(false);
 
-    // Write data character by character, in case getWritePointer()
-    // does not point to consequtive space
-    for(unsigned int i=0 ; i<size ; ++i)
-    {
-        *(char *)this->writer->getWritePointer() = ((const char *)buf)[i];
-        this->writer->advance(1);
-    }
+    // Write data then advance pointer
+    memcpy(this->writer->getWritePointer(), buf, size);
+    this->writer->advance(size);
 
     // Done
     return(true);
