@@ -88,17 +88,9 @@ RttyDecoder<T>::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetW
     step    = quTime*sampleRate/1000;  // Quantization step in samples
     buf     = new float[buckets];      // Temporary sample buffer
 
-    // Find two frequencies we are interested in
-    int f1 = targetFreq;
-    int f2 = targetFreq + targetWidth;
-
-    // "Negative" frequencies count back from sampleRate
-    f1 = f1>=0? f1 : sampleRate + f1;
-    f2 = f2>=0? f2 : sampleRate + f2;
-
     // Goertzel algorithm coefficients
-    double v1 = round((double)buckets * f1 / sampleRate);
-    double v2 = round((double)buckets * f2 / sampleRate);
+    double v1 = round((double)buckets * targetFreq / sampleRate);
+    double v2 = round((double)buckets * (targetFreq + targetWidth) / sampleRate);
     coeff1 = 2.0 * cos(2.0 * M_PI * v1 / buckets);
     coeff2 = 2.0 * cos(2.0 * M_PI * v2 / buckets);
 }
