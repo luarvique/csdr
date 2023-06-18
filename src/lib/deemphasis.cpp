@@ -70,6 +70,14 @@ FirFilter<float, float>* NfmDeephasis::getFilter(unsigned int sampleRate) {
         case 48000:
             return new FirFilter<float, float>(deemphasis_nfm_predefined_fir_48000, 199);
         default:
-            throw std::runtime_error("invalid sample rate");
+            // we do not have a filter for this rate, but have to return
+            // some filter, so let us go with a closest one
+            sampleRate =
+                sampleRate < 11025?  8000 :
+                sampleRate < 12000? 11025 :
+                sampleRate < 24000? 12000 :
+                sampleRate < 44100? 24000 :
+                sampleRate < 48000? 44100 : 48000;
+            return getFilter(sampleRate);
     }
 }
