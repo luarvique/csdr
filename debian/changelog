@@ -1,3 +1,11 @@
+csdr (0.18.11) bullseye jammy; urgency=low
+
+  * Optimizing performance, assuming consequtive output buffers.
+  * Removed NfmDeemphasis::getFilter() exception for unknown sample rates.
+  * NfmDeemphasis::getFilter() returns closest available fliter now.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 17 Jun 2023 16:12:00 +0000
+
 csdr (0.18.10) bullseye jammy; urgency=low
 
   * Hopefully fixed brightness calculation in the FAX decoder.
