@@ -107,10 +107,12 @@ namespace Csdr {
     template class Source<complex<short>>;
     template class Source<complex<float>>;
     template class Source<unsigned char>;
+    template class Source<complex<unsigned char>>;
 
     template class TcpSource<unsigned char>;
     template class TcpSource<short>;
     template class TcpSource<float>;
     template class TcpSource<complex<short>>;
     template class TcpSource<complex<float>>;
+    template class TcpSource<complex<unsigned char>>;
 }
