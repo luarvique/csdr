@@ -2,7 +2,8 @@
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
-Copyright (c) 2014-2015, Andras Retzler <randras@sdr.hu>
+Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
+Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -28,20 +29,23 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef BENCHMARK_H
-#define BENCHMARK_H
+#pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <time.h>
+#include "source.hpp"
 
-#include "libcsdr.h"
-#include "libcsdr_gpl.h"
+namespace Csdr {
 
-int csdr_benchmark();
+    template <typename T>
+    class NoiseSource: public Source<T> {
+        public:
+            NoiseSource();
+            ~NoiseSource();
+            void setWriter(Writer<T>* writer) override;
+        private:
+            void generateSamples(T* output, size_t length);
+            void loop();
+            FILE* random;
+            std::thread* thread = nullptr;
+    };
 
-#endif
+}

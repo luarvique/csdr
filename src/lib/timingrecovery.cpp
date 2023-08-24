@@ -3,7 +3,7 @@ This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -33,19 +33,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace Csdr;
 
-TimingRecovery::TimingRecovery(unsigned int decimation, float loop_gain, float max_error, bool use_q):
+template <typename T>
+TimingRecovery<T>::TimingRecovery(unsigned int decimation, float loop_gain, float max_error):
     decimation(decimation),
     loop_gain(loop_gain),
-    max_error(max_error),
-    use_q(use_q)
+    max_error(max_error)
 {}
 
-bool TimingRecovery::canProcess() {
+template <typename T>
+bool TimingRecovery<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() > (decimation / 2) * 3 && writer->writeable() > 0;
+    return this->reader->available() > (decimation / 2) * 3 && this->writer->writeable() > 0;
 }
 
-void TimingRecovery::process() {
+template <typename T>
+void TimingRecovery<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     //We always assume that the input starts at center of the first symbol cross before the first symbol.
     //Last time we consumed that much from the input samples that it is there.
@@ -66,44 +68,60 @@ void TimingRecovery::process() {
 
     correction_offset = (int) num_samples_halfbit * getErrorSign() * error * loop_gain;
 
-    reader->advance(num_samples_bit + correction_offset);
+    this->reader->advance(num_samples_bit + correction_offset);
 }
 
-float TimingRecovery::calculateError(int el_point_right_index, int el_point_left_index, int el_point_mid_index) {
-    complex<float>* input = reader->getReadPointer();
-    float error = (input[el_point_right_index].i() - input[el_point_left_index].i()) * input[el_point_mid_index].i();
-    if (use_q) {
-        error = (input[el_point_right_index].q() - input[el_point_left_index].q()) * input[el_point_mid_index].q();
-        error /= 2;
-    }
-    return error;
+template <>
+float TimingRecovery<float>::calculateError(int el_point_right_index, int el_point_left_index, int el_point_mid_index) {
+    float* input = reader->getReadPointer();
+    return (input[el_point_right_index] - input[el_point_left_index]) * input[el_point_mid_index];
 }
 
-float GardnerTimingRecovery::getError() {
+template <>
+float TimingRecovery<complex<float>>::calculateError(int el_point_right_index, int el_point_left_index, int el_point_mid_index) {
     complex<float>* input = reader->getReadPointer();
+    return (
+        (input[el_point_right_index].i() - input[el_point_left_index].i()) * input[el_point_mid_index].i() + \
+        (input[el_point_right_index].q() - input[el_point_left_index].q()) * input[el_point_mid_index].q()
+    ) / 2;
+}
+
+template <typename T>
+float GardnerTimingRecovery<T>::getError() {
+    T* input = this->reader->getReadPointer();
     //maximum effect point is at current_bitstart_index
-    int num_samples_halfbit = decimation / 2;
+    int num_samples_halfbit = this->decimation / 2;
 
     int el_point_right_index  = num_samples_halfbit * 3;
     int el_point_left_index   = num_samples_halfbit * 1;
     int el_point_mid_index    = num_samples_halfbit * 2;
-    *(writer->getWritePointer()) = input[el_point_left_index];
-    writer->advance(1);
+    *(this->writer->getWritePointer()) = input[el_point_left_index];
+    this->writer->advance(1);
 
-    return calculateError(el_point_right_index, el_point_left_index, el_point_mid_index);
+    return this->calculateError(el_point_right_index, el_point_left_index, el_point_mid_index);
 }
 
-float EarlyLateTimingRecovery::getError() {
-    complex<float>* input = reader->getReadPointer();
-    int num_samples_bit = decimation;
-    int num_samples_halfbit = decimation / 2;
+template <typename T>
+float EarlyLateTimingRecovery<T>::getError() {
+    T* input = this->reader->getReadPointer();
+    int num_samples_bit = this->decimation;
+    int num_samples_halfbit = this->decimation / 2;
     int num_samples_earlylate_wing = num_samples_bit * earlylate_ratio;
 
     int el_point_right_index  = num_samples_earlylate_wing * 3;
-    int el_point_left_index   = num_samples_earlylate_wing - correction_offset;
+    int el_point_left_index   = num_samples_earlylate_wing - this->correction_offset;
     int el_point_mid_index    = num_samples_halfbit;
-    *(writer->getWritePointer()) = input[el_point_mid_index];
-    writer->advance(1);
+    *(this->writer->getWritePointer()) = input[el_point_mid_index];
+    this->writer->advance(1);
 
-    return calculateError(el_point_right_index, el_point_left_index, el_point_mid_index);
+    return this->calculateError(el_point_right_index, el_point_left_index, el_point_mid_index);
+}
+
+namespace Csdr {
+    template class TimingRecovery<float>;
+    template class TimingRecovery<complex<float>>;
+    template class GardnerTimingRecovery<float>;
+    template class GardnerTimingRecovery<complex<float>>;
+    template class EarlyLateTimingRecovery<float>;
+    template class EarlyLateTimingRecovery<complex<float>>;
 }

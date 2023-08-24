@@ -59,6 +59,7 @@ TcpSource<T>::TcpSource(in_addr_t ip, unsigned short port) {
     }
 
     if (connect(sock, (struct sockaddr*)&remote, sizeof(remote)) < 0) {
+        ::close(sock);
         throw NetworkException("connection failed");
     }
 

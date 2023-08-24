@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
 This file is part of libcsdr.
 
@@ -17,23 +17,20 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "dcblock.hpp"
+#pragma once
 
-#include <cmath>
+#include "module.hpp"
+#include "complex.hpp"
 
-using namespace Csdr;
+namespace Csdr {
 
-#define R 0.998f
-#define GAIN ((1 + R) / 2)
+    class PhaseDemod: public AnyLengthModule<complex<float>, float> {
+        public:
+            void process(complex<float>* input, float* output, size_t work_size) override;
+        protected:
+            size_t maxLength() override { return buffer_size; }
+        private:
+            size_t buffer_size = 1024;
+    };
 
-void DcBlock::process(float *input, float *output, size_t length) {
-    for (size_t i = 0; i < length; i++) {
-        // dc block filter implementation according to https://www.dsprelated.com/freebooks/filters/DC_Blocker.html
-        float x = input[i];
-        if (std::isnan(x)) x = 0.0f;
-        float y = GAIN * (x - xm1) + R * ym1;
-        xm1 = x;
-        ym1 = y;
-        output[i] = y;
-    }
 }

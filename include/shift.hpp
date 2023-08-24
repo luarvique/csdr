@@ -3,7 +3,7 @@ This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ namespace Csdr {
 
     class Shift {
         public:
-            Shift(float rate);
+            explicit Shift(float rate);
             virtual void setRate(float rate);
         protected:
             float rate;

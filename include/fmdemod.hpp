@@ -3,7 +3,7 @@ This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -40,16 +40,12 @@ namespace Csdr {
 
     class FmDemod: public AnyLengthModule<complex<float>, float> {
         public:
-            FmDemod();
-            ~FmDemod() override;
             void process(complex<float>* input, float* output, size_t work_size) override;
         protected:
             size_t maxLength() override { return buffer_size; }
         private:
-            complex<float> last_sample = {0, 0};
+            float last_phase = 0;
             size_t buffer_size = 1024;
-            float* temp_dq;
-            float* temp_di;
     };
 
 }

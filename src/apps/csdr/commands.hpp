@@ -1,20 +1,20 @@
 /*
-Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2021-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
-This file is part of csdr++.
+This file is part of csdr.
 
-csdr++ is free software: you can redistribute it and/or modify
+csdr is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-csdr++ is distributed in the hope that it will be useful,
+csdr is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
+along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -33,6 +33,8 @@ namespace Csdr {
         protected:
             template <typename T, typename U>
             void runModule(Module<T, U>* module);
+            template <typename T>
+            void runSource(Source<T>* source);
             virtual void processFifoData(std::string data) {}
             virtual size_t bufferSize() { return 10485760; }
             std::string fifoName = "";
@@ -68,15 +70,6 @@ namespace Csdr {
     class DcBlockCommand: public Command {
         public:
             DcBlockCommand();
-    };
-
-    class ReduceNoiseCommand: public Command {
-        public:
-            ReduceNoiseCommand();
-            unsigned int fftSize = 4096;
-            unsigned int wndSize = 32;
-            int dBthreshold = 0;
-            FilterModule<float>* module;
     };
 
     class ConvertCommand: public Command {
@@ -143,6 +136,7 @@ namespace Csdr {
         private:
             unsigned int decimationFactor = 1;
             float transitionBandwidth = 0.05;
+            float cutoffRate = 0.5;
             std::string window = "hamming";
     };
 
@@ -253,11 +247,36 @@ namespace Csdr {
         public:
             TimingRecoveryCommand();
         private:
+            std::string format = "float";
             unsigned int decimation = 0;
             float loop_gain = 0.5f;
             float max_error = 2.0f;
-            bool use_q = false;
             std::string algorithm = "gardner";
+    };
+
+    class NoiseCommand: public Command {
+        public:
+            NoiseCommand();
+    };
+
+    class Phasedemodcommand: public Command {
+        public:
+            Phasedemodcommand();
+    };
+
+    class BaudotDecodeCommand: public Command {
+        public:
+            BaudotDecodeCommand();
+    };
+
+    class LowpassCommand: public Command {
+        public:
+            LowpassCommand();
+        private:
+            std::string format = "complex";
+            float transitionBandwidth = 0.05;
+            float cutoffRate = 0.5;
+            std::string window = "hamming";
     };
 
     class CwDecoderCommand: public Command {
@@ -295,7 +314,15 @@ namespace Csdr {
             bool color = false;
             bool sync = false;
             bool am = false;
-
+    };
+	
+    class ReduceNoiseCommand: public Command {
+        public:
+            ReduceNoiseCommand();
+            unsigned int fftSize = 4096;
+            unsigned int wndSize = 32;
+            int dBthreshold = 0;
+            FilterModule<float>* module;
     };
 
     class AfcCommand: public Command {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2021-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
 This file is part of libcsdr.
 
@@ -33,6 +33,18 @@ template <> void Converter<float, short>::process(float* input, short* output, s
 template <> void Converter<short, float>::process(short* input, float* output, size_t length) {
     for (int i = 0; i < length; i++) {
         output[i] = (float) input[i] / SHRT_MAX;
+    }
+}
+
+template <> void Converter<unsigned char, float>::process(unsigned char *input, float *output, size_t length) {
+    for (int i = 0; i < length; i++) {
+        output[i] = ((float) input[i]) / (UCHAR_MAX / 2.0) - 1.0;
+    }
+}
+
+template <> void Converter<float, unsigned char>::process(float *input, unsigned char *output, size_t length) {
+    for(int i=0; i < length; i++) {
+        output[i] = input[i] * UCHAR_MAX * 0.5 + 128;
     }
 }
 

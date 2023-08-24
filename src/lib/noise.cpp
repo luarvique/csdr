@@ -3,7 +3,7 @@ This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -29,48 +29,54 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#include "noise.hpp"
+#include <climits>
 
-#include "module.hpp"
-#include "complex.hpp"
+using namespace Csdr;
+
+template <typename T>
+NoiseSource<T>::NoiseSource() {
+    random = fopen("/dev/urandom", "r");
+}
+
+template <typename T>
+NoiseSource<T>::~NoiseSource() {
+    fclose(random);
+}
+
+template <typename T>
+void NoiseSource<T>::setWriter(Writer<T> *writer) {
+    Source<T>::setWriter(writer);
+    if (thread == nullptr) {
+        thread = new std::thread( [this] () { loop(); });
+    }
+}
+
+template <typename T>
+void NoiseSource<T>::loop() {
+    while (true) {
+        generateSamples(this->writer->getWritePointer(), 1024);
+        this->writer->advance(1024);
+    }
+}
+
+template <>
+void NoiseSource<complex<float>>::generateSamples(complex<float> *output, size_t length) {
+    int* pioutput = (int*)output;
+    fread(output, sizeof(complex<float>), length, random);
+    for(int i = 0; i < length * 2; i++) {
+        complex<float> tempi = {
+                pioutput[i * 2],
+                pioutput[i * 2 + 1]
+        };
+        output[i] = {
+                tempi.i() / ((float) (INT_MAX)),
+                tempi.q() / ((float) (INT_MAX))
+        };
+    }
+
+}
 
 namespace Csdr {
-
-    template <typename T>
-    class TimingRecovery: public Module<T, T> {
-        public:
-            explicit TimingRecovery(unsigned int decimation, float loop_gain = 0.5f, float max_error = 2.0f);
-            void process() override;
-            bool canProcess() override;
-        protected:
-            virtual float getError() = 0;
-            virtual int getErrorSign() = 0;
-            float calculateError(int el_point_right_index, int el_point_left_index, int el_point_mid_index);
-            unsigned int decimation;
-            int correction_offset = 0;
-        private:
-            float loop_gain;
-            float max_error;
-    };
-
-    template <typename T>
-    class GardnerTimingRecovery: public TimingRecovery<T> {
-        public:
-            using TimingRecovery<T>::TimingRecovery;
-        protected:
-            float getError() override;
-            int getErrorSign() override { return -1; }
-    };
-
-    template <typename T>
-    class EarlyLateTimingRecovery: public TimingRecovery<T> {
-        public:
-            using TimingRecovery<T>::TimingRecovery;
-        protected:
-            float getError() override;
-            int getErrorSign() override { return 1; }
-        private:
-            float earlylate_ratio = 0.25f;
-    };
-
+    template class NoiseSource<complex<float>>;
 }

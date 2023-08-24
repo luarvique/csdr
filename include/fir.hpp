@@ -58,7 +58,7 @@ namespace Csdr {
     template <typename T>
     class TapGenerator {
         public:
-            TapGenerator(Window* window);
+            explicit TapGenerator(Window* window);
             virtual T* generateTaps(size_t length) = 0;
             complex<float>* generateFftTaps(size_t length, size_t fftSize);
         protected:

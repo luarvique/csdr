@@ -1,20 +1,20 @@
 /*
-Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2021-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
-This file is part of csdr++.
+This file is part of csdr.
 
-csdr++ is free software: you can redistribute it and/or modify
+csdr is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-csdr++ is distributed in the hope that it will be useful,
+csdr is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
+along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "commands.hpp"
@@ -24,7 +24,6 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "fmdemod.hpp"
 #include "amdemod.hpp"
 #include "dcblock.hpp"
-#include "noisefilter.hpp"
 #include "converter.hpp"
 #include "fft.hpp"
 #include "logpower.hpp"
@@ -41,11 +40,15 @@ along with csdr++.  If not, see <https://www.gnu.org/licenses/>.
 #include "dbpsk.hpp"
 #include "varicode.hpp"
 #include "timingrecovery.hpp"
-#include "cw.hpp"
+#include "noise.hpp"
+#include "phasedemod.hpp"
+#include "baudot.hpp"
 #include "rtty.hpp"
 #include "sstv.hpp"
 #include "fax.hpp"
 #include "afc.hpp"
+#include "cw.hpp"
+#include "noisefilter.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -144,6 +147,17 @@ void Command::runModule(Module<T, U>* module) {
     delete runner;
 }
 
+template<typename T>
+void Command::runSource(Source<T>* source) {
+    auto writer = new StdoutWriter<T>();
+    source->setWriter(writer);
+
+    bool run = true;
+    while (run) {
+        sleep(1);
+    }
+}
+
 CLI::Option* Command::addFifoOption() {
     return add_option("--fifo", fifoName, "Control fifo");
 }
@@ -210,21 +224,9 @@ DcBlockCommand::DcBlockCommand(): Command("dcblock", "DC block") {
     });
 }
 
-ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise") {
-    addFifoOption();
-    add_option("-f,--fft_size", fftSize, "Number of FFT bins");
-    add_option("-w,--wnd_size", wndSize, "Filter window size");
-    add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
-    callback( [this] () {
-        auto filter = new AFNoiseFilter(dBthreshold, fftSize, wndSize);
-        module = new FilterModule<float>(filter);
-        runModule(module);
-    });
-}
-
 ConvertCommand::ConvertCommand(): Command("convert", "Convert between stream formats") {
-    add_set("-i,--informat", inFormat, {"s16", "float"}, "Input data format", true);
-    add_set("-o,--outformat", outFormat, {"s16", "float"}, "Output data format", true);
+    add_set("-i,--informat", inFormat, {"s16", "float", "char"}, "Input data format", true);
+    add_set("-o,--outformat", outFormat, {"s16", "float", "char"}, "Output data format", true);
     callback( [this] () {
         if (inFormat == outFormat) {
             std::cerr << "input and output format are identical, cannot convert\n";
@@ -239,6 +241,14 @@ ConvertCommand::ConvertCommand(): Command("convert", "Convert between stream for
         } else if (inFormat == "float") {
             if (outFormat == "s16") {
                 runModule(new Converter<float, short>());
+            } else if (outFormat == "char") {
+                runModule(new Converter<float, unsigned char>());
+            } else {
+                std::cerr << "unable to handle output format \"" << outFormat << "\"\n";
+            }
+        } else if (inFormat == "char") {
+            if (outFormat == "float") {
+                runModule(new Converter<unsigned char, float>());
             } else {
                 std::cerr << "unable to handle output format \"" << outFormat << "\"\n";
             }
@@ -328,6 +338,7 @@ void ShiftCommand::processFifoData(std::string data) {
 FirDecimateCommand::FirDecimateCommand(): Command("firdecimate", "Decimate and filter") {
     add_option("decimation_factor", decimationFactor, "Decimation factor")->required();
     add_option("transition_bw", transitionBandwidth, "Transition bandwidth", true);
+    add_option("-c,--cutoff", cutoffRate, "Cutoff rate", true);
     add_set("-w,--window", window, {"boxcar", "blackman", "hamming"}, "Window function", true);
     callback( [this] () {
         Window* w;
@@ -341,7 +352,7 @@ FirDecimateCommand::FirDecimateCommand(): Command("firdecimate", "Decimate and f
             std::cerr << "window type \"" << window << "\" not available\n";
             return;
         }
-        runModule(new FirDecimate(decimationFactor, transitionBandwidth, w));
+        runModule(new FirDecimate(decimationFactor, transitionBandwidth, w, cutoffRate));
     });
 }
 
@@ -551,18 +562,75 @@ VaricodeDecoderCommand::VaricodeDecoderCommand(): Command("varicodedecode", "Dec
 }
 
 TimingRecoveryCommand::TimingRecoveryCommand(): Command("timingrecovery", "Timing recovery") {
+    add_set("-f,--format", format, {"float", "complex"}, "Data format", true);
     add_set("-a,--algorithm", algorithm, {"gardner", "earlylate"}, "Algorithm to be used", true);
     add_option("decimation", decimation, "Decimation (samples per symbol)")->required();
     add_option("loop_gain", loop_gain, "Loop gain", true);
     add_option("max_error", max_error, "Max allowed error", true);
-    add_flag("-q,--add_q", use_q, "Also use the Q component");
     callback( [this] () {
         if (algorithm == "gardner") {
-            runModule(new GardnerTimingRecovery(decimation, loop_gain, max_error, use_q));
+            if (format == "float") {
+                runModule(new GardnerTimingRecovery<float>(decimation, loop_gain, max_error));
+            } else if (format == "complex") {
+                runModule(new GardnerTimingRecovery<complex<float>>(decimation, loop_gain, max_error));
+            } else {
+                std::cerr << "Invalid format: \"" << format << "\"\n";
+            }
         } else if (algorithm == "earlylate") {
-            runModule(new EarlyLateTimingRecovery(decimation, loop_gain, max_error, use_q));
+            if (format == "float") {
+                runModule(new EarlyLateTimingRecovery<float>(decimation, loop_gain, max_error));
+            } else if (format == "complex") {
+                runModule(new EarlyLateTimingRecovery<complex<float>>(decimation, loop_gain, max_error));
+            } else {
+                std::cerr << "Invalid format: \"" << format << "\"\n";
+            }
         } else {
             std::cerr << "Invalid algorithm: \"" << algorithm << "\"\n";
+        }
+    });
+}
+
+NoiseCommand::NoiseCommand(): Command("noise", "Noise generator") {
+    callback([this] () {
+        runSource(new NoiseSource<complex<float>>());
+    });
+}
+
+Phasedemodcommand::Phasedemodcommand(): Command("phasedemod", "Phase demodulation") {
+    callback([this] () {
+        runModule(new PhaseDemod());
+    });
+}
+
+BaudotDecodeCommand::BaudotDecodeCommand(): Command("baudotdecode", "Baudot decoder") {
+    callback([this] () {
+        runModule(new BaudotDecoder());
+    });
+}
+
+LowpassCommand::LowpassCommand(): Command("lowpass", "Lowpass FIR filter") {
+    add_set("-f,--format", format, {"float", "complex"}, "Data format", true);
+    add_option("cutoff", cutoffRate, "Cutoff rate")->required();
+    add_option("transition_bw", transitionBandwidth, "Transition bandwidth", true);
+    add_set("-w,--window", window, {"boxcar", "blackman", "hamming"}, "Window function", true);
+    callback([this] () {
+        Window* w;
+        if (window == "boxcar") {
+            w = new BoxcarWindow();
+        } else if (window == "blackman") {
+            w = new BlackmanWindow();
+        } else if (window == "hamming") {
+            w = new HammingWindow();
+        } else {
+            std::cerr << "window type \"" << window << "\" not available\n";
+            return;
+        }
+        if (format == "float") {
+            runModule(new FilterModule<float>(new LowPassFilter<float>(cutoffRate, transitionBandwidth, w)));
+        } else if (format == "complex") {
+            runModule(new FilterModule<complex<float>>(new LowPassFilter<complex<float>>(cutoffRate, transitionBandwidth, w)));
+        } else {
+            std::cerr << "invalid format: " << format << "\n";
         }
     });
 }
@@ -606,6 +674,18 @@ FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
 
     callback( [this, options] () {
         runModule(new FaxDecoder<float>(sampleRate, lpm, options));
+    });
+}
+
+ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise") {
+    addFifoOption();
+    add_option("-f,--fft_size", fftSize, "Number of FFT bins");
+    add_option("-w,--wnd_size", wndSize, "Filter window size");
+    add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
+    callback( [this] () {
+        auto filter = new AFNoiseFilter(dBthreshold, fftSize, wndSize);
+        module = new FilterModule<float>(filter);
+        runModule(module);
     });
 }
 

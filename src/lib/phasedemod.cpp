@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2020-2022 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
 This file is part of libcsdr.
 
@@ -17,20 +17,16 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef FMV_H
+#include "phasedemod.hpp"
 
-#ifdef CSDR_FMV
-#if defined(__has_attribute)
-#if __has_attribute(target_clones)
-#if defined(__x86_64)
-#define CSDR_TARGET_CLONES __attribute__((target_clones("avx","sse4.2","sse3","sse2","default")))
-#endif
-#endif
-#endif
-#endif
+using namespace Csdr;
 
-#ifndef CSDR_TARGET_CLONES
-#define CSDR_TARGET_CLONES
-#endif
+void PhaseDemod::process(complex<float> *input, float *output, size_t work_size) {
+    for (size_t i = 0; i < work_size; i++) {
+        output[i] = std::arg(input[i]);
+    }
 
-#endif
+    for (size_t i = 0; i < work_size; i++) {
+        if (std::isnan(output[i])) output[i] = 0.0f;
+    }
+}

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2021-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 
 This file is part of libcsdr.
 
@@ -107,16 +107,21 @@ namespace Csdr {
     template class Module<short, unsigned char>;
     template class Module<unsigned char, short>;
     template class Module<float, unsigned char>;
+    template class Module<unsigned char, float>;
     template class Module<complex<float>, unsigned char>;
     template class Module<unsigned char, unsigned char>;
     template class Module<complex<float>, complex<short>>;
     template class Module<complex<short>, complex<float>>;
+    template class Module<complex<short>, short>;
+    template class Module<complex<short>, unsigned char>;
 
     template class AnyLengthModule<short, short>;
     template class AnyLengthModule<float, float>;
     template class AnyLengthModule<complex<float>, float>;
     template class AnyLengthModule<short, float>;
     template class AnyLengthModule<float, short>;
+    template class AnyLengthModule<unsigned char, float>;
+    template class AnyLengthModule<float, unsigned char>;
     template class AnyLengthModule<complex<float>, complex<float>>;
     template class AnyLengthModule<complex<float>, unsigned char>;
     template class AnyLengthModule<complex<float>, complex<short>>;

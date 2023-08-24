@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022 Jakob Ketterl <jakob.ketterl@gmx.de>
+# Copyright (c) 2021-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
 #
 # This file is part of libcsdr.
 #
