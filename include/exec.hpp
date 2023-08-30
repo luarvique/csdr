@@ -15,6 +15,7 @@ namespace Csdr {
     template<typename T, typename U>
     class ExecModule: public UntypedExecModule, public Module<T, U> {
         public:
+            ExecModule(std::vector<std::string> args, size_t flushSize);
             explicit ExecModule(std::vector<std::string> args);
             ~ExecModule();
             bool canProcess() override;
@@ -28,6 +29,7 @@ namespace Csdr {
             void readLoop();
             void closePipes();
             std::vector<std::string> args;
+            size_t flushSize = 0;
             std::mutex childMutex;
             pid_t child_pid = 0;
             int readPipe = -1;

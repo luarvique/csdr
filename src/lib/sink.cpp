@@ -47,4 +47,5 @@ namespace Csdr {
     template class Sink<complex<short>>;
     template class Sink<complex<float>>;
     template class Sink<unsigned char>;
+    template class Sink<complex<unsigned char>>;
 }
