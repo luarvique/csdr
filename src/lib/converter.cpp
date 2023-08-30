@@ -61,3 +61,17 @@ void Converter<complex<short>, complex<float>>::process(complex<short> *input, c
         ((float*) output)[i] = (float) ((short*) input)[i] / SHRT_MAX;
     }
 }
+
+template <>
+void Converter<complex<float>, complex<unsigned char>>::process(complex<float> *input, complex<unsigned char> *output, size_t length) {
+    for (int i = 0; i < length * 2; i++) {
+        ((unsigned char*) output)[i] = ((float*) input)[i] * SCHAR_MAX - SCHAR_MIN;
+    }
+}
+
+template <>
+void Converter<complex<short>, complex<unsigned char>>::process(complex<short> *input, complex<unsigned char>* output, size_t length) {
+    for (int i = 0; i < length * 2; i++) {
+        ((unsigned char*) output)[i] = ((short*) input)[i] >> 8) - SCHAR_MIN;
+    }
+}
