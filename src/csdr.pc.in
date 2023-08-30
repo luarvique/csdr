@@ -24,9 +24,9 @@ csdr_utility=csdr
 
 Name: @PROJECT_NAME@
 Description: @PROJECT_DESCRIPTION@
-URL: https://github.com/jketterl/csdr
+URL: https://github.com/luarvique/csdr
 Version: @PROJECT_VERSION@
 
-Libs: -L${libdir} -lcsdr
+Libs: -L${libdir} -lcsdr++
 Cflags: -I${includedir}
 @FFTW3F_REQUIRES@
