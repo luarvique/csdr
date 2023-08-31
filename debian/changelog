@@ -2,9 +2,10 @@ csdr (0.18.12) bullseye jammy; urgency=low
 
   * Merged changes from Jakob Ketterl's original development branch.
   * Added Exec, Baudot, Noise, new DcBlock modules from Jakob.
-  * The original LibCSDR gone, replaced with the former LibCSDR++.
+  * Added support for complex char data format.
+  * The original LibCSDR and CSDR tools replaced with CSDR++.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Tue, 29 Aug 2023 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 2 Sep 2023 16:12:00 +0000
 
 csdr (0.18.11) bullseye jammy; urgency=low
 
