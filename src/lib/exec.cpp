@@ -6,6 +6,7 @@
 #include <utility>
 #include <iostream>
 #include <cstring>
+#include <fcntl.h>
 
 using namespace Csdr;
 
@@ -74,6 +75,10 @@ void ExecModule<T, U>::startChild() {
             close(readPipes[1]);
             this->readPipe = readPipes[0];
             close(writePipes[0]);
+            r = fcntl(writePipes[1], F_SETFL, fcntl(writePipes[1], F_GETFL) | O_NONBLOCK);
+            if (r == -1) {
+                std::cerr << "failed to set pipe to non-blocking: " << strerror(errno) << "\n";
+            }
             this->writePipe = writePipes[1];
             if (this->writer != nullptr) {
                 run = true;
@@ -91,6 +96,7 @@ void ExecModule<T, U>::stopChild() {
         if (child_pid != 0) {
             kill(child_pid, SIGTERM);
             if (flushSize > 0) {
+                fcntl(this->writePipe, F_SETFL, fcntl(this->writePipe, F_GETFL) & ~O_NONBLOCK);
                 T toflush[flushSize] = {0};
                 write(this->writePipe, &toflush, sizeof(T) * flushSize);
             }
@@ -136,13 +142,13 @@ void ExecModule<T, U>::readLoop() {
     size_t available;
     size_t read_bytes;
     while (run) {
-        available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - offset;
-        read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + offset, available);
+        available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
+        read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
         if (read_bytes <= 0) {
             run = false;
         } else {
-            this->writer->advance((offset + read_bytes) / sizeof(U));
-            offset = (offset + read_bytes) % sizeof(U);
+            this->writer->advance((readOffset + read_bytes) / sizeof(U));
+            readOffset = (readOffset + read_bytes) % sizeof(U);
         }
     }
     closePipes();
@@ -173,15 +179,20 @@ void ExecModule<T, U>::setWriter(Writer<U> *writer) {
 template <typename T, typename U>
 bool ExecModule<T, U>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return this->writePipe != -1 && this->reader->available() > 0;
+    return this->writePipe != -1 && this->isPipeWriteable() && this->reader->available() > 0;
 }
 
 template <typename T, typename U>
 void ExecModule<T, U>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t size = std::min(this->reader->available(), (size_t) 1024);
-    write(this->writePipe, this->reader->getReadPointer(), size * sizeof(T));
-    this->reader->advance(size);
+    size_t size = std::min(this->reader->available(), (size_t) 1024) * sizeof(T) - writeOffset;
+    size_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
+    if (written == -1) {
+        std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
+        return;
+    }
+    this->reader->advance((writeOffset + written) / sizeof(T));
+    writeOffset = (writeOffset + written) % sizeof(T);
 }
 
 template <typename T, typename U>
@@ -195,6 +206,26 @@ template <typename T, typename U>
 void ExecModule<T, U>::restart() {
     stopChild();
     startChild();
+}
+
+template <typename T, typename U>
+bool ExecModule<T, U>::isPipeWriteable() {
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(this->writePipe, &fds);
+    // we want an immediate result, so set time to 0
+    // if the pipe is not writeable now, we'll come back once the next chunk of data becomes available
+    // in the meantime, there is probably plenty of data in the pipe for the child to consume
+    struct timeval tv = {
+        .tv_sec = 0,
+        .tv_usec = 0
+    };
+    int nfds = this->writePipe + 1;
+    int rc = select(nfds, NULL, &fds, NULL, &tv);
+    if (rc == -1) {
+        std::cerr << "select() failed: " << strerror(errno) << "\n";
+    }
+    return FD_ISSET(this->writePipe, &fds);
 }
 
 namespace Csdr {

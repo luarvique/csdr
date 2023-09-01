@@ -28,6 +28,7 @@ namespace Csdr {
             void stopChild();
             void readLoop();
             void closePipes();
+            bool isPipeWriteable();
             std::vector<std::string> args;
             size_t flushSize = 0;
             std::mutex childMutex;
@@ -36,7 +37,8 @@ namespace Csdr {
             int writePipe = -1;
             std::thread* readThread = nullptr;
             bool run = true;
-            int offset = 0;
+            int readOffset = 0;
+            int writeOffset = 0;
     };
 
 }
