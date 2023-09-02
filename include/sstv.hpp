@@ -89,11 +89,6 @@ namespace Csdr {
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
 
-            // Sample buffer
-            float *buf = 0;               // Buffer holding current samples
-            unsigned int curSize = 0;     // Current data size in buf[]
-            unsigned int maxSize = 0;     // Total buf[] size
-
             // Main FFT
             float *fftIn = 0;            // Input buffer
             fftwf_complex *fftOut = 0;   // Output FFT

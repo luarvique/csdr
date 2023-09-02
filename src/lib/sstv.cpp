@@ -124,8 +124,6 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
 
 template <typename T>
 SstvDecoder<T>::~SstvDecoder() {
-    if(buf) { delete[] buf;buf=0; }
-
     if(syncSize)  fftwf_destroy_plan(fftSync);
     if(pixelSize) fftwf_destroy_plan(fftPixel);
     if(halfpSize) fftwf_destroy_plan(fftHalfp);
@@ -147,45 +145,18 @@ template <typename T>
 void SstvDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
+    const T *buf = this->reader->getReadPointer();
     unsigned int size = this->reader->available();
     unsigned int j, i;
-
-    // If not enough space in the current buffer...
-    if(!buf || (curSize+size > maxSize))
-    {
-        // Create the new buffer, drop out if failed
-        float *newBuf = new float[curSize+size];
-        if(!newBuf)
-        {
-print(" [MALLOC %d FAILED]", curSize+size);
-            return;
-        }
-        // Move current data over and delete the old buffer
-        if(buf)
-        {
-            memcpy(newBuf, buf, curSize*sizeof(buf[0]));
-            delete[] buf;
-        }
-        // Now using the new buffer
-        buf     = newBuf;
-        maxSize = curSize + size;
-    }
-
-    // Read new data into the buffer
-    for(j=0 ; (j<size) && (curSize<maxSize) ; ++j)
-    {
-        buf[curSize++] = *(this->reader->getReadPointer());
-        this->reader->advance(1);
-    }
 
     // Depending on the current state...
     switch(curState)
     {
         case STATE_HEADER:
             // Do not detect until we have enough samples for SSTV header
-            if(curSize<hdrSize) break;
+            if(size<hdrSize) break;
             // Detect SSTV frame header
-            i = findHeader(buf, curSize);
+            i = findHeader(buf, size);
             // If header detected...
             if(i)
             {
@@ -197,14 +168,14 @@ print(" [HEADER]");
             else
             {
                 // Header not found, skip input data
-                skipInput(curSize - hdrSize + step);
+                skipInput(size - hdrSize + step);
             }
             // Done
             break;
 
         case STATE_VIS:
             // Do not decode until we have enough samples for VIS block
-            if(curSize<visSize) break;
+            if(size<visSize) break;
             // Try decoding VIS block
             curMode = decodeVIS(buf, visSize);
             // If succeeded decoding VIS...
@@ -244,9 +215,9 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
 
         case STATE_SYNC:
             // Do not detect until we have this many
-            if(curSize<syncSize) break;
+            if(size<syncSize) break;
             // Detect SSTV frame sync
-            i = findSync(curMode, buf, curSize);
+            i = findSync(curMode, buf, size);
             // If sync detected...
             if(i)
             {
@@ -261,12 +232,12 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             {
                 // Go back to header detection, skip all input
                 finishFrame();
-                skipInput(curSize);
+                skipInput(size);
             }
             else
             {
                 // Sync not found, skip some input
-                skipInput(curSize - syncSize);
+                skipInput(size - syncSize);
             }
             // Done
             break;
@@ -282,9 +253,9 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             // We will need this many input samples for scanline
             j = round(curMode->LINE_TIME * sampleRate);
             // Do not detect until we have enough samples
-            if(curSize<j*2) break;
+            if(size<j*2) break;
             // Try decoding a scanline
-            i = decodeLine(curMode, curState, buf, curSize);
+            i = decodeLine(curMode, curState, buf, size);
             // If decoding successful...
             if(i)
             {
@@ -299,7 +270,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
             {
                 // Go back to header detection, skip all input
-                skipInput(curSize);
+                skipInput(size);
                 finishFrame();
             }
             else
@@ -399,7 +370,7 @@ template <typename T>
 void SstvDecoder<T>::printDebug()
 {
     // TODO: Insert periodic debug printouts here, as needed
-    print(" [BUF %d/%d at %dms]", curSize, maxSize, msecs());
+    print(" [BUF %d at %dms]", this->reader->available(), msecs());
 }
 
 template <typename T>
@@ -517,24 +488,20 @@ unsigned int SstvDecoder<T>::findSync(const SSTVMode *mode, const float *buf, un
 template <typename T>
 void SstvDecoder<T>::skipInput(unsigned int size)
 {
-    // Make sure we do not skip more than we have
-    size = !buf? 0 : size<curSize? size : curSize;
+    // Do not advance farther than the available data
+    unsigned int avail = this->reader->available();
+    size = size<avail? size : avail;
 
-    // If skipping...
-    if(size)
+    // Advance read pointer
+    this->reader->advance(size);
+
+    // Update time
+    curSamples += size;
+    if(curSamples>=sampleRate)
     {
-        // Move data
-        for(int j=0 ; j<curSize-size ; ++j) buf[j] = buf[j+size];
-        curSize -= size;
-
-        // Update time
-        curSamples += size;
-        if(curSamples>=sampleRate)
-        {
-            unsigned int secs = curSamples/sampleRate;
-            curSeconds += secs;
-            curSamples -= secs*sampleRate;
-        }
+        unsigned int secs = curSamples/sampleRate;
+        curSeconds += secs;
+        curSamples -= secs*sampleRate;
     }
 }
 
@@ -1013,6 +980,5 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
 }
 
 namespace Csdr {
-    template class SstvDecoder<complex<float>>;
     template class SstvDecoder<float>;
 }
