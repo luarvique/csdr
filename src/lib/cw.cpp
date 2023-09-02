@@ -65,7 +65,6 @@ CwDecoder<T>::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsign
 {
     buckets = sampleRate/targetWidth; // Number of FFT buckets
     step    = quTime*sampleRate/1000; // Quantization step in samples
-    buf     = new float[buckets];     // Temporary sample buffer
 
     // Goertzel algorithm coefficient
     double v = round((double)buckets * targetFreq / sampleRate);
@@ -73,32 +72,19 @@ CwDecoder<T>::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsign
 }
 
 template <typename T>
-CwDecoder<T>::~CwDecoder() {
-    if(buf) { delete[] buf;buf=0; }
-}
-
-template <typename T>
 bool CwDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (this->reader->available()>=(buckets-bufPos)) && (this->writer->writeable()>=2);
+    return (this->reader->available()>=buckets) && (this->writer->writeable()>=2);
 }
 
 template <typename T>
 void CwDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
-    unsigned int i, j;
-
-    // Read input data into the buffer
-    while(bufPos<buckets) {
-        buf[bufPos++] = *(this->reader->getReadPointer());
-        this->reader->advance(1);
-    }
-
-    // Process buffered data
-    for(i=0 ; i+buckets<=bufPos ; i+=step) {
+    // Until we run out of input data...
+    for(; this->reader->available()>=buckets ; this->reader->advance(step)) {
         // Process data
-        processInternal(buf+i, buckets);
+        processInternal(this->reader->getReadPointer(), buckets);
 
         // Update time
         curSamples += step;
@@ -109,16 +95,10 @@ void CwDecoder<T>::process() {
             curSamples -= secs*sampleRate;
         }
     }
-
-    // Shift data
-    for(j=0 ; i+j<bufPos ; ++j) buf[j]=buf[i+j];
-
-    // Done with the data
-    bufPos -= i;
 }
 
 template <typename T>
-void CwDecoder<T>::processInternal(float *data, unsigned int size) {
+void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
     unsigned long millis = msecs();
     double q0, q1, q2;
     unsigned int i, j;

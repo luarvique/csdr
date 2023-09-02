@@ -86,7 +86,6 @@ RttyDecoder<T>::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetW
     i       = 1000*buckets/sampleRate;
     quTime  = quTime<i? quTime : i;    // Make quTime smaller than a bucket
     step    = quTime*sampleRate/1000;  // Quantization step in samples
-    buf     = new float[buckets];      // Temporary sample buffer
 
     // Goertzel algorithm coefficients
     double v1 = round((double)buckets * targetFreq / sampleRate);
@@ -96,32 +95,19 @@ RttyDecoder<T>::RttyDecoder(unsigned int sampleRate, int targetFreq, int targetW
 }
 
 template <typename T>
-RttyDecoder<T>::~RttyDecoder() {
-    if(buf) { delete[] buf;buf=0; }
-}
-
-template <typename T>
 bool RttyDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (this->reader->available()>=(buckets-bufPos)) && (this->writer->writeable()>=1);
+    return (this->reader->available()>=buckets) && (this->writer->writeable()>=1);
 }
 
 template <typename T>
 void RttyDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
-    unsigned int i, j;
-
-    // Read input data into the buffer
-    while(bufPos<buckets) {
-        buf[bufPos++] = *(this->reader->getReadPointer());
-        this->reader->advance(1);
-    }
-
-    // Process buffered data
-    for(i=0 ; i+buckets<=bufPos ; i+=step) {
+    // Process input data
+    for(; this->reader->available()>=buckets ; this->reader->advance(step)) {
         // Process data
-        processInternal(buf+i, buckets);
+        processInternal(this->reader->getReadPointer(), buckets);
 
         // Update time
         curSamples += step;
@@ -132,16 +118,10 @@ void RttyDecoder<T>::process() {
             curSamples -= secs*sampleRate;
         }
     }
-
-    // Shift data
-    for(j=0 ; i+j<bufPos ; ++j) buf[j]=buf[i+j];
-
-    // Done with the data
-    bufPos -= i;
 }
 
 template <typename T>
-void RttyDecoder<T>::processInternal(float *data, unsigned int size) {
+void RttyDecoder<T>::processInternal(const T *data, unsigned int size) {
     unsigned long millis = msecs();
     double q10, q11, q12;
     double q20, q21, q22;

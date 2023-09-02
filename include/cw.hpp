@@ -38,7 +38,6 @@ namespace Csdr {
     class CwDecoder: public Module<T, unsigned char> {
         public:
             CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int targetWidth=100);
-            ~CwDecoder();
 
             bool canProcess() override;
             void process() override;
@@ -55,10 +54,6 @@ namespace Csdr {
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
-
-            // Sample buffer
-            float *buf = 0;
-            unsigned int bufPos = 0;
 
             // Computed FFT parameters
             unsigned int buckets;        // Number of FFT buckets (samples)
@@ -111,7 +106,7 @@ namespace Csdr {
             { return(data<256? cwTable[data] : '#'); }
 
             // Process a quantum of input data
-            void processInternal(float *data, unsigned int size);
+            void processInternal(const T *data, unsigned int size);
 
             // Print debug information
             void printDebug();

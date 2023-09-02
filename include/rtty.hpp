@@ -38,7 +38,6 @@ namespace Csdr {
     class RttyDecoder: public Module<T, unsigned char> {
         public:
             RttyDecoder(unsigned int sampleRate=12000, int targetFreq=450, int targetWidth=170, double baudRate=45.45, bool reverse=false);
-            ~RttyDecoder();
 
             bool canProcess() override;
             void process() override;
@@ -57,10 +56,6 @@ namespace Csdr {
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
-
-            // Sample buffer
-            float *buf = 0;
-            unsigned int bufPos = 0;
 
             // Computed FFT parameters
             unsigned int buckets;        // Number of FFT buckets (samples)
@@ -103,7 +98,7 @@ namespace Csdr {
             { return(sampleRate * msec / 1000); }
 
             // Process a quantum of input data
-            void processInternal(float *data, unsigned int size);
+            void processInternal(const T *data, unsigned int size);
 
             // Print given string to the output
             void printString(const char *buf);
