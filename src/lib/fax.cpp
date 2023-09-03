@@ -131,6 +131,7 @@ template <typename T>
 void FaxDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
+    const T *ptr = this->reader->getReadPointer();
     unsigned int size = this->reader->available();
     unsigned int j, i;
 
@@ -154,12 +155,9 @@ void FaxDecoder<T>::process() {
     // Demodulate new data into the buffer
     for(j=0 ; (j<size) && (curSize<maxSize) ; ++j)
     {
-        // Read incoming data
-        float in = *(this->reader->getReadPointer());
-        this->reader->advance(1);
-
-        // Apply FIR filters
-        double f = fstep * j;
+        // Read incoming data and apply FIR filters
+        double in = sample2double(ptr[j]);
+        double f  = fstep * j;
         double iFirOut = filters[0].process(in * cos(f));
         double qFirOut = filters[1].process(in * sin(f));
 
@@ -195,6 +193,9 @@ void FaxDecoder<T>::process() {
         iFirOld = iFirOut;
         qFirOld = qFirOut;
     }
+
+    // Advance input pointer
+    this->reader->advance(j);
 
     // Must have at least one scanline worth of data
     if(curSize<2*blockSize) return;
@@ -711,6 +712,18 @@ bool FaxDecoder<T>::writeData(const void *buf, unsigned int size)
 
     // Done
     return(true);
+}
+
+template <>
+inline double FaxDecoder<complex<float>>::sample2double(complex<float> input)
+{
+    return input.i();
+}
+
+template<>
+inline double FaxDecoder<float>::sample2double(float input)
+{
+    return input;
 }
 
 namespace Csdr {

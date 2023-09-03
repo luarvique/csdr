@@ -85,6 +85,9 @@ namespace Csdr {
             unsigned int cnt0 = 0;        // Current count of SPACEs
             unsigned int cnt1 = 0;        // Current count of MARKs
 
+            // Convert input sample into a double
+            inline double sample2double(T input);
+
             // Convert code to a character
             char ita2char(unsigned int data)
             { return(data<32? ita2Table[data + (figsMode? 32:0)] : '#'); }

@@ -43,14 +43,6 @@ using namespace Csdr;
 #define FIGS '\002'
 #define ENQ  '\003'
 
-// CQ CQ RU3AMO RU3AMO RU3AMO
-// CQ PSE K
-//
-// CQ RU3AMO =
-//   C=0|01110|11 Q=0|10111|11  =0|00100|11 R=0|01010|11
-//   U=0|00111|11 ^=0|11011|11 3=0|00001|11 v=0|11111|11
-//   A=0|00011|11 M=0|11100|11 O=0|11000|11
-//
 template <typename T>
 const char RttyDecoder<T>::ita2Table[2*32] =
 {
@@ -195,10 +187,10 @@ void RttyDecoder<T>::processInternal(const T *data, unsigned int size) {
     // Read samples
     for(i=0, q11=q12=q21=q22=0.0 ; i<size ; ++i)
     {
-        q10 = q11 * coeff1 - q12 + data[i];
+        q10 = q11 * coeff1 - q12 + sample2double(data[i]);
         q12 = q11;
         q11 = q10;
-        q20 = q21 * coeff2 - q22 + data[i];
+        q20 = q21 * coeff2 - q22 + sample2double(data[i]);
         q22 = q21;
         q21 = q20;
     }
@@ -294,6 +286,18 @@ void RttyDecoder<T>::printString(const char *buf)
         memcpy(this->writer->getWritePointer(), buf, l);
         this->writer->advance(l);
     }
+}
+
+template <>
+inline double RttyDecoder<complex<float>>::sample2double(complex<float> input)
+{
+    return input.i();
+}
+
+template<>
+inline double RttyDecoder<float>::sample2double(float input)
+{
+    return input;
 }
 
 namespace Csdr {

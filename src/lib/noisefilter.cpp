@@ -187,11 +187,23 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Copy output but only partially fill FFT output
     for(size_t i=0; i<inputSize; ++i)
     {
-        output[i] = result[i];
+        output[i] = complex2sample(result[i]);
     }
 
     // Done
     return inputSize;
+}
+
+template <>
+inline complex<float> NoiseFilter<complex<float>>::complex2sample(complex<float> input)
+{
+    return input;
+}
+
+template<>
+inline float NoiseFilter<float>::complex2sample(complex<float> input)
+{
+    return input.i();
 }
 
 namespace Csdr {

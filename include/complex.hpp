@@ -34,8 +34,6 @@ namespace Csdr {
             // quadrature
             T q() const { return std::complex<T>::imag(); }
             void q(T value) { std::complex<T>::imag(value); }
-            // conversion to T takes real part
-            operator T() const { return i(); }
     };
 
 }

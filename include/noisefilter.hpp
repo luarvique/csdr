@@ -53,6 +53,9 @@ namespace Csdr {
             fftwf_complex* inverseOutput;
             fftwf_plan inversePlan;
             fftwf_complex* overlapBuf;
+
+            // Convert output complex into a sample
+            inline T complex2sample(complex<float> input);
     };
 
     class AFNoiseFilter: public NoiseFilter<float> {

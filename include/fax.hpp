@@ -161,6 +161,9 @@ namespace Csdr {
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
+            // Convert input sample into a double
+            inline double sample2double(T input);
+
             // Get current time in milliseconds
             unsigned long msecs(int dSamples=0)
             { return(1000*curSeconds + 1000*(curSamples+dSamples)/sampleRate); }

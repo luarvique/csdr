@@ -106,7 +106,7 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
     // Read samples
     for(i=0, q1=q2=0.0 ; i<size ; ++i)
     {
-        q0 = q1 * coeff - q2 + data[i];
+        q0 = q1 * coeff - q2 + sample2double(data[i]);
         q2 = q1;
         q1 = q0;
     }
@@ -312,6 +312,18 @@ void CwDecoder<T>::printString(const char *buf)
         memcpy(this->writer->getWritePointer(), buf, l);
         this->writer->advance(l);
     }
+}
+
+template <>
+inline double CwDecoder<complex<float>>::sample2double(complex<float> input)
+{
+    return input.i();
+}
+
+template<>
+inline double CwDecoder<float>::sample2double(float input)
+{
+    return input;
 }
 
 namespace Csdr {
