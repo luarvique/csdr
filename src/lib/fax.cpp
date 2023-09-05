@@ -86,8 +86,8 @@ template <typename T>
 FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
   lpm(lpm),
-  fm(!(options & OPT_AM)),
-  bw(!(options & (OPT_MONO | OPT_COLOR))),
+  am(!!(options & OPT_AM)),
+  post(!!(options & OPT_POST)),
   colors(options & OPT_COLOR? 3:1),
   syncLines(options & OPT_SYNC),
   curState(STATE_HEADER),
@@ -105,7 +105,6 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
     // Incoming filters setup
     filters[0] = FirFilter(filter);
     filters[1] = FirFilter(filter);
-    coeff      = (double)sampleRate / deviation * 2.0 / M_PI;
     fstep      = (double)carrier * 2.0 * M_PI / sampleRate;
 }
 
@@ -151,6 +150,9 @@ void FaxDecoder<T>::process() {
         maxSize = curSize + size;
     }
 
+    // Used to normalize result from radians and add contrast
+    double coeff = contrast * 2.0 / M_PI;
+
     // Demodulate new data into the buffer
     for(j=0 ; (j<size) && (curSize<maxSize) ; ++j)
     {
@@ -161,7 +163,7 @@ void FaxDecoder<T>::process() {
         double qFirOut = filters[1].process(in * sin(f));
 
         // Demodulate
-        if(!fm)
+        if(am)
         {
             iFirOut /= 3.0;
             qFirOut /= 3.0;
@@ -179,12 +181,7 @@ void FaxDecoder<T>::process() {
             else
             {
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff;
-
-                // In B/W mode, just sense black and white
-                if(bw)
-                    buf[curSize++] = x>=0.0? 255:0;
-                else
-                    buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)(x/2.0+0.5)*255.0;
+                buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)((x/2.0+0.5)*255.0);
             }
         }
 
@@ -335,9 +332,8 @@ void FaxDecoder<T>::process() {
                 // Write out BMP header before the first scanline
                 if(!curLine++) printBmpHeader();
 
-                // In B/W mode, process the scanline before writing it out
-                if(bw) printBmpLine(curLine-1);
-                else   writeData(line[2], sizeof(line[2]));
+                // Optionally post-process and print BMP line
+                printBmpLine();
 
                 // Rotate scanline buffers
                 unsigned char *p = line[0];
@@ -602,8 +598,15 @@ void FaxDecoder<T>::printBmpHeader()
 }
 
 template <typename T>
-void FaxDecoder<T>::printBmpLine(int lineN)
+void FaxDecoder<T>::printBmpLine()
 {
+    // If not post-processing, output line as-is and drop out
+    if(!post)
+    {
+        writeData(line[2], lineWidth * colors);
+        return;
+    }
+
     unsigned char image[lineWidth * colors];
     int n = (lineWidth-1) * colors;
     int i, j, k;
@@ -615,14 +618,14 @@ void FaxDecoder<T>::printBmpLine(int lineN)
         i = 2*line[0][j] +   line[0][i] +
             4*line[1][j] + 2*line[1][i] +
             2*line[2][j] +   line[2][i];
-        image[j] = i<1020? i/4 : 255;
+        image[j] = i / 12;
 
         i = n + j - colors;
         k = n + j;
         i = 2*line[0][k] +   line[0][i] +
             4*line[1][k] + 2*line[1][i] +
             2*line[2][k] +   line[2][i];
-        image[k] = i<1020? i/4 : 255;
+        image[k] = i / 12;
     }
 
     // Apply the filter
@@ -633,7 +636,7 @@ void FaxDecoder<T>::printBmpLine(int lineN)
         i = line[0][i] + 2*line[0][j] +   line[0][k] +
           2*line[1][i] + 4*line[1][j] + 2*line[1][k] +
             line[2][i] + 2*line[2][j] +   line[2][k];
-        image[j] = i<1020? i/4 : 255;
+        image[j] = i >> 4;
     }
 
     // Output the scanline
