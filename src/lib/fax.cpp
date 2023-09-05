@@ -105,7 +105,6 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
     // Incoming filters setup
     filters[0] = FirFilter(filter);
     filters[1] = FirFilter(filter);
-//    coeff      = (double)sampleRate / deviation / 2.0 / M_PI;
     coeff      = (double)sampleRate / deviation * 2.0 / M_PI;
     fstep      = (double)carrier * 2.0 * M_PI / sampleRate;
 }
