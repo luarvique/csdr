@@ -616,16 +616,16 @@ void FaxDecoder<T>::printBmpLine()
     {
         i = j + colors;
         i = 2*line[0][j] +   line[0][i] +
-            4*line[1][j] + 2*line[1][i] +
+            8*line[1][j] + 2*line[1][i] +
             2*line[2][j] +   line[2][i];
-        image[j] = i / 12;
+        image[j] = i >> 4;
 
         i = n + j - colors;
         k = n + j;
         i = 2*line[0][k] +   line[0][i] +
-            4*line[1][k] + 2*line[1][i] +
+            8*line[1][k] + 2*line[1][i] +
             2*line[2][k] +   line[2][i];
-        image[k] = i / 12;
+        image[k] = i >> 4;
     }
 
     // Apply the filter
@@ -633,10 +633,10 @@ void FaxDecoder<T>::printBmpLine()
     {
         i = j - colors;
         k = j + colors;
-        i = line[0][i] + 2*line[0][j] +   line[0][k] +
-          2*line[1][i] + 4*line[1][j] + 2*line[1][k] +
-            line[2][i] + 2*line[2][j] +   line[2][k];
-        image[j] = i >> 4;
+        i = line[0][i] +  2*line[0][j] +   line[0][k] +
+          2*line[1][i] + 12*line[1][j] + 2*line[1][k] +
+            line[2][i] +  2*line[2][j] +   line[2][k];
+        image[j] = i / 24;
     }
 
     // Output the scanline

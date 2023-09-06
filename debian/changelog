@@ -1,3 +1,12 @@
+csdr (0.18.13) bullseye jammy; urgency=low
+
+  * Greatly improved FAX decoder, able to receive photos now.
+  * Removed intermediate buffers from SSTV, RTTY, CW decoders.
+  * Removed default complex-to-float conversion.
+  * SSTV and FAX decoders now use non-complex float input.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 9 Sep 2023 16:12:00 +0000
+
 csdr (0.18.12) bullseye jammy; urgency=low
 
   * Merged changes from Jakob Ketterl's original development branch.
