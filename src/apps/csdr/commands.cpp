@@ -42,6 +42,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "timingrecovery.hpp"
 #include "noise.hpp"
 #include "phasedemod.hpp"
+#include "jkrtty.hpp"
 #include "baudot.hpp"
 #include "rtty.hpp"
 #include "sstv.hpp"
@@ -599,6 +600,13 @@ NoiseCommand::NoiseCommand(): Command("noise", "Noise generator") {
 Phasedemodcommand::Phasedemodcommand(): Command("phasedemod", "Phase demodulation") {
     callback([this] () {
         runModule(new PhaseDemod());
+    });
+}
+
+JKRttyDecodeCommand::JKRttyDecodeCommand(): Command("jkrttydecode", "RTTY decoder") {
+    add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
+    callback([this] () {
+        runModule(new JKRttyDecoder(invert));
     });
 }
 

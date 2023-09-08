@@ -264,6 +264,13 @@ namespace Csdr {
             Phasedemodcommand();
     };
 
+    class JKRttyDecodeCommand: public Command {
+        public:
+            JKRttyDecodeCommand();
+        private:
+            bool invert = false;
+    };
+
     class BaudotDecodeCommand: public Command {
         public:
             BaudotDecodeCommand();
