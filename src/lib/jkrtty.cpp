@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "rtty.hpp"
+#include "jkrtty.hpp"
 
 using namespace Csdr;
 
