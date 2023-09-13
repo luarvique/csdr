@@ -42,9 +42,9 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "timingrecovery.hpp"
 #include "noise.hpp"
 #include "phasedemod.hpp"
-#include "jkrtty.hpp"
-#include "baudot.hpp"
 #include "rtty.hpp"
+#include "baudot.hpp"
+#include "mfrtty.hpp"
 #include "sstv.hpp"
 #include "fax.hpp"
 #include "afc.hpp"
@@ -603,10 +603,10 @@ Phasedemodcommand::Phasedemodcommand(): Command("phasedemod", "Phase demodulatio
     });
 }
 
-JKRttyDecodeCommand::JKRttyDecodeCommand(): Command("jkrttydecode", "RTTY decoder") {
+RttyDecodeCommand::RttyDecodeCommand(): Command("rttydecode", "RTTY decoder") {
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new JKRttyDecoder(invert));
+        runModule(new RttyDecoder(invert));
     });
 }
 
@@ -650,14 +650,14 @@ CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
     });
 }
 
-RttyDecoderCommand::RttyDecoderCommand(): Command("rttydecode", "RTTY decoder") {
+MFRttyDecoderCommand::MFRttyDecoderCommand(): Command("mfrttydecode", "RTTY decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
     add_option("freq", targetFreq, "Frequency base");
     add_option("shift", targetWidth, "Frequency shift");
     add_option("baud_rate", baudRate, "Baud rate");
     add_option("reverse", reverse, "Reverse space and mark");
     callback( [this] () {
-        runModule(new RttyDecoder<float>(sampleRate, targetFreq, targetWidth, baudRate, reverse));
+        runModule(new MFRttyDecoder<float>(sampleRate, targetFreq, targetWidth, baudRate, reverse));
     });
 }
 

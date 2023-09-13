@@ -66,11 +66,11 @@ int Cli::main(int argc, char** argv) {
     app.add_subcommand(std::shared_ptr<CLI::App>(new TimingRecoveryCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new NoiseCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new Phasedemodcommand()));
-    app.add_subcommand(std::shared_ptr<CLI::App>(new JKRttyDecodeCommand()));
+    app.add_subcommand(std::shared_ptr<CLI::App>(new RttyDecodeCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new BaudotDecodeCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new LowpassCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new CwDecoderCommand()));
-    app.add_subcommand(std::shared_ptr<CLI::App>(new RttyDecoderCommand()));
+    app.add_subcommand(std::shared_ptr<CLI::App>(new MFRttyDecoderCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new SstvDecoderCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new FaxDecoderCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new ReduceNoiseCommand()));

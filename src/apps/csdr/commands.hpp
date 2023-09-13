@@ -264,9 +264,9 @@ namespace Csdr {
             Phasedemodcommand();
     };
 
-    class JKRttyDecodeCommand: public Command {
+    class RttyDecodeCommand: public Command {
         public:
-            JKRttyDecodeCommand();
+            RttyDecodeCommand();
         private:
             bool invert = false;
     };
@@ -293,9 +293,9 @@ namespace Csdr {
             unsigned int sampleRate;
     };
 
-    class RttyDecoderCommand: public Command {
+    class MFRttyDecoderCommand: public Command {
         public:
-            RttyDecoderCommand();
+            MFRttyDecoderCommand();
         private:
             unsigned int sampleRate;
             int targetFreq = 450;
