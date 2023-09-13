@@ -1,3 +1,9 @@
+csdr (0.18.14) bullseye jammy; urgency=low
+
+  * Added Jakob's RTTY decoder and made it the default.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 16 Sep 2023 16:12:00 +0000
+
 csdr (0.18.13) bullseye jammy; urgency=low
 
   * Greatly improved FAX decoder, able to receive photos now.
