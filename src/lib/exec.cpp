@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstring>
 #include <fcntl.h>
+#include <unistd.h>
 
 using namespace Csdr;
 
@@ -32,6 +33,12 @@ ExecModule<T, U>::~ExecModule<T, U>() {
 template <typename T, typename U>
 void ExecModule<T, U>::startChild() {
     std::lock_guard<std::mutex> lock(this->childMutex);
+
+    // do not start things twice
+    if ((this->readPipe >= 0) || (this->writePipe >= 0) || (readThread != nullptr)) {
+        return;
+    }
+
     size_t s = args.size();
     char* c_args[s];
     for (size_t i = 0; i < s; i++) {
@@ -139,16 +146,20 @@ void ExecModule<T, U>::stopChild() {
 
 template <typename T, typename U>
 void ExecModule<T, U>::readLoop() {
-    size_t available;
-    size_t read_bytes;
     while (run) {
-        available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
-        read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
-        if (read_bytes <= 0) {
-            run = false;
+        ssize_t available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
+        if (available <= 0) {
+            usleep(1000);
         } else {
-            this->writer->advance((readOffset + read_bytes) / sizeof(U));
-            readOffset = (readOffset + read_bytes) % sizeof(U);
+            ssize_t read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
+            if (read_bytes > 0) {
+                this->writer->advance((readOffset + read_bytes) / sizeof(U));
+                readOffset = (readOffset + read_bytes) % sizeof(U);
+            } else if ((read_bytes == 0) || (errno == EAGAIN)) {
+                usleep(1000);
+            } else {
+                run = false;
+            }
         }
     }
     closePipes();
@@ -185,14 +196,19 @@ bool ExecModule<T, U>::canProcess() {
 template <typename T, typename U>
 void ExecModule<T, U>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t size = std::min(this->reader->available(), (size_t) 1024) * sizeof(T) - writeOffset;
-    size_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
-    if (written == -1) {
-        std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
-        return;
+
+    ssize_t size = std::min(this->reader->available(), (size_t) 1024) * sizeof(T) - writeOffset;
+    if (size > 0) {
+        ssize_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
+        if (written <= 0) {
+            if ((written < 0) && (errno != EAGAIN))
+                std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
+            return;
+        }
+
+        this->reader->advance((writeOffset + written) / sizeof(T));
+        writeOffset = (writeOffset + written) % sizeof(T);
     }
-    this->reader->advance((writeOffset + written) / sizeof(T));
-    writeOffset = (writeOffset + written) % sizeof(T);
 }
 
 template <typename T, typename U>
