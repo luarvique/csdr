@@ -7,7 +7,6 @@
 #include <iostream>
 #include <cstring>
 #include <fcntl.h>
-#include <unistd.h>
 
 using namespace Csdr;
 
