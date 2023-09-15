@@ -98,13 +98,19 @@ void ExecModule<T, U>::startChild() {
             // we are the parent; pid is the child's PID
             // set up pipes and reader thread
             close(readPipes[1]);
+            r = fcntl(readPipes[0], F_SETFL, fcntl(readPipes[0], F_GETFL) | O_NONBLOCK);
+            if (r == -1) {
+                std::cerr << "failed to set pipe to non-blocking: " << strerror(errno) << "\n";
+            }
             this->readPipe = readPipes[0];
+
             close(writePipes[0]);
             r = fcntl(writePipes[1], F_SETFL, fcntl(writePipes[1], F_GETFL) | O_NONBLOCK);
             if (r == -1) {
                 std::cerr << "failed to set pipe to non-blocking: " << strerror(errno) << "\n";
             }
             this->writePipe = writePipes[1];
+
             if (this->writer != nullptr) {
                 if (readThread != nullptr) {
                     std::cerr << "ExecModule reader thread is already running\n";
@@ -168,20 +174,39 @@ void ExecModule<T, U>::stopChild() {
 
 template <typename T, typename U>
 void ExecModule<T, U>::readLoop() {
+    ssize_t available;
+    ssize_t read_bytes;
+    fd_set fds;
+
     while (run) {
-        ssize_t available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
-        if (available <= 0) {
-            usleep(1000);
-        } else {
-            ssize_t read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
-            if (read_bytes > 0) {
-                this->writer->advance((readOffset + read_bytes) / sizeof(U));
-                readOffset = (readOffset + read_bytes) % sizeof(U);
-            } else if ((read_bytes == 0) || (errno == EAGAIN)) {
+        FD_ZERO(&fds);
+        FD_SET(this->readPipe, &fds);
+        struct timeval tv = {
+            .tv_sec = 10,
+            .tv_usec = 0
+        };
+        int nfds = this->readPipe + 1;
+        int rc = select(nfds, &fds, NULL, NULL, &tv);
+        if (rc == -1) {
+            std::cerr << "select() failed: " << strerror(errno) << "\n";
+            return;
+        }
+        if (FD_ISSET(this->readPipe, &fds)) {
+            std::lock_guard<std::mutex> lock(this->processMutex);
+            available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
+            if (available <= 0) {
                 usleep(1000);
             } else {
-                std::cerr << "error reading data from child pipe: " << strerror(errno) << "\n";
-                run = false;
+                read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
+                if (read_bytes > 0) {
+                    this->writer->advance((readOffset + read_bytes) / sizeof(U));
+                    readOffset = (readOffset + read_bytes) % sizeof(U);
+                } else if ((read_bytes == 0) || (errno == EAGAIN)) {
+                    usleep(1000);
+                } else {
+                    std::cerr << "error reading data from child pipe: " << strerror(errno) << "\n";
+                    run = false;
+                }
             }
         }
     }
