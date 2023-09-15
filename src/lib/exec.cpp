@@ -53,7 +53,8 @@ void ExecModule<T, U>::startChild() {
     std::lock_guard<std::mutex> lock(this->childMutex);
 
     if (child_pid != 0) {
-        throw std::runtime_error("ExecModule child is already running");
+        std::cerr << "startChild(): ExecModule child is already running\n";
+        return;
     }
 
     size_t s = args.size();
@@ -106,7 +107,8 @@ void ExecModule<T, U>::startChild() {
             this->writePipe = writePipes[1];
             if (this->writer != nullptr) {
                 if (readThread != nullptr) {
-                    throw std::runtime_error("ExecModule reader thread  is already running");
+                    cerr << "ExecModule reader thread is already running\n";
+                    return;
                 }
                 run = true;
                 readThread = new std::thread([this] { readLoop(); });
@@ -166,21 +168,20 @@ void ExecModule<T, U>::stopChild() {
 
 template <typename T, typename U>
 void ExecModule<T, U>::readLoop() {
-    size_t available;
-    ssize_t read_bytes;
     while (run) {
-        available = this->writer->writeable();
-        if (available == 0) {
-            std::cerr << "ExecModule writer cannot accept data. Stopping readLoop";
-            run = false;
+        ssize_t available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
+        if (available <= 0) {
+            usleep(1000);
         } else {
-            available = std::min(available, (size_t) 1024) * sizeof(U) - readOffset;
-            read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
-            if (read_bytes <= 0) {
-                run = false;
-            } else {
+            ssize_t read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
+            if (read_bytes > 0) {
                 this->writer->advance((readOffset + read_bytes) / sizeof(U));
                 readOffset = (readOffset + read_bytes) % sizeof(U);
+            } else if ((read_bytes == 0) || (errno == EAGAIN)) {
+                usleep(1000);
+            } else {
+                std::cerr << "error reading data from child pipe: " << strerror(errno) << "\n";
+                run = false;
             }
         }
     }
@@ -219,19 +220,18 @@ template <typename T, typename U>
 void ExecModule<T, U>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
-    size_t available = this->reader->available();
-    if (available == 0) return;
+    ssize_t size = std::min(this->reader->available(), (size_t) 1024) * sizeof(T) - writeOffset;
+    if (size > 0) {
+        ssize_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
+        if (written <= 0) {
+            if ((written < 0) && (errno != EAGAIN))
+                std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
+            return;
+        }
 
-    size_t size = std::min(available, (size_t) 1024) * sizeof(T) - writeOffset;
-    ssize_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
-    if (written == -1) {
-        // EAGAIN may happen since writePipe is non-blocking.
-        if (errno == EAGAIN) return;
-        std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
-        return;
+        this->reader->advance((writeOffset + written) / sizeof(T));
+        writeOffset = (writeOffset + written) % sizeof(T);
     }
-    this->reader->advance((writeOffset + written) / sizeof(T));
-    writeOffset = (writeOffset + written) % sizeof(T);
 }
 
 template <typename T, typename U>
