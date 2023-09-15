@@ -1,3 +1,22 @@
+/*
+Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+
+This file is part of libcsdr.
+
+libcsdr is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+libcsdr is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #include "exec.hpp"
 
 #include <unistd.h>
@@ -32,6 +51,11 @@ ExecModule<T, U>::~ExecModule<T, U>() {
 template <typename T, typename U>
 void ExecModule<T, U>::startChild() {
     std::lock_guard<std::mutex> lock(this->childMutex);
+
+    if (child_pid != 0) {
+        throw std::runtime_error("ExecModule child is already running");
+    }
+
     size_t s = args.size();
     char* c_args[s];
     for (size_t i = 0; i < s; i++) {
@@ -81,6 +105,9 @@ void ExecModule<T, U>::startChild() {
             }
             this->writePipe = writePipes[1];
             if (this->writer != nullptr) {
+                if (readThread != nullptr) {
+                    throw std::runtime_error("ExecModule reader thread  is already running");
+                }
                 run = true;
                 readThread = new std::thread([this] { readLoop(); });
             }
@@ -140,15 +167,21 @@ void ExecModule<T, U>::stopChild() {
 template <typename T, typename U>
 void ExecModule<T, U>::readLoop() {
     size_t available;
-    size_t read_bytes;
+    ssize_t read_bytes;
     while (run) {
-        available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(U) - readOffset;
-        read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
-        if (read_bytes <= 0) {
+        available = this->writer->writeable();
+        if (available == 0) {
+            std::cerr << "ExecModule writer cannot accept data. Stopping readLoop";
             run = false;
         } else {
-            this->writer->advance((readOffset + read_bytes) / sizeof(U));
-            readOffset = (readOffset + read_bytes) % sizeof(U);
+            available = std::min(available, (size_t) 1024) * sizeof(U) - readOffset;
+            read_bytes = read(this->readPipe, ((char*) this->writer->getWritePointer()) + readOffset, available);
+            if (read_bytes <= 0) {
+                run = false;
+            } else {
+                this->writer->advance((readOffset + read_bytes) / sizeof(U));
+                readOffset = (readOffset + read_bytes) % sizeof(U);
+            }
         }
     }
     closePipes();
@@ -185,9 +218,15 @@ bool ExecModule<T, U>::canProcess() {
 template <typename T, typename U>
 void ExecModule<T, U>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t size = std::min(this->reader->available(), (size_t) 1024) * sizeof(T) - writeOffset;
-    size_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
+
+    size_t available = this->reader->available();
+    if (available == 0) return;
+
+    size_t size = std::min(available, (size_t) 1024) * sizeof(T) - writeOffset;
+    ssize_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
     if (written == -1) {
+        // EAGAIN may happen since writePipe is non-blocking.
+        if (errno == EAGAIN) return;
         std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
         return;
     }
