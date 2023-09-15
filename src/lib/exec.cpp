@@ -107,7 +107,7 @@ void ExecModule<T, U>::startChild() {
             this->writePipe = writePipes[1];
             if (this->writer != nullptr) {
                 if (readThread != nullptr) {
-                    cerr << "ExecModule reader thread is already running\n";
+                    std::cerr << "ExecModule reader thread is already running\n";
                     return;
                 }
                 run = true;
