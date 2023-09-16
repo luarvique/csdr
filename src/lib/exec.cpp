@@ -26,6 +26,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 #include <cstring>
 #include <fcntl.h>
+#include <poll.h>
 
 using namespace Csdr;
 
@@ -177,19 +178,16 @@ void ExecModule<T, U>::readLoop() {
     fd_set fds;
 
     while (run) {
-        FD_ZERO(&fds);
-        FD_SET(this->readPipe, &fds);
-        struct timeval tv = {
-            .tv_sec = 10,
-            .tv_usec = 0
+        pollfd pfd {
+            .fd = this->readPipe,
+            .events = POLLIN
         };
-        int nfds = this->readPipe + 1;
-        int rc = select(nfds, &fds, NULL, NULL, &tv);
+        int rc = poll(&pfd, 1, 10000);
         if (rc == -1) {
-            std::cerr << "select() failed: " << strerror(errno) << "\n";
+            std::cerr << "poll() failed: " << strerror(errno) << "\n";
             return;
         }
-        if (FD_ISSET(this->readPipe, &fds)) {
+        if (pfd.revents & POLLIN) {
             std::lock_guard<std::mutex> lock(this->processMutex);
             available = this->writer->writeable();
             if (available == 0) {
@@ -274,22 +272,18 @@ void ExecModule<T, U>::restart() {
 
 template <typename T, typename U>
 bool ExecModule<T, U>::isPipeWriteable() {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(this->writePipe, &fds);
+    pollfd pfd = {
+        .fd = this->writePipe,
+        .events = POLLOUT
+    };
     // we want an immediate result, so set time to 0
     // if the pipe is not writeable now, we'll come back once the next chunk of data becomes available
     // in the meantime, there is probably plenty of data in the pipe for the child to consume
-    struct timeval tv = {
-        .tv_sec = 0,
-        .tv_usec = 0
-    };
-    int nfds = this->writePipe + 1;
-    int rc = select(nfds, NULL, &fds, NULL, &tv);
+    int rc = poll(&pfd, 1, 0);
     if (rc == -1) {
-        std::cerr << "select() failed: " << strerror(errno) << "\n";
+        std::cerr << "poll() failed: " << strerror(errno) << "\n";
     }
-    return FD_ISSET(this->writePipe, &fds);
+    return pfd.revents & POLLOUT;
 }
 
 namespace Csdr {
