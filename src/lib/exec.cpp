@@ -88,9 +88,9 @@ void ExecModule<T, U>::startChild() {
             r = execvp(c_args[0], c_args);
             // if we're still here, that means we encountered an error.
             if (r == -1) {
-                std::cerr << "could not exec(): " << strerror(errno) << "\n";
+                std::cerr << "ExecModule: could not exec(): " << strerror(errno) << "\n";
             } else {
-                std::cerr << "exec() failed for unknown reason (r = " << r << ")\n";
+                std::cerr << "ExecModule: exec() failed for unknown reason (r = " << r << ")\n";
             }
             // gotta get out somehow since we fork()ed
             exit(-1);
@@ -100,14 +100,14 @@ void ExecModule<T, U>::startChild() {
             close(readPipes[1]);
             r = fcntl(readPipes[0], F_SETFL, fcntl(readPipes[0], F_GETFL) | O_NONBLOCK);
             if (r == -1) {
-                std::cerr << "failed to set pipe to non-blocking: " << strerror(errno) << "\n";
+                std::cerr << "ExecModule: failed to set pipe to non-blocking: " << strerror(errno) << "\n";
             }
             this->readPipe = readPipes[0];
 
             close(writePipes[0]);
             r = fcntl(writePipes[1], F_SETFL, fcntl(writePipes[1], F_GETFL) | O_NONBLOCK);
             if (r == -1) {
-                std::cerr << "failed to set pipe to non-blocking: " << strerror(errno) << "\n";
+                std::cerr << "ExecModule: failed to set pipe to non-blocking: " << strerror(errno) << "\n";
             }
             this->writePipe = writePipes[1];
 
@@ -124,45 +124,43 @@ void ExecModule<T, U>::startChild() {
 
 template <typename T, typename U>
 void ExecModule<T, U>::stopChild() {
-    {
-        std::lock_guard<std::mutex> lock(this->childMutex);
-        run = false;
-        if (child_pid != 0) {
-            kill(child_pid, SIGTERM);
-            if (flushSize > 0) {
-                fcntl(this->writePipe, F_SETFL, fcntl(this->writePipe, F_GETFL) & ~O_NONBLOCK);
-                T toflush[flushSize] = {0};
-                write(this->writePipe, &toflush, sizeof(T) * flushSize);
-            }
-            // this probably has no effect
-            closePipes();
-
-            pid_t rc = 0, r = 0;
-
-            // 50 retries with a 100ms delay ~= 5 second timeout
-            int retries = 50;
-            while (retries--) {
-                r = waitpid(child_pid, &rc, WNOHANG);
-                if (r == 0) {
-                    // 100ms delay
-                    struct timespec delay = {0, 100000000}, remaining = {0, 0};
-                    nanosleep(&delay, &remaining);
-                } else {
-                    break;
-                }
-            }
-            if (r == -1) {
-                std::cerr << "waitpid failed: " << strerror(errno) << "\n";
-            } else if (r == 0) {
-                std::cerr << "child failed to terminate within 5 seconds, sending SIGKILL...\n";
-                kill(child_pid, SIGKILL);
-                r = waitpid(child_pid, &rc, 0);
-            }
-            if (rc != 0) {
-                std::cerr << "child exited with rc = " << rc << "\n";
-            }
-            child_pid = 0;
+    std::lock_guard<std::mutex> lock(this->childMutex);
+    run = false;
+    if (child_pid != 0) {
+        kill(child_pid, SIGTERM);
+        if (flushSize > 0) {
+            fcntl(this->writePipe, F_SETFL, fcntl(this->writePipe, F_GETFL) & ~O_NONBLOCK);
+            T toflush[flushSize] = {0};
+            write(this->writePipe, &toflush, sizeof(T) * flushSize);
         }
+        // this probably has no effect
+        closePipes();
+
+        pid_t rc = 0, r = 0;
+
+        // 50 retries with a 100ms delay ~= 5 second timeout
+        int retries = 50;
+        while (retries--) {
+            r = waitpid(child_pid, &rc, WNOHANG);
+            if (r == 0) {
+                // 100ms delay
+                struct timespec delay = {0, 100000000}, remaining = {0, 0};
+                nanosleep(&delay, &remaining);
+            } else {
+                break;
+            }
+        }
+        if (r == -1) {
+            std::cerr << "ExecModule: waitpid failed: " << strerror(errno) << "\n";
+        } else if (r == 0) {
+            std::cerr << "ExecModule: child failed to terminate within 5 seconds, sending SIGKILL...\n";
+            kill(child_pid, SIGKILL);
+            r = waitpid(child_pid, &rc, 0);
+        }
+        if (rc != 0) {
+            std::cerr << "ExecModule: child exited with rc = " << rc << "\n";
+        }
+        child_pid = 0;
     }
     if (readThread != nullptr) {
         readThread->join();
@@ -175,7 +173,6 @@ template <typename T, typename U>
 void ExecModule<T, U>::readLoop() {
     size_t available;
     ssize_t read_bytes;
-    fd_set fds;
 
     while (run) {
         pollfd pfd {
@@ -184,14 +181,18 @@ void ExecModule<T, U>::readLoop() {
         };
         int rc = poll(&pfd, 1, 10000);
         if (rc == -1) {
-            std::cerr << "poll() failed: " << strerror(errno) << "\n";
+            std::cerr << "ExecModule: poll() failed: " << strerror(errno) << "\n";
             return;
         }
-        if (pfd.revents & POLLIN) {
+        if (pfd.revents & POLLERR) {
+            std::cerr << "ExecModule: read pipe indicates error. Stopping readLoop\n";
+            break;
+        }
+        if (run && pfd.revents & POLLIN) {
             std::lock_guard<std::mutex> lock(this->processMutex);
             available = this->writer->writeable();
             if (available == 0) {
-                std::cerr << "ExecModule writer cannot accept data. Stopping readLoop";
+                std::cerr << "ExecModule: writer cannot accept data. Stopping readLoop";
                 run = false;
             } else {
                 available = std::min(available, (size_t) 1024) * sizeof(U) - readOffset;
@@ -225,8 +226,9 @@ void ExecModule<T, U>::closePipes() {
 template <typename T, typename U>
 void ExecModule<T, U>::setWriter(Writer<U> *writer) {
     Module<T, U>::setWriter(writer);
-    if (writer != nullptr && readThread == nullptr) {
-        std::lock_guard<std::mutex> lock(this->childMutex);
+    std::lock_guard<std::mutex> p_lock(this->processMutex);
+    std::lock_guard<std::mutex> c_lock(this->childMutex);
+    if (this->writer != nullptr && readThread == nullptr) {
         run = true;
         readThread = new std::thread([this] { readLoop(); });
     }
@@ -250,7 +252,7 @@ void ExecModule<T, U>::process() {
     if (written == -1) {
         // EAGAIN may happen since writePipe is non-blocking.
         if (errno == EAGAIN) return;
-        std::cerr << "error writing data to child pipe: " << strerror(errno) << "\n";
+        std::cerr << "ExecModule: error writing data to child pipe: " << strerror(errno) << "\n";
         return;
     }
     this->reader->advance((writeOffset + written) / sizeof(T));
@@ -272,6 +274,9 @@ void ExecModule<T, U>::restart() {
 
 template <typename T, typename U>
 bool ExecModule<T, U>::isPipeWriteable() {
+    if (child_pid == 0) {
+        return false;
+    }
     pollfd pfd = {
         .fd = this->writePipe,
         .events = POLLOUT
@@ -281,7 +286,12 @@ bool ExecModule<T, U>::isPipeWriteable() {
     // in the meantime, there is probably plenty of data in the pipe for the child to consume
     int rc = poll(&pfd, 1, 0);
     if (rc == -1) {
-        std::cerr << "poll() failed: " << strerror(errno) << "\n";
+        std::cerr << "ExecModule: poll() failed: " << strerror(errno) << "\n";
+    }
+    if (pfd.revents & POLLERR) {
+        std::cerr << "ExecModule: write pipe indicated error. Shutting down child\n";
+        stopChild();
+        return false;
     }
     return pfd.revents & POLLOUT;
 }
