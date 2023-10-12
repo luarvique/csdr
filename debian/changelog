@@ -1,3 +1,9 @@
+csdr (0.18.15) bullseye jammy; urgency=low
+
+  * Incrementing library version to match original CSDR 0.18.12.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Thu, 12 Oct 2023 16:12:00 +0000
+
 csdr (0.18.14) bullseye jammy; urgency=low
 
   * Added Jakob's RTTY decoder and made it the default.
