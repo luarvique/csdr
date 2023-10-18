@@ -114,7 +114,7 @@ namespace Csdr {
 
             // Require 4 less lines than there really are to handle noise
             // and also misalignment on first and last lines.
-            int leewayLines = 6;//4;
+            int leewayLines = 4;
 
             // Throw away first 2 lines of phasing because we are not sure
             // if they are misaligned start lines.

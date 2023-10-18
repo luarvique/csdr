@@ -520,8 +520,10 @@ void FaxDecoder<T>::skipInput(unsigned int size)
 template <typename T>
 void FaxDecoder<T>::finishPage()
 {
+    bool finishing = curState==STATE_IMAGE;
+
     // Complete current image
-    if((curState==STATE_IMAGE) && (curLine<maxLines))
+    if(finishing && (curLine<maxLines))
     {
         tailLines  = maxLines - curLine;
         tailLines -= printBmpEmptyLines(tailLines);
@@ -535,7 +537,7 @@ void FaxDecoder<T>::finishPage()
     curState = STATE_HEADER;
     curLine  = 0;
 
-print(" [FINISH-PAGE]");
+if(finishing) print(" [FINISH-PAGE]");
 }
 
 template <typename T>
