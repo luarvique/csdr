@@ -40,13 +40,19 @@ void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float* data = reader->getReadPointer();
     unsigned char output = 0;
+    unsigned char marks = 0;
     for (int i = 0; i < 7; i++) {
-        bool bit = toBit(data[7 - i]);
+        unsigned char bit = toBit(data[7 - i])? 1 : 0;
         output = (output << 1) | bit;
+        marks += bit;
     }
-    reader->advance(7);
-    *(writer->getWritePointer()) = output;
-    writer->advance(1);
+    if (marks == 4) {
+        reader->advance(7);
+        *(writer->getWritePointer()) = output;
+        writer->advance(1);
+    } else {
+        reader->advance(1);
+    }
 }
 
 bool SitorDecoder::toBit(float sample) {

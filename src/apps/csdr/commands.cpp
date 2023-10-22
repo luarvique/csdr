@@ -715,7 +715,7 @@ SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder"
     });
 }
 
-Ccir476DecodeCommand::BaudotDecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
+Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
     callback([this] () {
         runModule(new Ccir476Decoder());
     });
