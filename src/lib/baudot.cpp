@@ -31,17 +31,19 @@ void BaudotDecoder::process() {
     unsigned char* input = reader->getReadPointer();
     size_t length = reader->available();
     for (size_t i = 0; i < length; i++) {
-        if (input[i] == BAUDOT_FIG_SHIFT) {
-            mode = 1;
-        } else if (input[i] == BAUDOT_LTR_SHIFT) {
-            mode = 0;
-        } else {
-            if (mode == 0) {
-                * (writer->getWritePointer()) = BAUDOT_LETTERS[input[i]];
-            } else {
-                * (writer->getWritePointer()) = BAUDOT_FIGURES[input[i]];
-            }
-            writer->advance(1);
+        unsigned char c = input[i];
+        switch (c) {
+            case BAUDOT_FIG_SHIFT:
+                mode = 1;
+                break;
+            case BAUDOT_LTR_SHIFT:
+                mode = 0;
+                break;
+            default:
+                c = c>31? '\0' : mode? BAUDOT_FIGURES[c] : BAUDOT_LETTERS[c];
+                * (writer->getWritePointer()) = c? c : '#';
+                writer->advance(1);
+                break;
         }
     }
     reader->advance(length);
