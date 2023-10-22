@@ -50,6 +50,8 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "afc.hpp"
 #include "cw.hpp"
 #include "noisefilter.hpp"
+#include "sitor.hpp"
+#include "ccir476.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -703,5 +705,18 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
 
     callback( [this] () {
         runModule(new Afc(updatePeriod, samplePeriod));
+    });
+}
+
+SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder") {
+    add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
+    callback([this] () {
+        runModule(new SitorDecoder(invert));
+    });
+}
+
+Ccir476DecodeCommand::BaudotDecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
+    callback([this] () {
+        runModule(new Ccir476Decoder());
     });
 }

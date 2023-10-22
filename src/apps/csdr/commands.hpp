@@ -322,7 +322,7 @@ namespace Csdr {
             bool sync = false;
             bool am = false;
     };
-	
+
     class ReduceNoiseCommand: public Command {
         public:
             ReduceNoiseCommand();
@@ -338,5 +338,17 @@ namespace Csdr {
         private:
             unsigned int updatePeriod = 4;
             unsigned int samplePeriod = 1;
+    };
+
+    class SitorDecodeCommand: public Command {
+        public:
+            SitorDecodeCommand();
+        private:
+            bool invert = false;
+    };
+
+    class Ccir476DecodeCommand: public Command {
+        public:
+            Ccir476DecodeCommand();
     };
 }
