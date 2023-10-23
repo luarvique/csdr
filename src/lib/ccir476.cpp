@@ -24,13 +24,13 @@ using namespace Csdr;
 
 bool Ccir476Decoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() > 0) && (writer->available() > 0);
+    return reader->available() > 0;
 }
 
 void Ccir476Decoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     unsigned char* input = reader->getReadPointer();
-    size_t length = min(reader->available(), writer->available());
+    size_t length = reader->available();
     for (size_t i = 0; i < length; i++) {
         unsigned char c = input[i];
         switch (c) {

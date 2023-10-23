@@ -24,7 +24,7 @@ using namespace Csdr;
 
 bool FecDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() > fecSize) && (writer->available() > 0);
+    return reader->available() > fecSize;
 }
 
 void FecDecoder::process() {
