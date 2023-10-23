@@ -52,6 +52,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "noisefilter.hpp"
 #include "sitor.hpp"
 #include "ccir476.hpp"
+#include "fec.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -718,5 +719,12 @@ SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder"
 Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
     callback([this] () {
         runModule(new Ccir476Decoder());
+    });
+}
+
+FecDecodeCommand::FecDecodeCommand(): Command("fecdecode", "FEC decoder") {
+    add_option("-s,--fec_size", fecSize, "Distance between repeated characters");
+    callback([this] () {
+        runModule(new FecDecoder(fecSize));
     });
 }

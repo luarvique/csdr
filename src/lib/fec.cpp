@@ -18,34 +18,24 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ccir476.hpp"
+#include "fec.hpp"
 
 using namespace Csdr;
 
-bool Ccir476Decoder::canProcess() {
+bool FecDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() > 0) && (writer->available() > 0);
+    return (reader->available() > fecSize) && (writer->available() > 0);
 }
 
-void Ccir476Decoder::process() {
+void FecDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     unsigned char* input = reader->getReadPointer();
-    size_t length = min(reader->available(), writer->available());
-    for (size_t i = 0; i < length; i++) {
-        unsigned char c = input[i];
-        switch (c) {
-            case CCIR476_FIG_SHIFT:
-                mode = 1;
-                break;
-            case CCIR476_LTR_SHIFT:
-                mode = 0;
-                break;
-            default:
-                c = c>127? '\0' : mode? CCIR476_FIGURES[c] : CCIR476_LETTERS[c];
-                * (writer->getWritePointer()) = c? c : '#';
-                writer->advance(1);
-                break;
-        }
+    size_t length = reader->available();
+    for (size_t i = 0; i < length - fecSize; i++) {
+        unsigned char c1 = input[i];
+        unsigned char c2 = input[i + fecSize];
+        * (writer->getWritePointer()) = c1==c2? c1 : '#';
+        writer->advance(1);
     }
-    reader->advance(length);
+    reader->advance(length - fecSize);
 }
