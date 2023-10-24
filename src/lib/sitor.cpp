@@ -42,7 +42,7 @@ void SitorDecoder::process() {
     unsigned char output = 0;
     unsigned char marks = 0;
     for (int i = 0; i < 7; i++) {
-        unsigned char bit = toBit(data[7 - i])? 1 : 0;
+        unsigned char bit = toBit(data[6 - i])? 1 : 0;
         output = (output << 1) | bit;
         marks += bit;
     }
