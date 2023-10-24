@@ -350,12 +350,7 @@ namespace Csdr {
     class Ccir476DecodeCommand: public Command {
         public:
             Ccir476DecodeCommand();
-    };
-
-    class FecDecodeCommand: public Command {
-        public:
-            FecDecodeCommand();
         private:
-            unsigned int fecSize = 5;
+            bool fec = false;
     };
 }
