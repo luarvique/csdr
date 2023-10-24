@@ -22,12 +22,6 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Csdr;
 
-static bool valid(unsigned char code) {
-    int j;
-    for (j=0; code; code>>=1) j += (code&1);
-    return j==4;
-}
-
 bool Ccir476Decoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return reader->available() > 0;
@@ -41,9 +35,9 @@ void Ccir476Decoder::process() {
         unsigned char c = useFec? fec(input[i]) : input[i];
         switch (c) {
             case '\0':
-            case CCIR476_SIA:
+//            case CCIR476_SIA:
             case CCIR476_SIB:
-            case CCIR476_RPT:
+//            case CCIR476_RPT:
             case CCIR476_BLK:
                 break;
             case CCIR476_FIG_SHIFT:
@@ -54,7 +48,7 @@ void Ccir476Decoder::process() {
                 break;
             default:
                 c = ascii(c);
-                * (writer->getWritePointer()) = c? c : '#';
+                * (writer->getWritePointer()) = c? c : '_';
                 writer->advance(1);
                 break;
         }
@@ -64,6 +58,12 @@ void Ccir476Decoder::process() {
 
 unsigned char Ccir476Decoder::ascii(unsigned char code) {
     return code>127? '\0' : mode? CCIR476_FIGURES[code] : CCIR476_LETTERS[code];
+}
+
+bool Ccir476Decoder::isValid(unsigned char code) {
+    int j;
+    for (j=0; code; code>>=1) j += (code&1);
+    return j==4;
 }
 
 unsigned char Ccir476Decoder::fec(unsigned char code) {
@@ -77,7 +77,11 @@ unsigned char Ccir476Decoder::fec(unsigned char code) {
     }
 
     if (alpha) {
-        code = c1==code? code : '\0';
+        code = c1==code? code
+             : strict? '\0'
+             : isValid(code)? code
+             : isValid(c1)? c1
+             : '\0';
     } else {
         c1 = c2;
         c2 = c3;

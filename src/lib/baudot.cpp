@@ -41,7 +41,7 @@ void BaudotDecoder::process() {
                 break;
             default:
                 c = c>31? '\0' : mode? BAUDOT_FIGURES[c] : BAUDOT_LETTERS[c];
-                * (writer->getWritePointer()) = c? c : '#';
+                * (writer->getWritePointer()) = c? c : '_';
                 writer->advance(1);
                 break;
         }

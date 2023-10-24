@@ -19,40 +19,37 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "sitor.hpp"
+#include "ccir476.hpp"
 
 using namespace Csdr;
 
-SitorDecoder::SitorDecoder(bool invert):
-    Module<float, unsigned char>(),
-    invert(invert)
-{}
-
-SitorDecoder::SitorDecoder():
-    SitorDecoder(false)
-{}
-
 bool SitorDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() > 8;
+    return reader->available() >= 7 + jitter;
 }
 
 void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float* data = reader->getReadPointer();
-    unsigned char output = 0;
-    unsigned char marks = 0;
-    for (int i = 0; i < 7; i++) {
-        unsigned char bit = toBit(data[6 - i])? 1 : 0;
-        output = (output << 1) | bit;
-        marks += bit;
+    unsigned int output = 0;
+
+    for (int i = 0; i < 7 + jitter; i++) {
+        output |= (toBit(data[i]) << i);
+        if (i>=7) {
+            unsigned char c = (output >> (i - 7));
+            if ((c==CCIR476_SIA) || (c==CCIR476_RPT)) {
+                if (i>7) {
+                    reader->advance(i - 7);
+                    output >>= (i - 7);
+                }
+                break;
+            }
+        }
     }
-    if (marks == 4) {
-        reader->advance(7);
-        *(writer->getWritePointer()) = output;
-        writer->advance(1);
-    } else {
-        reader->advance(1);
-    }
+
+    * writer->getWritePointer() = output & 0x7F;
+    reader->advance(7);
+    writer->advance(1);
 }
 
 bool SitorDecoder::toBit(float sample) {

@@ -709,15 +709,17 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
 }
 
 SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder") {
+    add_option("-j,--jitter", jitter, "Allowed signal jitter in bits (<= 6)");
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new SitorDecoder(invert));
+        runModule(new SitorDecoder(jitter, invert));
     });
 }
 
 Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
-    add_option("-f,--fec", fec, "Use FEC error correction");
+    add_option("-f,--fec", fec, "Use FEC error detection");
+    add_option("-s,--strict", strict, "Skip FEC errors, do not correct");
     callback([this] () {
-        runModule(new Ccir476Decoder(fec));
+        runModule(new Ccir476Decoder(fec, strict));
     });
 }
