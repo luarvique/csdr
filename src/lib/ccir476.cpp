@@ -36,7 +36,7 @@ void Ccir476Decoder::process() {
         switch (c) {
             case '\0':
 //            case CCIR476_SIA:
-            case CCIR476_SIB:
+//            case CCIR476_SIB:
 //            case CCIR476_RPT:
             case CCIR476_BLK:
                 break;

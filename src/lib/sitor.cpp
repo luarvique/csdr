@@ -37,11 +37,9 @@ void SitorDecoder::process() {
         output |= (toBit(data[i]) << i);
         if (i>=7) {
             unsigned char c = (output >> (i - 7));
-            if ((c==CCIR476_SIA) || (c==CCIR476_RPT)) {
-                if (i>7) {
-                    reader->advance(i - 7);
-                    output >>= (i - 7);
-                }
+            if ((c==CCIR476_SIA) /*|| (c==CCIR476_RPT)*/) {
+                reader->advance(i - 7);
+                output >>= (i - 7);
                 break;
             }
         }
