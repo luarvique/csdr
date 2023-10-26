@@ -77,8 +77,9 @@ unsigned char Ccir476Decoder::fec(unsigned char code) {
     }
 
     if (alpha) {
+        errors = c1==code? 0 : errors + 1;
         code = c1==code? code
-             : strict? '\0'
+             : errors>errorsAllowed? '\0'
              : isValid(code)? code
              : isValid(c1)? c1
              : '\0';

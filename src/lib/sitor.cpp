@@ -19,35 +19,33 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "sitor.hpp"
-#include "ccir476.hpp"
 
 using namespace Csdr;
 
 bool SitorDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= 7 + jitter;
+    return reader->available() >= 7;
 }
 
 void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float* data = reader->getReadPointer();
     unsigned int output = 0;
+    unsigned int marks = 0;
 
-    for (int i = 0; i < 7 + jitter; i++) {
-        output |= (toBit(data[i]) << i);
-        if (i>=7) {
-            unsigned char c = (output >> (i - 7));
-            if ((c==CCIR476_SIA) /*|| (c==CCIR476_RPT)*/) {
-                reader->advance(i - 7);
-                output >>= (i - 7);
-                break;
-            }
-        }
+    for (int i = 0; i < 7; i++) {
+        unsigned int bit = toBit(data[i]);
+        output |= (bit << i);
+        marks += bit;
     }
 
-    * writer->getWritePointer() = output & 0x7F;
-    reader->advance(7);
-    writer->advance(1);
+    if (marks != 4) {
+        reader->advance(1);
+    } else {
+        * writer->getWritePointer() = output & 0x7F;
+        reader->advance(7);
+        writer->advance(1);
+    }
 }
 
 bool SitorDecoder::toBit(float sample) {

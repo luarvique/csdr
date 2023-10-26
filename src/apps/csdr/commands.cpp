@@ -718,8 +718,8 @@ SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder"
 
 Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
     add_option("-f,--fec", fec, "Use FEC error detection");
-    add_option("-s,--strict", strict, "Skip FEC errors, do not correct");
+    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     callback([this] () {
-        runModule(new Ccir476Decoder(fec, strict));
+        runModule(new Ccir476Decoder(fec, errorsAllowed));
     });
 }

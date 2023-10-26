@@ -352,7 +352,7 @@ namespace Csdr {
         public:
             Ccir476DecodeCommand();
         private:
+            unsigned int errorsAllowed = 0;
             bool fec = false;
-            bool strict = false;
     };
 }
