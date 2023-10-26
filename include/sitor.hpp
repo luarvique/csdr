@@ -26,7 +26,7 @@ namespace Csdr {
 
     class SitorDecoder: public Module<float, unsigned char> {
         public:
-            explicit SitorDecoder(unsigned char jitter = 4, bool invert = false)
+            explicit SitorDecoder(unsigned char jitter = 1, bool invert = false)
             : jitter(jitter<=6? jitter : 6), invert(invert) {}
 
             bool canProcess() override;

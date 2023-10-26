@@ -344,7 +344,7 @@ namespace Csdr {
         public:
             SitorDecodeCommand();
         private:
-            unsigned int jitter = 4;
+            unsigned int jitter = 1;
             bool invert = false;
     };
 
