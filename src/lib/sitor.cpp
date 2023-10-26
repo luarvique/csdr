@@ -24,7 +24,7 @@ using namespace Csdr;
 
 bool SitorDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= 7;
+    return reader->available() >= 7 + jitter;
 }
 
 void SitorDecoder::process() {
@@ -33,19 +33,24 @@ void SitorDecoder::process() {
     unsigned int output = 0;
     unsigned int marks = 0;
 
-    for (int i = 0; i < 7; i++) {
+    // Get seven input bits AND some jitter bits
+    for (int i = 0; i < 7 + jitter; i++) {
         unsigned int bit = toBit(data[i]);
         output |= (bit << i);
-        marks += bit;
+        if (i<7) marks += bit;
     }
 
-    if (marks != 4) {
+    // Try aligning input stream to get a valid CCIR476 character
+    for (int i = 0; (marks != 4) && (i < jitter); i++) {
+        marks += ((output>>7) & 1) - (output & 1);
+        output >>= 1;
         reader->advance(1);
-    } else {
-        * writer->getWritePointer() = output & 0x7F;
-        reader->advance(7);
-        writer->advance(1);
     }
+
+    // Output received character
+    * writer->getWritePointer() = output & 0x7F;
+    reader->advance(7);
+    writer->advance(1);
 }
 
 bool SitorDecoder::toBit(float sample) {

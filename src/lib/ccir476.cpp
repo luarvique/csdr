@@ -35,9 +35,9 @@ void Ccir476Decoder::process() {
         unsigned char c = useFec? fec(input[i]) : input[i];
         switch (c) {
             case '\0':
-//            case CCIR476_SIA:
-//            case CCIR476_SIB:
-//            case CCIR476_RPT:
+            case CCIR476_SIA:
+            case CCIR476_SIB:
+            case CCIR476_RPT:
             case CCIR476_BLK:
                 break;
             case CCIR476_FIG_SHIFT:
@@ -82,7 +82,7 @@ unsigned char Ccir476Decoder::fec(unsigned char code) {
              : errors>errorsAllowed? '\0'
              : isValid(code)? code
              : isValid(c1)? c1
-             : '\0';
+             : 128;
     } else {
         c1 = c2;
         c2 = c3;
