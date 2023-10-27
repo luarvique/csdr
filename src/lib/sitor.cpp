@@ -32,19 +32,24 @@ void SitorDecoder::process() {
     float* data = reader->getReadPointer();
     unsigned int output = 0;
     unsigned int marks = 0;
+    int i;
 
     // Get seven input bits AND some jitter bits
-    for (int i = 0; i < 7 + jitter; i++) {
+    for (i = 0; i < 7 + jitter; i++) {
         unsigned int bit = toBit(data[i]);
         output |= (bit << i);
         if (i<7) marks += bit;
     }
 
     // Try aligning input stream to get a valid CCIR476 character
-    for (int i = 0; (marks != 4) && (i < jitter); i++) {
-        marks += ((output>>7) & 1) - (output & 1);
-        output >>= 1;
-        reader->advance(1);
+    for (i = 0; (marks != 4) && (i < jitter); i++) {
+        marks += ((output>>(i+7)) & 1) - ((output>>i) & 1);
+    }
+
+    // If a valid character found, use it, aligning input stream
+    if((i > 0) && (marks == 4)) {
+        reader->advance(i);
+        output >>= i;
     }
 
     // Output received character

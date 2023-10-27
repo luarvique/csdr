@@ -82,6 +82,8 @@ unsigned char Ccir476Decoder::fec(unsigned char code) {
              : errors>errorsAllowed? '\0'
              : isValid(code)? code
              : isValid(c1)? c1
+             : isValid(c1|code)? (c1|code)
+             : isValid(c1&code)? (c1&code)
              : 128;
     } else {
         c1 = c2;
