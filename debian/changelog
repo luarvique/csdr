@@ -1,3 +1,11 @@
+csdr (0.18.16) bullseye jammy; urgency=low
+
+  * Added SITOR and CCIR476+FEC decoders.
+  * Printing underscores for unrecognized CW and RTTY characters.
+  * Fixed possible invalid memory read in Baudot decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Sat, 28 Oct 2023 16:12:00 +0000
+
 csdr (0.18.15) bullseye jammy; urgency=low
 
   * Incrementing library version to match original CSDR 0.18.12.
