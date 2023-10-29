@@ -29,10 +29,12 @@ bool SitorDecoder::canProcess() {
 
 static int phase = 0;
 static int flip = 0;
+static int errors = 0;
 
 void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float* data = reader->getReadPointer();
+    unsigned char* out = writer->getWritePointer();
     unsigned int output = 0;
     unsigned int marks = 0;
     int i;
@@ -47,16 +49,27 @@ void SitorDecoder::process() {
     switch (phase) {
         case 0:
             // If phasing header of RPT->SIA found
-            if (output == 0b00011111100110) { flip = 0; phase++; }
+            if (output == 0b00011111100110)
+            {
+              flip = 0;
+              phase++;
+
+              *out++ = '>'|0x80;
+              writer->advance(1);
+            }
             break;
         case 1:
             // SIA of the phasing header
             phase++;
+            *out++ = '<'|0x80;
+            writer->advance(1);
             break;
         case 2:
             // Determine if we are using inverted CCIR476 characters
             flip = marks==3;
             phase++;
+            *out++ = (flip? '^':'v')|0x80;
+            writer->advance(1);
             break;
         case 3:
             // Invert CCIR476 character if enabled
@@ -65,11 +78,15 @@ void SitorDecoder::process() {
     }
 
     if (phase || (marks == 4)) {
+        // Reset back to phasing if there are too many errors
+        errors = marks==4? 0 : errors + 1;
+        if (errors > 16) phase = 0;
         // Output received character
-        * writer->getWritePointer() = output & 0x7F;
+        *out++ = output & 0x7F;
         reader->advance(7);
         writer->advance(1);
     } else {
+        // Keep searching for the correct phase
         reader->advance(1);
     }
 }

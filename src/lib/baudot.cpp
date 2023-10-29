@@ -40,7 +40,8 @@ void BaudotDecoder::process() {
                 mode = 0;
                 break;
             default:
-                c = c>31? '\0' : mode? BAUDOT_FIGURES[c] : BAUDOT_LETTERS[c];
+                // Debug mode: plain ASCII characters mapped to 128..255 range
+                c = c>127? c-128 : c>31? '\0' : mode? BAUDOT_FIGURES[c] : BAUDOT_LETTERS[c];
                 * (writer->getWritePointer()) = c? c : '_';
                 writer->advance(1);
                 break;

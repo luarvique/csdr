@@ -31,8 +31,11 @@ void Ccir476Decoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     unsigned char* input = reader->getReadPointer();
     size_t length = reader->available();
+
     for (size_t i = 0; i < length; i++) {
-        unsigned char c = useFec? fec(input[i]) : input[i];
+        // Debug mode: plain ASCII characters mapped to 128..255 range
+        unsigned char c = useFec && (input[i]<128)? fec(input[i]) : input[i];
+
         switch (c) {
             case '\0':
             case CCIR476_SIA:
@@ -53,6 +56,7 @@ void Ccir476Decoder::process() {
                 break;
         }
     }
+
     reader->advance(length);
 }
 
