@@ -61,7 +61,7 @@ void SitorDecoder::process() {
         case 1:
             // SIA of the phasing header
             phase++;
-            *out++ = '<'|0x80;
+            *out++ = '*'|0x80;
             writer->advance(1);
             break;
         case 2:
@@ -80,7 +80,11 @@ void SitorDecoder::process() {
     if (phase || (marks == 4)) {
         // Reset back to phasing if there are too many errors
         errors = marks==4? 0 : errors + 1;
-        if (errors > 16) phase = 0;
+        if (errors > 16) {
+            phase = 0;
+            *out++ = '<'|0x80;
+            writer->advance(1);
+        }
         // Output received character
         *out++ = output & 0x7F;
         reader->advance(7);
