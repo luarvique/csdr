@@ -57,10 +57,14 @@ void Ccir476Decoder::process() {
 }
 
 unsigned char Ccir476Decoder::ascii(unsigned char code) {
-    return code>127? '\0' : mode? CCIR476_FIGURES[code] : CCIR476_LETTERS[code];
+    // Debug mode: plain ASCII characters mapped to 128..255 range
+    return code>=128? code-128 : mode? CCIR476_FIGURES[code] : CCIR476_LETTERS[code];
 }
 
 bool Ccir476Decoder::isValid(unsigned char code) {
+    // Debug mode: plain ASCII characters mapped to 128..255 range
+    if (code>=128) return true;
+
     int j;
     for (j=0; code; code>>=1) j += (code&1);
     return j==4;

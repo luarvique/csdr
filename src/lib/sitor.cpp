@@ -24,8 +24,11 @@ using namespace Csdr;
 
 bool SitorDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= 7 + jitter;
+    return reader->available() >= 14;
 }
+
+static int phase = 0;
+static int flip = 0;
 
 void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
@@ -35,27 +38,40 @@ void SitorDecoder::process() {
     int i;
 
     // Get seven input bits AND some jitter bits
-    for (i = 0; i < 7 + jitter; i++) {
+    for (i = 0; i < 14; i++) {
         unsigned int bit = toBit(data[i]);
         output |= (bit << i);
         if (i<7) marks += bit;
     }
 
-    // Try aligning input stream to get a valid CCIR476 character
-    for (i = 0; (marks != 4) && (i < jitter); i++) {
-        marks += ((output>>(i+7)) & 1) - ((output>>i) & 1);
+    switch (phase) {
+        case 0:
+            // If phasing header of RPT->SIA found
+            if (output == 0b00011111100110) { flip = 0; phase++; }
+            break;
+        case 1:
+            // SIA of the phasing header
+            phase++;
+            break;
+        case 2:
+            // Determine if we are using inverted CCIR476 characters
+            flip = marks==3;
+            phase++;
+            break;
+        case 3:
+            // Invert CCIR476 character if enabled
+            if (flip) { output = ~output; marks = 7 - marks; }
+            break;
     }
 
-    // If a valid character found, use it, aligning input stream
-    if((i > 0) && (marks == 4)) {
-        reader->advance(i);
-        output >>= i;
+    if (phase || (marks == 4)) {
+        // Output received character
+        * writer->getWritePointer() = output & 0x7F;
+        reader->advance(7);
+        writer->advance(1);
+    } else {
+        reader->advance(1);
     }
-
-    // Output received character
-    * writer->getWritePointer() = output & 0x7F;
-    reader->advance(7);
-    writer->advance(1);
 }
 
 bool SitorDecoder::toBit(float sample) {
