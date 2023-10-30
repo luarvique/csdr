@@ -46,52 +46,65 @@ void SitorDecoder::process() {
         if (i<7) marks += bit;
     }
 
-    switch (phase) {
-        case 0:
-            // If phasing header of RPT->SIA found
-            if (output == 0b00011111100110)
-            {
-              flip = 0;
-              phase++;
+    // If phasing header of RPT->SIA found...
+    if (output == 0b00011111100110) {
+        phase  = 1;
+        errors = 0;
+        flip   = 0;
+    }
 
-              *out++ = '>'|0x80;
-              writer->advance(1);
-            }
-            break;
+    switch (phase) {
         case 1:
-            // SIA of the phasing header
-            phase++;
-            *out++ = '*'|0x80;
+            // RPT of the phasing header
+            phase = 2;
+            *out++ = '>'|0x80;
             writer->advance(1);
             break;
         case 2:
-            // Determine if we are using inverted CCIR476 characters
-            flip = marks==3;
-            phase++;
-            *out++ = (flip? '^':'v')|0x80;
+            // SIA of the phasing header
+            phase = 3;
+            *out++ = '*'|0x80;
             writer->advance(1);
             break;
         case 3:
-            // Invert CCIR476 character if enabled
-            if (flip) { output = ~output; marks = 7 - marks; }
+            // Determine if we are using inverted CCIR476 characters
+            phase = (marks==3) || (marks==4)? 4 : 0;
+            flip  = marks==3? 1 : 0;
+            *out++ = (marks + '0')|0x80;
+            writer->advance(1);
             break;
     }
 
-    if (phase || (marks == 4)) {
-        // Reset back to phasing if there are too many errors
-        errors = marks==4? 0 : errors + 1;
+    // Invert CCIR476 character if enabled
+    if (flip) { output = ~output; marks = 7 - marks; }
+
+    if (!phase && (marks != 4)) {
+        // Keep searching for the correct phase
+        reader->advance(1);
+    } else {
+        // Try correcting phase by one step
+        if (marks != 4) {
+            marks += ((output>>7) & 1) - (output & 1);
+            if (marks == 4) {
+                reader->advance(1);
+                output >>= 1;
+            }
+        }
+
+        // Output received character
+        *out++ = output & 0x7F;
+        reader->advance(7);
+        writer->advance(1);
+
+        // Track errors balance
+        errors = marks!=4? (errors + 1) : errors>0? (errors - 1) : 0;
+
+        // Revert to phasing if there are too many errors
         if (errors > 16) {
             phase = 0;
             *out++ = '<'|0x80;
             writer->advance(1);
         }
-        // Output received character
-        *out++ = output & 0x7F;
-        reader->advance(7);
-        writer->advance(1);
-    } else {
-        // Keep searching for the correct phase
-        reader->advance(1);
     }
 }
 

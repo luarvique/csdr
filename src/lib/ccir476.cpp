@@ -89,9 +89,17 @@ unsigned char Ccir476Decoder::fec(unsigned char code) {
         if((code==CCIR476_SIA) && (c1==CCIR476_RPT)) {
             code = c1 = CCIR476_SIA;
             mode = 0;
+
+            * (writer->getWritePointer()) = '!';
+            writer->advance(1);
         }
 
         errors = c1==code? 0 : errors + 1;
+        if (errors==errorsAllowed) {
+            * (writer->getWritePointer()) = '?';
+            writer->advance(1);
+        }
+
         code = c1==code? code
              : errors>errorsAllowed? '\0'
              : isValid(code)? code
