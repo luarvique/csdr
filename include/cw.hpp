@@ -106,7 +106,7 @@ namespace Csdr {
 
             // Convert CW code to a character
             char cw2char(unsigned int data)
-            { return(data<256? cwTable[data] : '#'); }
+            { return(data<256? cwTable[data] : '_'); }
 
             // Process a quantum of input data
             void processInternal(const T *data, unsigned int size);

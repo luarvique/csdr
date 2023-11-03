@@ -162,7 +162,7 @@ void MFRttyDecoder<T>::processInternal(const T *data, unsigned int size) {
         {
             // Convert 5bit ITA2 code to ASCII character
             // Check that START=0 and STOP=1
-            char chr = (code&0x41)==0x01? ita2char(rev[(code>>1) & 0x1F]) : '#';
+            char chr = (code&0x41)==0x01? ita2char(rev[(code>>1) & 0x1F]) : '_';
 
             // Handle special characters
             switch(chr)
