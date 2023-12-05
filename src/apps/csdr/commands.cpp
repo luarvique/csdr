@@ -52,6 +52,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "noisefilter.hpp"
 #include "sitor.hpp"
 #include "ccir476.hpp"
+#include "dsc.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -721,5 +722,12 @@ Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 
     add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     callback([this] () {
         runModule(new Ccir476Decoder(fec, errorsAllowed));
+    });
+}
+
+DscDecodeCommand::DscDecodeCommand(): Command("dscdecode", "DSC decoder") {
+    add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
+    callback([this] () {
+        runModule(new DscDecoder(invert));
     });
 }
