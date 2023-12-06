@@ -54,6 +54,23 @@ bool Ccir493Decoder::isValid(unsigned short code) {
 }
 
 unsigned short Ccir493Decoder::fec(unsigned short code) {
+    signed char c = ascii(code);
+    switch (c) {
+        case CCIR493_PHASE_DX:
+            alpha = 0;
+            break;
+        case CCIR493_PHASE_RX0:
+        case CCIR493_PHASE_RX0 + 1:
+        case CCIR493_PHASE_RX0 + 2:
+        case CCIR493_PHASE_RX0 + 3:
+        case CCIR493_PHASE_RX0 + 4:
+        case CCIR493_PHASE_RX0 + 5:
+        case CCIR493_PHASE_RX0 + 6:
+        case CCIR493_PHASE_RX0 + 7:
+            alpha = 1;
+            break;
+    }
+
     if (alpha) {
         errors = c1==code? 0 : errors + 1;
         code = c1==code? code
@@ -71,7 +88,5 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
     }
 
     alpha = !alpha;
-
-    // @@@ TODO!!!
     return code;
 }

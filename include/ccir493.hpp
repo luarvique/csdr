@@ -24,6 +24,12 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
+    const signed char CCIR493_PHASE_RX0 = 104;
+    const signed char CCIR493_PHASE_DX  = 125;
+    const signed char CCIR493_ACK_RQ    = 117;
+    const signed char CCIR493_ACK_BQ    = 122;
+    const signed char CCIR493_EOS       = 127;
+
     const signed char CCIR493_CODES[] = {
         -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 64, -1,
         -1, -1, -1, -1, -1, -1, 32, -1, -1, -1, -1, -1, -1, 96, -1, -1,
