@@ -34,6 +34,8 @@ void Ccir493Decoder::process() {
     for (size_t i = 0; i < length; i++) {
         unsigned short c = useFec? fec(input[i]) : input[i];
         switch (c) {
+            case 0:
+                break;
             default:
                 *(writer->getWritePointer()) = ascii(c);
                 writer->advance(1);
@@ -44,14 +46,32 @@ void Ccir493Decoder::process() {
 }
 
 signed char Ccir493Decoder::ascii(unsigned short code) {
-    return code < sizeof(CCIR492_CODES)? CCIR493_CODES[code] : -1;
+    return code < sizeof(CCIR493_CODES)? CCIR493_CODES[code] : -1;
 }
 
 bool Ccir493Decoder::isValid(unsigned short code) {
-    return (code < sizeof(CCIR492_CODES)) && (CCIR493_CODES[code] >= 0);
+    return (code < sizeof(CCIR493_CODES)) && (CCIR493_CODES[code] >= 0);
 }
 
 unsigned short Ccir493Decoder::fec(unsigned short code) {
+    if (alpha) {
+        errors = c1==code? 0 : errors + 1;
+        code = c1==code? code
+             : errors>errorsAllowed? 0
+             : isValid(code)? code
+             : isValid(c1)? c1
+             : isValid(c1|code)? (c1|code)
+             : isValid(c1&code)? (c1&code)
+             : 0;
+    } else {
+        c1 = c2;
+        c2 = c3;
+        c3 = code;
+        code = 0;
+    }
+
+    alpha = !alpha;
+
     // @@@ TODO!!!
     return code;
 }

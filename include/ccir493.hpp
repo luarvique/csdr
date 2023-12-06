@@ -100,9 +100,10 @@ namespace Csdr {
             void process() override;
 
         private:
+            unsigned short c1 = 0, c2 = 0, c3 = 0;
             unsigned int errorsAllowed;
             unsigned int errors = 0;
-            int mode = 0;
+            int alpha = 0;
             bool useFec;
 
             unsigned short fec(unsigned short code);

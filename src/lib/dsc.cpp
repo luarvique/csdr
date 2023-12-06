@@ -32,22 +32,25 @@ void DscDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float *data = reader->getReadPointer();
     unsigned int output = 0;
+    unsigned int marks = 0;
     int i;
 
     // Get ten input bits
     for (i = 0; i < 10; i++) {
         unsigned int bit = toBit(data[i]);
         output |= (bit << i);
+        if (i<7) marks += bit;
     }
 
-    if (CCIR493_CODES[output] < 0) {
-      // Skip a bit
-      reader->advance(1);
+    // Last three bits indicate the number of zeros in the first seven
+    if ((output & 7) != (7 - marks)) {
+        // Skip a bit
+        reader->advance(1);
     } else {
-      // Output received character
-      *writer->getWritePointer() = output & 0x3FF;
-      reader->advance(10);
-      writer->advance(1);
+        // Output received character
+        *writer->getWritePointer() = output & 0x3FF;
+        reader->advance(10);
+        writer->advance(1);
     }
 }
 
