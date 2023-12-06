@@ -19,6 +19,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "dsc.hpp"
+#include "ccir493.hpp"
 
 using namespace Csdr;
 
@@ -31,20 +32,23 @@ void DscDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float *data = reader->getReadPointer();
     unsigned int output = 0;
-    unsigned int marks = 0;
     int i;
 
     // Get ten input bits
     for (i = 0; i < 10; i++) {
         unsigned int bit = toBit(data[i]);
         output |= (bit << i);
-        marks += bit;
     }
 
-    // Output received character
-    *writer->getWritePointer() = output & 0x3FF;
-    reader->advance(10);
-    writer->advance(1);
+    if (CCIR493_CODES[output] < 0) {
+      // Skip a bit
+      reader->advance(1);
+    } else {
+      // Output received character
+      *writer->getWritePointer() = output & 0x3FF;
+      reader->advance(10);
+      writer->advance(1);
+    }
 }
 
 bool DscDecoder::toBit(float sample) {
