@@ -24,7 +24,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    class DscDecoder: public Module<float, unsigned short> {
+    class DscDecoder: public Module<float, unsigned char> {
         public:
             explicit DscDecoder(bool invert = false): invert(invert) {}
 

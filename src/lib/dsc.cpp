@@ -48,7 +48,7 @@ void DscDecoder::process() {
         reader->advance(1);
     } else {
         // Output received character
-        *writer->getWritePointer() = output & 0x3FF;
+        *writer->getWritePointer() = output >> 3;
         reader->advance(10);
         writer->advance(1);
     }
