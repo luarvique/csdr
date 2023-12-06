@@ -18,35 +18,43 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "dsc.hpp"
+#include "ccir493.hpp"
 
 using namespace Csdr;
 
-bool DscDecoder::canProcess() {
+bool Ccir493Decoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= 10;
+    return reader->available() > 0;
 }
 
-void DscDecoder::process() {
+void Ccir493Decoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    float *data = reader->getReadPointer();
-    unsigned int output = 0;
-    unsigned int marks = 0;
-    int i;
-
-    // Get ten input bits
-    for (i = 0; i < 10; i++) {
-        unsigned int bit = toBit(data[i]);
-        output |= (bit << i);
-        marks += bit;
+    unsigned char *input = reader->getReadPointer();
+    size_t length = reader->available();
+    for (size_t i = 0; i < length; i++) {
+        unsigned char c = useFec? fec(input[i]) : input[i];
+        switch (c) {
+            default:
+                c = ascii(c);
+                *(writer->getWritePointer()) = c? c : '_';
+                writer->advance(1);
+                break;
+        }
     }
-
-    // Output received character
-    *writer->getWritePointer() = output & 0x3FF;
-    reader->advance(10);
-    writer->advance(1);
+    reader->advance(length);
 }
 
-bool DscDecoder::toBit(float sample) {
-    return (sample > 0) != invert;
+unsigned char Ccir493Decoder::ascii(unsigned short code) {
+    // @@@ TODO!!!
+    return code>1023? '\0' : CCIR493_CODES[code];
+}
+
+bool Ccir493Decoder::isValid(unsigned short code) {
+    // @@@ TODO!!!
+    return true;
+}
+
+unsigned char Ccir493Decoder::fec(unsigned short code) {
+    // @@@ TODO!!!
+    return code;
 }

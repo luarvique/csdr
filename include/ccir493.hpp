@@ -24,16 +24,25 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    class DscDecoder: public Module<float, unsigned short> {
+    const unsigned char CCIR493_LETTERS[] = {
+    };
+
+    class Ccir493Decoder: public Module<unsigned short, unsigned char> {
         public:
-            explicit DscDecoder(bool invert = false): invert(invert) {}
+            Ccir493Decoder(bool fec = true, unsigned int errorsAllowed = 16)
+            : useFec(fec), errorsAllowed(errorsAllowed) {}
 
             bool canProcess() override;
             void process() override;
 
         private:
-            bool toBit(float sample);
-            bool invert;
-    };
+            unsigned int errorsAllowed;
+            unsigned int errors = 0;
+            int mode = 0;
+            bool useFec;
 
+            unsigned char fec(unsigned short code);
+            unsigned char ascii(unsigned short code);
+            bool isValid(unsigned short code);
+    };
 }

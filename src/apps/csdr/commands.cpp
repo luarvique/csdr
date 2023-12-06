@@ -53,6 +53,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "sitor.hpp"
 #include "ccir476.hpp"
 #include "dsc.hpp"
+#include "ccir493.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -729,5 +730,13 @@ DscDecodeCommand::DscDecodeCommand(): Command("dscdecode", "DSC decoder") {
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
         runModule(new DscDecoder(invert));
+    });
+}
+
+Ccir493DecodeCommand::Ccir493DecodeCommand(): Command("ccir493decode", "CCIR493 decoder") {
+    add_option("-f,--fec", fec, "Use FEC error detection");
+    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
+    callback([this] () {
+        runModule(new Ccir493Decoder(fec, errorsAllowed));
     });
 }
