@@ -50,7 +50,8 @@ void Ccir493Decoder::process() {
         output >>= 3;
         output = useFec? fec(output) : output;
         // Output received character
-        if (output != 255) {
+//        if (output != 255) {
+        if (output < 128) {
             *writer->getWritePointer() = output;
             writer->advance(1);
         }
@@ -86,8 +87,8 @@ unsigned char Ccir493Decoder::fec(unsigned char code) {
 
     if (rxPhase) {
         code = c1==code? code
-             : isValid(code)? code
-             : isValid(c1)? c1
+/*             : isValid(code)? code
+             : isValid(c1)? c1 */
              : 128;
     } else {
         c1 = c2;

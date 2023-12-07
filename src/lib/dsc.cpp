@@ -26,24 +26,30 @@ using namespace Csdr;
 
 bool DscDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() > 2;
+    return (reader->available() > 2) && (writer->writeable() > 8);
 }
 
 void DscDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     int todo, done;
 
+    // @@@ TODO: REMOVE THIS!!!
+    unsigned char c = *reader->getReadPointer();
+    sprintf((char *)writer->getWritePointer(), " %d", c);
+    writer->advance(strlen((const char *)writer->getWritePointer()));
+    reader->advance(1);
+    return;
+
+
     // Try obtaining complete DSC message from the input
-    do
-    {
+    do {
       todo = reader->available();
       done = todo>0? parseMessage(reader->getReadPointer(), todo) : 0;
       done = done>0? done : todo>32? 1 : 0;
 
       // Advance input
-      if(done>0) reader->advance(done);
-    }
-    while(done);
+      if (done>0) reader->advance(done);
+    } while(done);
 }
 
 bool DscDecoder::isValid(unsigned char code) {
@@ -406,9 +412,9 @@ void DscDecoder::printString(const char *buf) {
     unsigned int l = strlen(buf);
 
     // If there is enough output buffer available...
-    if(this->writer->writeable()>=l) {
+    if(writer->writeable()>=l) {
         // Write data then advance pointer
-        memcpy(this->writer->getWritePointer(), buf, l);
-        this->writer->advance(l);
+        memcpy(writer->getWritePointer(), buf, l);
+        writer->advance(l);
     }
 }
