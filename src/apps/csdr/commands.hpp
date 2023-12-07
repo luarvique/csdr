@@ -359,15 +359,13 @@ namespace Csdr {
     class DscDecodeCommand: public Command {
         public:
             DscDecodeCommand();
-        private:
-            bool invert = false;
     };
 
     class Ccir493DecodeCommand: public Command {
         public:
             Ccir493DecodeCommand();
         private:
-            unsigned int errorsAllowed = 0;
+            bool invert = false;
             bool fec = false;
     };
 }

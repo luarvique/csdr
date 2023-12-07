@@ -719,7 +719,7 @@ SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder"
 }
 
 Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
-    add_option("-f,--fec", fec, "Use FEC error detection");
+    add_flag("-f,--fec", fec, "Use FEC error detection");
     add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     callback([this] () {
         runModule(new Ccir476Decoder(fec, errorsAllowed));
@@ -727,16 +727,15 @@ Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 
 }
 
 DscDecodeCommand::DscDecodeCommand(): Command("dscdecode", "DSC decoder") {
-    add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new DscDecoder(invert));
+        runModule(new DscDecoder());
     });
 }
 
 Ccir493DecodeCommand::Ccir493DecodeCommand(): Command("ccir493decode", "CCIR493 decoder") {
-    add_option("-f,--fec", fec, "Use FEC error detection");
-    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
+    add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
+    add_flag("-f,--fec", fec, "Use FEC error detection");
     callback([this] () {
-        runModule(new Ccir493Decoder(fec, errorsAllowed));
+        runModule(new Ccir493Decoder(fec, invert));
     });
 }
