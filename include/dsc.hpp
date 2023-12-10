@@ -24,6 +24,12 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
+    const unsigned char DSC_PHASE_RX0     = 104;
+    const unsigned char DSC_ACK_RQ        = 117;
+    const unsigned char DSC_ACK_BQ        = 122;
+    const unsigned char DSC_EMPTY         = 126;
+    const unsigned char DSC_EOS           = 127;
+
     const unsigned char DSC_FMT_DISTRESS  = 112;
     const unsigned char DSC_FMT_ALLSHIPS  = 116;
     const unsigned char DSC_FMT_GROUPCALL = 114;

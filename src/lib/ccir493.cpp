@@ -42,7 +42,7 @@ void Ccir493Decoder::process() {
     }
 
     // Last three bits indicate the number of zeros in the first seven
-    if (isValid(output)) {
+    if (!isValid(output)) {
         // Skip a bit
         reader->advance(1);
     } else {
