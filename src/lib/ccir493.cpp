@@ -42,17 +42,15 @@ void Ccir493Decoder::process() {
     }
 
     // Last three bits indicate the number of zeros in the first seven
-    if ((output & 7) != (7 - marks)) {
+    if (isValid(output)) {
         // Skip a bit
         reader->advance(1);
     } else {
         // Pass received character through FEC
-        output >>= 3;
         output = useFec? fec(output) : output;
         // Output received character
-//        if (output != 255) {
-        if (output < 128) {
-            *writer->getWritePointer() = output;
+        if (isValid(output)) {
+            *writer->getWritePointer() = ascii(output);
             writer->advance(1);
         }
         // Skip 10 bits
@@ -64,37 +62,45 @@ bool Ccir493Decoder::toBit(float sample) {
     return (sample > 0) != invert;
 }
 
-bool Ccir493Decoder::isValid(unsigned char code) {
-    return code < 128;
+bool Ccir493Decoder::isValid(unsigned short code) {
+    return (code < 0x400) && ((code & 7) == CCIR493_BITCOUNT[code >> 3]);
 }
 
-unsigned char Ccir493Decoder::fec(unsigned char code) {
+char Ccir493Decoder::ascii(unsigned short code) {
+    return code >> 3;
+}
+
+unsigned short Ccir493Decoder::fec(unsigned short code) {
     switch (code) {
         case CCIR493_PHASE_DX:
+            // This symbol is always received in DX phase
             rxPhase = false;
             break;
         case CCIR493_PHASE_RX0:
-        case CCIR493_PHASE_RX0 + 1:
-        case CCIR493_PHASE_RX0 + 2:
-        case CCIR493_PHASE_RX0 + 3:
-        case CCIR493_PHASE_RX0 + 4:
-        case CCIR493_PHASE_RX0 + 5:
-        case CCIR493_PHASE_RX0 + 6:
-        case CCIR493_PHASE_RX0 + 7:
-            rxPhase = true;
-            break;
+        case CCIR493_PHASE_RX1:
+        case CCIR493_PHASE_RX2:
+        case CCIR493_PHASE_RX3:
+        case CCIR493_PHASE_RX4:
+        case CCIR493_PHASE_RX5:
+        case CCIR493_PHASE_RX6:
+        case CCIR493_PHASE_RX7:
+            // The DX phase had to have CCIR493_PHASE_DX
+            code = c1==CCIR493_PHASE_DX? code : 0xFFFF;
+            // DX phase next
+            rxPhase = false;
+            return code;
     }
 
     if (rxPhase) {
         code = c1==code? code
-/*             : isValid(code)? code
-             : isValid(c1)? c1 */
-             : 128;
+             : isValid(code)? code
+             : isValid(c1)? c1
+             : 0xFFFF;
     } else {
         c1 = c2;
         c2 = c3;
         c3 = code;
-        code = 255;
+        code = 0;
     }
 
     rxPhase = !rxPhase;
