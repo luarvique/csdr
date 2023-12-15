@@ -26,16 +26,24 @@ namespace Csdr {
 
     class SitorDecoder: public Module<float, unsigned char> {
         public:
-            explicit SitorDecoder(unsigned char jitter = 1, bool invert = false)
-            : jitter(jitter<=6? jitter : 6), invert(invert) {}
+            explicit SitorDecoder(unsigned int jitter = 1, unsigned int errorsAllowed = 16, bool invert = false)
+            : jitter(jitter<=6? jitter : 6), errorsAllowed(errorsAllowed), invert(invert) {}
 
             bool canProcess() override;
             void process() override;
 
         private:
-            bool toBit(float sample);
-            unsigned char jitter;
+            unsigned int jitter;
+            unsigned int errorsAllowed;
             bool invert;
+
+            unsigned char c1 = '\0', c2 = '\0', c3 = '\0';
+            unsigned int errors = 0;
+            int alpha = 0;
+
+            bool toBit(float sample);
+            unsigned char fec(unsigned char code);
+            bool isValid(unsigned char code);
     };
 
 }

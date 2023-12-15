@@ -712,17 +712,16 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
 
 SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder") {
     add_option("-j,--jitter", jitter, "Allowed signal jitter in bits (<= 6)");
+    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new SitorDecoder(jitter, invert));
+        runModule(new SitorDecoder(jitter, errorsAllowed, invert));
     });
 }
 
 Ccir476DecodeCommand::Ccir476DecodeCommand(): Command("ccir476decode", "CCIR476 decoder") {
-    add_flag("-f,--fec", fec, "Use FEC error detection");
-    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     callback([this] () {
-        runModule(new Ccir476Decoder(fec, errorsAllowed));
+        runModule(new Ccir476Decoder());
     });
 }
 

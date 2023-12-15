@@ -29,16 +29,20 @@ bool Ccir476Decoder::canProcess() {
 
 void Ccir476Decoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    unsigned char* input = reader->getReadPointer();
+    unsigned char *input = reader->getReadPointer();
     size_t length = reader->available();
+
     for (size_t i = 0; i < length; i++) {
-        unsigned char c = useFec? fec(input[i]) : input[i];
+        unsigned char c = input[i];
         switch (c) {
             case '\0':
-            case CCIR476_SIA:
             case CCIR476_SIB:
-            case CCIR476_RPT:
             case CCIR476_BLK:
+                break;
+            case CCIR476_SIA:
+            case CCIR476_RPT:
+                // Reset shift on phasing
+                mode = 0;
                 break;
             case CCIR476_FIG_SHIFT:
                 mode = 1;
@@ -48,56 +52,15 @@ void Ccir476Decoder::process() {
                 break;
             default:
                 c = ascii(c);
-                * (writer->getWritePointer()) = c? c : '_';
+                *(writer->getWritePointer()) = c? c : '_';
                 writer->advance(1);
                 break;
         }
     }
+
     reader->advance(length);
 }
 
 unsigned char Ccir476Decoder::ascii(unsigned char code) {
     return code>127? '\0' : mode? CCIR476_FIGURES[code] : CCIR476_LETTERS[code];
-}
-
-bool Ccir476Decoder::isValid(unsigned char code) {
-    int j;
-    for (j=0; code; code>>=1) j += (code&1);
-    return j==4;
-}
-
-unsigned char Ccir476Decoder::fec(unsigned char code) {
-    switch (code) {
-        case CCIR476_SIA:
-            alpha = 1;
-            break;
-        case CCIR476_RPT:
-            alpha = 0;
-            break;
-    }
-
-    if (alpha) {
-        // Detect phasing
-        if((code==CCIR476_SIA) && (c1==CCIR476_RPT)) {
-            code = c1 = CCIR476_SIA;
-            mode = 0;
-        }
-
-        errors = c1==code? 0 : errors + 1;
-        code = c1==code? code
-             : errors>errorsAllowed? '\0'
-             : isValid(code)? code
-             : isValid(c1)? c1
-             : isValid(c1|code)? (c1|code)
-             : isValid(c1&code)? (c1&code)
-             : 128;
-    } else {
-        c1 = c2;
-        c2 = c3;
-        c3 = code;
-        code = '\0';
-    }
-
-    alpha = !alpha;
-    return code;
 }

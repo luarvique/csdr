@@ -73,22 +73,13 @@ namespace Csdr {
 
     class Ccir476Decoder: public Module<unsigned char, unsigned char> {
         public:
-            Ccir476Decoder(bool fec = true, unsigned int errorsAllowed = 16)
-            : useFec(fec), errorsAllowed(errorsAllowed) {}
-
             bool canProcess() override;
             void process() override;
 
         private:
-            unsigned char c1 = '\0', c2 = '\0', c3 = '\0';
-            unsigned int errorsAllowed;
-            unsigned int errors = 0;
-            int alpha = 0;
             int mode = 0;
-            bool useFec;
 
-            unsigned char fec(unsigned char code);
             unsigned char ascii(unsigned char code);
-            bool isValid(unsigned char code);
     };
+
 }

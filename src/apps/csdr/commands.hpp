@@ -345,15 +345,13 @@ namespace Csdr {
             SitorDecodeCommand();
         private:
             unsigned int jitter = 1;
+            unsigned int errorsAllowed = 16;
             bool invert = false;
     };
 
     class Ccir476DecodeCommand: public Command {
         public:
             Ccir476DecodeCommand();
-        private:
-            unsigned int errorsAllowed = 0;
-            bool fec = false;
     };
 
     class DscDecodeCommand: public Command {

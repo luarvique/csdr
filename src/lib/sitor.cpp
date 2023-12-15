@@ -19,6 +19,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "sitor.hpp"
+#include "ccir476.hpp"
 
 using namespace Csdr;
 
@@ -29,7 +30,7 @@ bool SitorDecoder::canProcess() {
 
 void SitorDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    float* data = reader->getReadPointer();
+    float *data = reader->getReadPointer();
     unsigned int output = 0;
     unsigned int marks = 0;
     int i;
@@ -52,12 +53,58 @@ void SitorDecoder::process() {
         output >>= i;
     }
 
-    // Output received character
-    * writer->getWritePointer() = output & 0x7F;
+    // Process and output received character
+    output = fec(output & 0x7F);
+    if (output) {
+        *(writer->getWritePointer()) = output;
+        writer->advance(1);
+    }
+
+    // Advance input
     reader->advance(7);
-    writer->advance(1);
 }
 
 bool SitorDecoder::toBit(float sample) {
     return (sample > 0) != invert;
+}
+
+bool SitorDecoder::isValid(unsigned char code) {
+    int j;
+    for (j=0; code; code>>=1) j += (code&1);
+    return j==4;
+}
+
+unsigned char SitorDecoder::fec(unsigned char code) {
+    switch (code) {
+        case CCIR476_SIA:
+            alpha = 1;
+            break;
+        case CCIR476_RPT:
+            alpha = 0;
+            break;
+    }
+
+    if (alpha) {
+        // Detect phasing
+        if((code==CCIR476_SIA) && (c1==CCIR476_RPT)) {
+            code = c1 = CCIR476_SIA;
+        }
+
+        errors = c1==code? 0 : errors + 1;
+        code = c1==code? code
+             : errors>errorsAllowed? '\0'
+             : isValid(code)? code
+             : isValid(c1)? c1
+             : isValid(c1|code)? (c1|code)
+             : isValid(c1&code)? (c1&code)
+             : 128;
+    } else {
+        c1 = c2;
+        c2 = c3;
+        c3 = code;
+        code = '\0';
+    }
+
+    alpha = !alpha;
+    return code;
 }
