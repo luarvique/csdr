@@ -51,6 +51,10 @@ void SitorDecoder::process() {
     if((i > 0) && (marks == 4)) {
         reader->advance(i);
         output >>= i;
+    // If no valid character and too many errors, keep looking
+    } else if (errors>errorsAllowed) {
+        reader->advance(jitter + 1);
+        return;
     }
 
     // Process and output received character
@@ -77,19 +81,20 @@ bool SitorDecoder::isValid(unsigned char code) {
 unsigned char SitorDecoder::fec(unsigned char code) {
     switch (code) {
         case CCIR476_SIA:
-            alpha = 1;
+            // This symbol is always received in DX phase
+            rxPhase = false;
+            errors  = 0;
             break;
         case CCIR476_RPT:
-            alpha = 0;
-            break;
+            // The DX phase had to have CCIR476_SIA
+            code = c1==CCIR476_SIA? c1 : '\0';
+            // DX phase next
+            rxPhase = false;
+            errors  = code? 0 : errors + 1;
+            return code;
     }
 
-    if (alpha) {
-        // Detect phasing
-        if((code==CCIR476_SIA) && (c1==CCIR476_RPT)) {
-            code = c1 = CCIR476_SIA;
-        }
-
+    if (rxPhase) {
         errors = c1==code? 0 : errors + 1;
         code = c1==code? code
              : errors>errorsAllowed? '\0'
@@ -105,6 +110,6 @@ unsigned char SitorDecoder::fec(unsigned char code) {
         code = '\0';
     }
 
-    alpha = !alpha;
+    rxPhase = !rxPhase;
     return code;
 }

@@ -39,7 +39,7 @@ namespace Csdr {
 
             unsigned char c1 = '\0', c2 = '\0', c3 = '\0';
             unsigned int errors = 0;
-            int alpha = 0;
+            bool rxPhase = false;
 
             bool toBit(float sample);
             unsigned char fec(unsigned char code);
