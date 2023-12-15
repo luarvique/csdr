@@ -66,6 +66,6 @@ namespace Csdr {
             bool toBit(float sample);
             bool isValid(unsigned short code);
             unsigned short fec(unsigned short code);
-            char ascii(unsigned short code);
+            char toCode(unsigned short code);
     };
 }

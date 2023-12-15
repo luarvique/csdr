@@ -19,6 +19,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "ccir493.hpp"
+#include <string.h>
+#include <stdio.h>
 
 using namespace Csdr;
 
@@ -50,8 +52,18 @@ void Ccir493Decoder::process() {
         output = useFec? fec(output) : output;
         // Output received character
         if (isValid(output)) {
-            *writer->getWritePointer() = ascii(output);
-            writer->advance(1);
+if(output) {
+char s[256];
+sprintf(s, " %d", toCode(output));
+if(writer->writeable() >= strlen(s)) {
+    memcpy(writer->getWritePointer(), s, strlen(s));
+    writer->advance(strlen(s));
+}
+}
+
+
+//            *writer->getWritePointer() = toCode(output);
+//            writer->advance(1);
         }
         // Skip 10 bits
         reader->advance(10);
@@ -66,7 +78,7 @@ bool Ccir493Decoder::isValid(unsigned short code) {
     return (code < 0x400) && ((code & 7) == CCIR493_BITCOUNT[code >> 3]);
 }
 
-char Ccir493Decoder::ascii(unsigned short code) {
+char Ccir493Decoder::toCode(unsigned short code) {
     return code >> 3;
 }
 
