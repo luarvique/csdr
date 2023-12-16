@@ -50,7 +50,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "afc.hpp"
 #include "cw.hpp"
 #include "noisefilter.hpp"
-#include "sitor.hpp"
+#include "sitorb.hpp"
 #include "ccir476.hpp"
 #include "dsc.hpp"
 #include "ccir493.hpp"
@@ -710,12 +710,12 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
     });
 }
 
-SitorDecodeCommand::SitorDecodeCommand(): Command("sitordecode", "SITOR decoder") {
+SitorBDecodeCommand::SitorBDecodeCommand(): Command("sitorbdecode", "SITOR-B decoder") {
     add_option("-j,--jitter", jitter, "Allowed signal jitter in bits (<= 6)");
     add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new SitorDecoder(jitter, errorsAllowed, invert));
+        runModule(new SitorBDecoder(jitter, errorsAllowed, invert));
     });
 }
 

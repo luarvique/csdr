@@ -340,9 +340,9 @@ namespace Csdr {
             unsigned int samplePeriod = 1;
     };
 
-    class SitorDecodeCommand: public Command {
+    class SitorBDecodeCommand: public Command {
         public:
-            SitorDecodeCommand();
+            SitorBDecodeCommand();
         private:
             unsigned int jitter = 1;
             unsigned int errorsAllowed = 16;

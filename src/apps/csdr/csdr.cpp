@@ -75,7 +75,7 @@ int Cli::main(int argc, char** argv) {
     app.add_subcommand(std::shared_ptr<CLI::App>(new FaxDecoderCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new ReduceNoiseCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new AfcCommand()));
-    app.add_subcommand(std::shared_ptr<CLI::App>(new SitorDecodeCommand()));
+    app.add_subcommand(std::shared_ptr<CLI::App>(new SitorBDecodeCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new Ccir476DecodeCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new Ccir493DecodeCommand()));
     app.add_subcommand(std::shared_ptr<CLI::App>(new DscDecodeCommand()));

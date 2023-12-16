@@ -24,9 +24,9 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    class SitorDecoder: public Module<float, unsigned char> {
+    class SitorBDecoder: public Module<float, unsigned char> {
         public:
-            explicit SitorDecoder(unsigned int jitter = 1, unsigned int errorsAllowed = 16, bool invert = false)
+            explicit SitorBDecoder(unsigned int jitter = 1, unsigned int errorsAllowed = 16, bool invert = false)
             : jitter(jitter<=6? jitter : 6), errorsAllowed(errorsAllowed), invert(invert) {}
 
             bool canProcess() override;

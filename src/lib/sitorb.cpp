@@ -18,17 +18,17 @@ You should have received a copy of the GNU General Public License
 along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "sitor.hpp"
+#include "sitorb.hpp"
 #include "ccir476.hpp"
 
 using namespace Csdr;
 
-bool SitorDecoder::canProcess() {
+bool SitorBDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return reader->available() >= 7 + jitter;
 }
 
-void SitorDecoder::process() {
+void SitorBDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float *data = reader->getReadPointer();
     unsigned int output = 0;
@@ -68,17 +68,15 @@ void SitorDecoder::process() {
     reader->advance(7);
 }
 
-bool SitorDecoder::toBit(float sample) {
+bool SitorBDecoder::toBit(float sample) {
     return (sample > 0) != invert;
 }
 
-bool SitorDecoder::isValid(unsigned char code) {
-    int j;
-    for (j=0; code; code>>=1) j += (code&1);
-    return j==4;
+bool SitorBDecoder::isValid(unsigned char code) {
+    return (code < 128) && CCIR476_VALID[code];
 }
 
-unsigned char SitorDecoder::fec(unsigned char code) {
+unsigned char SitorBDecoder::fec(unsigned char code) {
     switch (code) {
         case CCIR476_SIA:
             // This symbol is always received in DX phase
