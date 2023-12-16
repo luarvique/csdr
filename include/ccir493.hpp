@@ -51,8 +51,8 @@ namespace Csdr {
 
     class Ccir493Decoder: public Module<float, unsigned char> {
         public:
-            explicit Ccir493Decoder(bool fec = true, bool invert = false)
-            : useFec(fec), invert(invert) {}
+            explicit Ccir493Decoder(bool invert = false)
+            : invert(invert) {}
 
             bool canProcess() override;
             void process() override;
@@ -60,7 +60,6 @@ namespace Csdr {
         private:
             unsigned short c1 = 0, c2 = 0, c3 = 0;
             bool rxPhase = false;
-            bool useFec;
             bool invert;
 
             bool toBit(float sample);

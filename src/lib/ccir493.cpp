@@ -49,7 +49,7 @@ void Ccir493Decoder::process() {
         reader->advance(1);
     } else {
         // Pass received character through FEC
-        output = useFec? fec(output) : output;
+        output = fec(output);
         // Output received character
         if (isValid(output)) {
 if(output) {

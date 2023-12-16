@@ -733,8 +733,7 @@ DscDecodeCommand::DscDecodeCommand(): Command("dscdecode", "DSC decoder") {
 
 Ccir493DecodeCommand::Ccir493DecodeCommand(): Command("ccir493decode", "CCIR493 decoder") {
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
-    add_flag("-f,--fec", fec, "Use FEC error detection");
     callback([this] () {
-        runModule(new Ccir493Decoder(fec, invert));
+        runModule(new Ccir493Decoder(invert));
     });
 }

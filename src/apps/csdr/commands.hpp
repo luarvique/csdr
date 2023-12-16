@@ -364,6 +364,5 @@ namespace Csdr {
             Ccir493DecodeCommand();
         private:
             bool invert = false;
-            bool fec = false;
     };
 }
