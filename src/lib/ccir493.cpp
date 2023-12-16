@@ -52,18 +52,8 @@ void Ccir493Decoder::process() {
         output = fec(output);
         // Output received character
         if (isValid(output)) {
-if(output) {
-char s[256];
-sprintf(s, " %d", toCode(output));
-if(writer->writeable() >= strlen(s)) {
-    memcpy(writer->getWritePointer(), s, strlen(s));
-    writer->advance(strlen(s));
-}
-}
-
-
-//            *writer->getWritePointer() = toCode(output);
-//            writer->advance(1);
+            *(writer->getWritePointer()) = toCode(output);
+            writer->advance(1);
         }
         // Skip 10 bits
         reader->advance(10);
@@ -75,7 +65,7 @@ bool Ccir493Decoder::toBit(float sample) {
 }
 
 bool Ccir493Decoder::isValid(unsigned short code) {
-    return (code < 0x400) && ((code & 7) == CCIR493_BITCOUNT[code >> 3]);
+    return (code < 0x400) && ((code & 7) == CCIR493_ZEROCOUNT[code >> 3]);
 }
 
 char Ccir493Decoder::toCode(unsigned short code) {

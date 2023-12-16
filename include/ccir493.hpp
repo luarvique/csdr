@@ -24,7 +24,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    const unsigned char CCIR493_BITCOUNT[128] = {
+    const unsigned char CCIR493_ZEROCOUNT[128] = {
         7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3, // 0
         6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, // 16
         6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, // 32

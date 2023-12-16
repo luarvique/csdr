@@ -64,3 +64,7 @@ void Ccir476Decoder::process() {
 unsigned char Ccir476Decoder::ascii(unsigned char code) {
     return code>127? '\0' : mode? CCIR476_FIGURES[code] : CCIR476_LETTERS[code];
 }
+
+bool Ccir476Decoder::isValid(unsigned char code) {
+    return (code < 128) && (CCIR476_ZEROCOUNT[code] == 3);
+}

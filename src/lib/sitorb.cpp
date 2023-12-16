@@ -73,7 +73,7 @@ bool SitorBDecoder::toBit(float sample) {
 }
 
 bool SitorBDecoder::isValid(unsigned char code) {
-    return (code < 128) && CCIR476_VALID[code];
+    return (code < 128) && (CCIR476_ZEROCOUNT[code] == 3);
 }
 
 unsigned char SitorBDecoder::fec(unsigned char code) {
