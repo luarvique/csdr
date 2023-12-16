@@ -649,8 +649,9 @@ LowpassCommand::LowpassCommand(): Command("lowpass", "Lowpass FIR filter") {
 
 CwDecoderCommand::CwDecoderCommand(): Command("cwdecode", "CW decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
+    add_flag("-c,--cw", showCw, "Show CW code (dits and dahs)");
     callback( [this] () {
-        runModule(new CwDecoder<float>(sampleRate));
+        runModule(new CwDecoder<float>(sampleRate, showCw));
     });
 }
 

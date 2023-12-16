@@ -37,7 +37,7 @@ namespace Csdr {
     template <typename T>
     class CwDecoder: public Module<T, unsigned char> {
         public:
-            CwDecoder(unsigned int sampleRate=12000, unsigned int targetFreq=800, unsigned int targetWidth=100);
+            CwDecoder(unsigned int sampleRate=12000, bool showCw=false);
 
             bool canProcess() override;
             void process() override;
@@ -45,7 +45,6 @@ namespace Csdr {
         private:
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int targetFreq;   // CW carrier offset (Hz)
             unsigned int nbTime;       // Noise blanker time (ms)
             unsigned int quTime;       // Quantization step (ms)
             unsigned int dbgTime;      // Debug printout time (ms)
@@ -54,11 +53,7 @@ namespace Csdr {
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
-
-            // Computed FFT parameters
-            unsigned int buckets;        // Number of FFT buckets (samples)
-            unsigned int step;           // Quantization step (samples)
-            double coeff;                // Used by Goertzel algorithm
+            unsigned int  quStep;         // Quantization step (samples)
 
             // Input signal characteristics
             double magL = 1000.0;        // Minimal observed magnitude
@@ -93,8 +88,8 @@ namespace Csdr {
             unsigned int histCntL  = 0;   // Number of values in histL[]
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
-            // Convert input sample into a double
-            inline double sample2double(T input);
+            // Convert input sample into signal level
+            inline double sample2level(T input);
 
             // Get current time in milliseconds
             unsigned long msecs()

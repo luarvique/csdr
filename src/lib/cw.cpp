@@ -55,26 +55,21 @@ const char CwDecoder<T>::cwTable[] =
     "______$_________";
 
 template <typename T>
-CwDecoder<T>::CwDecoder(unsigned int sampleRate, unsigned int targetFreq, unsigned int targetWidth)
+CwDecoder<T>::CwDecoder(unsigned int sampleRate, bool showCw)
 : sampleRate(sampleRate),
-  targetFreq(targetFreq),
   quTime(5),      // Quantization step (ms)
   nbTime(20),     // Noise blanking width (ms)
   dbgTime(0),     // Debug printout period (ms)
-  showCw(false)   // TRUE: print DITs/DAHs
+  showCw(showCw)  // TRUE: print DITs/DAHs
 {
-    buckets = sampleRate/targetWidth; // Number of FFT buckets
-    step    = quTime*sampleRate/1000; // Quantization step in samples
-
-    // Goertzel algorithm coefficient
-    double v = round((double)buckets * targetFreq / sampleRate);
-    coeff = 2.0 * cos(2.0 * M_PI * v / buckets);
+    // Minimal number of samples to process
+    quStep = quTime * sampleRate / 1000;
 }
 
 template <typename T>
 bool CwDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (this->reader->available()>=buckets) && (this->writer->writeable()>=2);
+    return (this->reader->available()>=quStep) && (this->writer->writeable()>=2);
 }
 
 template <typename T>
@@ -82,12 +77,12 @@ void CwDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     // Until we run out of input data...
-    for(; this->reader->available()>=buckets ; this->reader->advance(step)) {
+    for(; this->reader->available()>=quStep ; this->reader->advance(quStep)) {
         // Process data
-        processInternal(this->reader->getReadPointer(), buckets);
+        processInternal(this->reader->getReadPointer(), quStep);
 
         // Update time
-        curSamples += step;
+        curSamples += quStep;
         if(curSamples>=sampleRate)
         {
             unsigned int secs = curSamples/sampleRate;
@@ -100,19 +95,13 @@ void CwDecoder<T>::process() {
 template <typename T>
 void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
     unsigned long millis = msecs();
-    double q0, q1, q2;
     unsigned int i, j;
+    double magnitude;
 
-    // Read samples
-    for(i=0, q1=q2=0.0 ; i<size ; ++i)
-    {
-        q0 = q1 * coeff - q2 + sample2double(data[i]);
-        q2 = q1;
-        q1 = q0;
-    }
-
-    // We only need the real part
-    double magnitude = sqrt(q1*q1 + q2*q2 - q1*q2*coeff);
+    // Compute overall magnitude
+    for(i=0, magnitude=0.0 ; i<size ; ++i)
+        magnitude += sample2level(data[i]);
+    magnitude /= size;
 
     // Keep track of minimal/maximal magnitude
     magL += magnitude<magL? (magnitude-magL)/10.0 : (magH-magL)/1000.0;
@@ -315,15 +304,15 @@ void CwDecoder<T>::printString(const char *buf)
 }
 
 template <>
-inline double CwDecoder<complex<float>>::sample2double(complex<float> input)
+inline double CwDecoder<complex<float>>::sample2level(complex<float> input)
 {
-    return input.i();
+    return sqrt((input.i() * input.i()) + (input.q() * input.q()));
 }
 
 template<>
-inline double CwDecoder<float>::sample2double(float input)
+inline double CwDecoder<float>::sample2level(float input)
 {
-    return input;
+    return fabs(input);
 }
 
 namespace Csdr {

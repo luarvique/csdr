@@ -291,6 +291,7 @@ namespace Csdr {
             CwDecoderCommand();
         private:
             unsigned int sampleRate;
+            bool showCw = false;
     };
 
     class MFRttyDecoderCommand: public Command {
