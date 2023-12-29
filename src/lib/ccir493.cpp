@@ -33,14 +33,11 @@ void Ccir493Decoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float *data = reader->getReadPointer();
     unsigned int output = 0;
-    unsigned int marks = 0;
     int i;
 
     // Get ten input bits
     for (i = 0; i < 10; i++) {
-        unsigned int bit = toBit(data[i]);
-        output |= (bit << i);
-        if (i<7) marks += bit;
+        output = (output << 1) | toBit(data[i]);
     }
 
     // Last three bits indicate the number of zeros in the first seven
