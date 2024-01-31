@@ -29,6 +29,7 @@ namespace Csdr {
         public:
             virtual void reload() = 0;
             virtual void restart() = 0;
+            virtual void setArgs(const std::vector<std::string>& args) = 0;
     };
 
     template<typename T, typename U>
@@ -42,6 +43,7 @@ namespace Csdr {
             void setWriter(Writer<U>* writer) override;
             void reload() override;
             void restart() override;
+            void setArgs(const std::vector<std::string>& args) override;
         private:
             void startChild();
             void stopChild();

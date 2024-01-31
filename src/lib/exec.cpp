@@ -50,6 +50,11 @@ ExecModule<T, U>::~ExecModule<T, U>() {
 }
 
 template <typename T, typename U>
+void ExecModule<T, U>::setArgs(const std::vector<std::string>& new_args) {
+    this->args = new_args;
+}
+
+template <typename T, typename U>
 void ExecModule<T, U>::startChild() {
     std::lock_guard<std::mutex> lock(this->childMutex);
 
