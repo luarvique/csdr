@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <cstring>
 #include <unistd.h>
+#include <poll.h>
 
 using namespace Csdr;
 
@@ -78,15 +79,27 @@ void TcpSource<T>::loop() {
     int read_bytes;
     int available;
     int offset = 0;
+    pollfd pfd = {
+        .fd = sock,
+        .events = POLLIN
+    };
+    int rc;
 
     while (run) {
-        available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(T) - offset;
-        read_bytes = recv(sock, ((char*) this->writer->getWritePointer()) + offset, available, 0);
-        if (read_bytes <= 0) {
+        rc = poll(&pfd, 1, 10000);
+        if (rc == -1) {
             run = false;
-        } else {
-            this->writer->advance((offset + read_bytes) / sizeof(T));
-            offset = (offset + read_bytes) % sizeof(T);
+        } else if (pfd.revents & POLLERR) {
+            run = false;
+        } else if (pfd.revents & POLLIN) {
+            available = std::min(this->writer->writeable(), (size_t) 1024) * sizeof(T) - offset;
+            read_bytes = recv(sock, ((char*) this->writer->getWritePointer()) + offset, available, 0);
+            if (read_bytes <= 0) {
+                run = false;
+            } else {
+                this->writer->advance((offset + read_bytes) / sizeof(T));
+                offset = (offset + read_bytes) % sizeof(T);
+            }
         }
     }
 }

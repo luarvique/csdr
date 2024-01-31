@@ -48,4 +48,5 @@ void Downmix<T>::process() {
 
 namespace Csdr {
     template class Downmix<short>;
+    template class Downmix<float>;
 }

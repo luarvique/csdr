@@ -50,6 +50,11 @@ ExecModule<T, U>::~ExecModule<T, U>() {
 }
 
 template <typename T, typename U>
+void ExecModule<T, U>::setArgs(const std::vector<std::string>& new_args) {
+    this->args = new_args;
+}
+
+template <typename T, typename U>
 void ExecModule<T, U>::startChild() {
     std::lock_guard<std::mutex> lock(this->childMutex);
 
@@ -301,6 +306,7 @@ namespace Csdr {
     template class ExecModule<short, short>;
     template class ExecModule<short, unsigned char>;
     template class ExecModule<unsigned char, unsigned char>;
+    template class ExecModule<unsigned char, float>;
     template class ExecModule<complex<short>, unsigned char>;
     template class ExecModule<complex<float>, unsigned char>;
     template class ExecModule<complex<unsigned char>, short>;
