@@ -1,3 +1,9 @@
+csdr (0.18.18) bullseye jammy; urgency=low
+
+  * Merged changes from Jakob Ketterl's original development branch.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 5 Feb 2024 16:12:00 +0000
+
 csdr (0.18.17) bullseye jammy; urgency=low
 
   * Added experimental CCIR493 and DSC decoders.
