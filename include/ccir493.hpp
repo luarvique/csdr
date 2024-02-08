@@ -35,19 +35,19 @@ namespace Csdr {
         4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0  // 112
     };
 
-    const unsigned short CCIR493_PHASE_RX0 = (104<<3) + 4;
-    const unsigned short CCIR493_PHASE_RX1 = (105<<3) + 3;
-    const unsigned short CCIR493_PHASE_RX2 = (106<<3) + 3;
-    const unsigned short CCIR493_PHASE_RX3 = (107<<3) + 2;
-    const unsigned short CCIR493_PHASE_RX4 = (108<<3) + 3;
-    const unsigned short CCIR493_PHASE_RX5 = (109<<3) + 2;
-    const unsigned short CCIR493_PHASE_RX6 = (110<<3) + 2;
-    const unsigned short CCIR493_PHASE_RX7 = (111<<3) + 1;
-    const unsigned short CCIR493_PHASE_DX  = (125<<3) + 1;
-    const unsigned short CCIR493_ACK_RQ    = (117<<3) + 2;
-    const unsigned short CCIR493_ACK_BQ    = (122<<3) + 2;
-    const unsigned short CCIR493_EMPTY     = (126<<3) + 1;
-    const unsigned short CCIR493_EOS       = (127<<3) + 0;
+    const unsigned short CCIR493_PHASE_RX0 = 104 + (4<<7);
+    const unsigned short CCIR493_PHASE_RX1 = 105 + (3<<7);
+    const unsigned short CCIR493_PHASE_RX2 = 106 + (3<<7);
+    const unsigned short CCIR493_PHASE_RX3 = 107 + (2<<7);
+    const unsigned short CCIR493_PHASE_RX4 = 108 + (3<<7);
+    const unsigned short CCIR493_PHASE_RX5 = 109 + (2<<7);
+    const unsigned short CCIR493_PHASE_RX6 = 110 + (2<<7);
+    const unsigned short CCIR493_PHASE_RX7 = 111 + (1<<7);
+    const unsigned short CCIR493_PHASE_DX  = 125 + (1<<7);
+    const unsigned short CCIR493_ACK_RQ    = 117 + (2<<7);
+    const unsigned short CCIR493_ACK_BQ    = 122 + (2<<7);
+    const unsigned short CCIR493_EMPTY     = 126 + (1<<7);
+    const unsigned short CCIR493_EOS       = 127 + (0<<7);
 
     class Ccir493Decoder: public Module<float, unsigned char> {
         public:

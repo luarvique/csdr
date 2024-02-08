@@ -37,10 +37,13 @@ void Ccir493Decoder::process() {
 
     // Get ten input bits
     for (i = 0; i < 10; i++) {
-        output = (output << 1) | toBit(data[i]);
+        output |= toBit(data[i]) << i;
     }
 
-    // Last three bits indicate the number of zeros in the first seven
+    // Make sure top three bits are in correct order
+    output = (output & 0x17F) | ((output & 0x200) >> 2) | ((output & 0x080) << 2);
+
+    // Top three bits indicate the number of zeros in the first seven
     if (!isValid(output)) {
         // Skip a bit
         reader->advance(1);
@@ -62,11 +65,11 @@ bool Ccir493Decoder::toBit(float sample) {
 }
 
 bool Ccir493Decoder::isValid(unsigned short code) {
-    return (code < 0x400) && ((code & 7) == CCIR493_ZEROCOUNT[code >> 3]);
+    return (code < 0x400) && ((code >> 7) == CCIR493_ZEROCOUNT[code & 0x07F]);
 }
 
 char Ccir493Decoder::toCode(unsigned short code) {
-    return code >> 3;
+    return code & 0x07F;
 }
 
 unsigned short Ccir493Decoder::fec(unsigned short code) {
