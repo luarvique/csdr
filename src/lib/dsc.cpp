@@ -40,7 +40,6 @@ void DscDecoder::process() {
     reader->advance(1);
     return;
 
-
     // Try obtaining complete DSC message from the input
     do {
       todo = reader->available();

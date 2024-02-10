@@ -37,17 +37,20 @@ void Ccir493Decoder::process() {
 
     // Get ten input bits
     for (i = 0; i < 10; i++) {
-        output |= toBit(data[i]) << i;
+        output |= toBit(data[i])? (1 << i) : 0;
     }
 
-    // Make sure top three bits are in correct order
+    // Make sure top three bits are in the correct order
+    // (they indicate the number of zeros in the bottom seven)
     output = (output & 0x17F) | ((output & 0x200) >> 2) | ((output & 0x080) << 2);
 
-    // Top three bits indicate the number of zeros in the first seven
-    if (!isValid(output)) {
+    // Resync after several repeated errors
+    if (!isValid(output) && (errors > 2)) {
         // Skip a bit
         reader->advance(1);
     } else {
+        // Count repeating errors
+        if(isValid(output)) errors = 0; else errors++;
         // Pass received character through FEC
         output = fec(output);
         // Output received character
@@ -61,7 +64,7 @@ void Ccir493Decoder::process() {
 }
 
 bool Ccir493Decoder::toBit(float sample) {
-    return (sample > 0) != invert;
+    return (sample > 0) == invert;
 }
 
 bool Ccir493Decoder::isValid(unsigned short code) {
@@ -73,7 +76,7 @@ char Ccir493Decoder::toCode(unsigned short code) {
 }
 
 unsigned short Ccir493Decoder::fec(unsigned short code) {
-    switch (code) {
+    switch (code & 0x7F) {
         case CCIR493_PHASE_DX:
             // This symbol is always received in DX phase
             rxPhase = false;
@@ -86,8 +89,6 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
         case CCIR493_PHASE_RX5:
         case CCIR493_PHASE_RX6:
         case CCIR493_PHASE_RX7:
-            // The DX phase had to have CCIR493_PHASE_DX
-            code = c1==CCIR493_PHASE_DX? code : 0xFFFF;
             // DX phase next
             rxPhase = false;
             return code;
