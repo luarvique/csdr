@@ -421,28 +421,60 @@ sprintf(s, "DIS %d ", code);printString(s);
 
 const char *DscDecoder::parseCommand(char *out, unsigned char code) {
     sprintf(out, "CMD-%d", code);
-sprintf(s, "CMD %s ", out);printString(s);
+sprintf(s, "%s ", out);printString(s);
     return out;
 }
 
 const char *DscDecoder::parseNext(char *out, unsigned char code) {
     sprintf(out, "NEXT-%d", code);
-sprintf(s, "NEXT %s ", out);printString(s);
+sprintf(s, "%s ", out);printString(s);
     return out;
 }
 
 int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
-    // @@@ TODO!!!
-    out[0] = '\0';
+    int i, j;
+
+    // Going to assume 6 characters (@@@ TODO FOR 8 CHARACTERS!)
+    if (size < 6) return 0;
+
+    for (i=0, j=0 ; i<6 ; ++i) {
+        if (in[i] > 99) {
+            out[j++] = out[j++] = '-';
+        } else if ((in[i]>0) || (j>0)) {
+            out[j++] = '0' + in[i] / 10;
+            out[j++] = '0' + in[i] % 10;
+        }
+    }
+
+    // In 100Hz units
+    strcpy(&out[j], j>0? "00" : "0");
 sprintf(s, "FREQ %s ", out);printString(s);
-    return 0;
+
+    // Parsed 6 characters
+    return 6;
 }
 
 int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
-    // @@@ TODO!!!
-    out[0] = '\0';
+    int i, j;
+
+    // Going to assume 5 characters
+    if (size < 5) return 0;
+
+    for (i=0, j=0 ; i<5 ; ++i) {
+        if (in[i] > 99) {
+            out[j++] = out[j++] = '-';
+        } else if ((in[i]>0) || (j>0)) {
+            out[j++] = '0' + in[i] / 10;
+            out[j++] = '0' + in[i] % 10;
+        }
+    }
+
+    // Terminate number
+    out[j] = '\0';
 sprintf(s, "NUM %s ", out);printString(s);
-    return 0;
+
+    // Parsed 5 characters
+    return 5;
 }
 
 void DscDecoder::printString(const char *buf) {
