@@ -76,7 +76,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     const char *category = 0;
     const char *distress = 0;
 
-    int i, j;
+    int format, i, j;
 
     // Collect enough input first
     if (size < 32) return 0;
@@ -93,13 +93,13 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     if (in[i] != in[i+1]) return i + 1;
 
     // Get message format and advance pointer
-    j  = in[i];
+    format = in[i];
     i += 2;
 
-sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
+sprintf(s, "FORMAT %d ", format);printString(s);
 
     // Depending on message format...
-    switch (j) {
+    switch (format) {
 
         case DSC_FMT_DISTRESS:
             // Parse source address
@@ -146,7 +146,7 @@ sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
         case DSC_FMT_AREACALL:
         case DSC_FMT_GROUPCALL:
         case DSC_FMT_SELCALL:
-            if (j == DSC_FMT_AREACALL) {
+            if (format == DSC_FMT_AREACALL) {
                 // Parse destination area
                 j = parseArea(dst, in + i, size - i);
             } else {
@@ -160,22 +160,12 @@ sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
             // Parse source address
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
-            // Parse telecommand
+            // Parse telecommands
             if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
-            // Parse distress address
-            j = parseAddress(id, in + i, size - i);
+            if((i>=size) || !parseCommand(cmd2, in[i++])) return i;
+            // Parse frequency (@@@ TODO: position, position+utc)
+            j = parseFrequency(freq, in + i, size - i);
             if (!j) return i; else i += j;
-            // Parse distress type
-            distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return i;
-            // Parse distress location
-            j = parseLocation(loc, in + i, size - i);
-            if (!j) return i; else i += j;
-            // Parse time
-            j = parseTime(time, in + i, size - i);
-            if (!j) return i; else i += j;
-            // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return i;
             break;
 
         case DSC_FMT_AUTOCALL:
@@ -205,7 +195,7 @@ sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
     }
 
     // Write out accumulated data
-    startJson(in[0]);
+    startJson(format);
     if(*src)  outputJson("src", src);
     if(*dst)  outputJson("dst", dst);
     if(*id)   outputJson("id", loc);
@@ -226,7 +216,7 @@ sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
 
 void DscDecoder::startJson(unsigned char type) {
     char buf[256];
-    sprintf(buf, "{ \"type\": \"%s\"", parseType(type));
+    sprintf(buf, "{ \"format\": \"%s\"", parseType(type));
     printString(buf);
 }
 
@@ -420,14 +410,14 @@ sprintf(s, "DIS %d ", code);printString(s);
 }
 
 const char *DscDecoder::parseCommand(char *out, unsigned char code) {
-    sprintf(out, "CMD-%d", code);
-sprintf(s, "%s ", out);printString(s);
+    sprintf(out, "%d", code);
+sprintf(s, "CMD %s ", out);printString(s);
     return out;
 }
 
 const char *DscDecoder::parseNext(char *out, unsigned char code) {
-    sprintf(out, "NEXT-%d", code);
-sprintf(s, "%s ", out);printString(s);
+    sprintf(out, "%d", code);
+sprintf(s, "NEXT %s ", out);printString(s);
     return out;
 }
 
@@ -437,6 +427,11 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
     // Going to assume 6 characters (@@@ TODO FOR 8 CHARACTERS!)
     if (size < 6) return 0;
 
+    // Check if frequency is blank
+    for (i=0 ; (i<6) && (in[i]==DSC_EMPTY) ; ++i);
+    if (i==6) return i;
+
+    // Parse frequency
     for (i=0, j=0 ; i<6 ; ++i) {
         if (in[i] > 99) {
             out[j++] = out[j++] = '-';
@@ -450,8 +445,8 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
     strcpy(&out[j], j>0? "00" : "0");
 sprintf(s, "FREQ %s ", out);printString(s);
 
-    // Parsed 6 characters
-    return 6;
+    // Done
+    return i;
 }
 
 int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
