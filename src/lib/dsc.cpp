@@ -19,26 +19,32 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "dsc.hpp"
+#include "ccir493.hpp"
 #include <string.h>
 #include <stdio.h>
 
 using namespace Csdr;
 
+// @@@ TODO: REMOVE THIS!!!
+char s[256];
+
 bool DscDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() > 2) && (writer->writeable() > 8);
+    return (reader->available() >= 32) && (writer->writeable() > 8);
 }
 
 void DscDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     int todo, done;
 
+#if 0
     // @@@ TODO: REMOVE THIS!!!
     unsigned char c = *reader->getReadPointer();
     sprintf((char *)writer->getWritePointer(), " %d", c);
     writer->advance(strlen((const char *)writer->getWritePointer()));
     reader->advance(1);
     return;
+#endif
 
     // Try obtaining complete DSC message from the input
     do {
@@ -70,118 +76,132 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     const char *category = 0;
     const char *distress = 0;
 
-    // Index within message
-    int i = 2;
-    int j;
+    int i, j;
+
+    // Collect enough input first
+    if (size < 32) return 0;
+
+    // Check for sequence of phasing characters
+    for (i=0, j=CCIR493_PHASE_RX7+1 ; (i<size-2) && (in[i]<j) && (in[i]>=CCIR493_PHASE_RX0) ; i++) {
+        j = in[i];
+    }
+
+    // Must have at least three phasing characters
+    if (i < 3) return i;
 
     // Must have repeated format specifier
-    if (i>size) return 0;
-    if (in[0]!=in[1]) return 1;
+    if (in[i] != in[i+1]) return i + 1;
+
+    // Get message format and advance pointer
+    j  = in[i];
+    i += 2;
+
+sprintf(s, "FORMAT %d ", in[i-1]);printString(s);
 
     // Depending on message format...
-    switch (in[0]) {
+    switch (j) {
 
         case DSC_FMT_DISTRESS:
             // Parse source address
             j = parseAddress(src, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse distress type
             distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return 0;
+            if (!distress) return i;
             // Parse distress location
             j = parseLocation(loc, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse time
             j = parseTime(time, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return 0;
+            if((i>=size) || !parseNext(next, in[i++])) return i;
             break;
 
         case DSC_FMT_ALLSHIPS:
             // Parse category
             category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return 0;
+            if (!category) return i;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse telecommand
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return 0;
+            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
             // Parse distress address
             j = parseAddress(id, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse distress type
             distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return 0;
+            if (!distress) return i;
             // Parse distress location
             j = parseLocation(loc, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse time
             j = parseTime(time, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return 0;
+            if((i>=size) || !parseNext(next, in[i++])) return i;
             break;
 
         case DSC_FMT_AREACALL:
         case DSC_FMT_GROUPCALL:
         case DSC_FMT_SELCALL:
-            if (in[0] == DSC_FMT_AREACALL) {
+            if (j == DSC_FMT_AREACALL) {
                 // Parse destination area
                 j = parseArea(dst, in + i, size - i);
             } else {
                 // Parse destination address
                 j = parseAddress(dst, in + i, size - i);
             }
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse category
             category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return 0;
+            if (!category) return i;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse telecommand
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return 0;
+            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
             // Parse distress address
             j = parseAddress(id, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse distress type
             distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return 0;
+            if (!distress) return i;
             // Parse distress location
             j = parseLocation(loc, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse time
             j = parseTime(time, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return 0;
+            if((i>=size) || !parseNext(next, in[i++])) return i;
             break;
 
         case DSC_FMT_AUTOCALL:
             // Parse destination address
             j = parseAddress(dst, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse category
             category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return 0;
+            if (!category) return i;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse telecommands
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return 0;
-            if((i>=size) || !parseCommand(cmd2, in[i++])) return 0;
+            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
+            if((i>=size) || !parseCommand(cmd2, in[i++])) return i;
             // Parse frequency or duration
             j = parseFrequency(freq, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             // Parse number
             j = parseNumber(num, in + i, size - i);
-            if (!j) return 0; else i += j;
+            if (!j) return i; else i += j;
             break;
 
         default:
             // May not be a message, keep scanning
-            return 2;
+            return i;
     }
 
     // Write out accumulated data
@@ -230,16 +250,22 @@ int DscDecoder::parseAddress(char *out, const unsigned char *in, int size) {
     if (size<5) return 0;
 
     // Output digits, drop out on errors
-    for (i=j=0 ; (j<5) && (in[j]<100) ; ++j) {
-        out[i++] = in[j] / 10;
-        out[i++] = in[j] % 10;
+    for (i=j=0 ; j<5 ; ++j) {
+        if (in[j]<100) {
+            out[i++] = '0' + (in[j] / 10);
+            out[i++] = '0' + (in[j] % 10);
+        } else {
+            out[i++] = out[i++] = '-';
+        }
     }
 
-    // Return empty string on errors
-    out[j==5? i:0] = '\0';
+    // Terminate string
+    out[i] = '\0';
+
+sprintf(s, "ADDR %s ", out);printString(s);
 
     // Done
-    return j==5? 5 : 0;
+    return j==5? j : 0;
 }
 
 int DscDecoder::parseLocation(char *out, const unsigned char *in, int size) {
@@ -252,6 +278,7 @@ int DscDecoder::parseLocation(char *out, const unsigned char *in, int size) {
     // Check for "unknown location" (5 x 99)
     if ((in[0]==99) && (in[1]==99) && (in[2]==99) && (in[3]==99) && (in[4]==99)) {
         strcpy(out, "???");
+sprintf(s, "LOC %s ", out);printString(s);
         return 5;
     }
 
@@ -274,6 +301,8 @@ int DscDecoder::parseLocation(char *out, const unsigned char *in, int size) {
         lonD + lonM / 60.0, quad&1? 'W' : 'E'
     );
 
+sprintf(s, "LOC %s ", out);printString(s);
+
     // Done
     return 5;
 }
@@ -288,6 +317,7 @@ int DscDecoder::parseArea(char *out, const unsigned char *in, int size) {
     // Check for "unknown location" (5 x 99)
     if ((in[0]==99) && (in[1]==99) && (in[2]==99) && (in[3]==99) && (in[4]==99)) {
         strcpy(out, "???");
+sprintf(s, "AREA %s ", out);printString(s);
         return 5;
     }
 
@@ -310,6 +340,7 @@ int DscDecoder::parseArea(char *out, const unsigned char *in, int size) {
         lonD, quad&1? 'W' : 'E',
         latH, lonW
     );
+sprintf(s, "AREA %s ", out);printString(s);
 
     // Done
     return 5;
@@ -343,6 +374,7 @@ int DscDecoder::parseTime(char *out, const unsigned char *in, int size) {
 }
 
 const char *DscDecoder::parseType(unsigned char code) {
+sprintf(s, "TYPE %d ", code);printString(s);
     switch (code) {
         case DSC_FMT_DISTRESS:  return "distress";
         case DSC_FMT_ALLSHIPS:  return "allships";
@@ -356,6 +388,7 @@ const char *DscDecoder::parseType(unsigned char code) {
 }
 
 const char *DscDecoder::parseCategory(unsigned char code) {
+sprintf(s, "CAT %d ", code);printString(s);
     switch (code) {
         case DSC_CAT_ROUTINE:  return "routine";
         case DSC_CAT_SAFETY:   return "safety";
@@ -367,6 +400,7 @@ const char *DscDecoder::parseCategory(unsigned char code) {
 }
 
 const char *DscDecoder::parseDistress(unsigned char code) {
+sprintf(s, "DIS %d ", code);printString(s);
     switch (code) {
         case DSC_DIS_FIRE:       return "fire / explosion";
         case DSC_DIS_FLOODING:   return "flooding";
@@ -387,23 +421,27 @@ const char *DscDecoder::parseDistress(unsigned char code) {
 
 const char *DscDecoder::parseCommand(char *out, unsigned char code) {
     sprintf(out, "CMD-%d", code);
+sprintf(s, "CMD %s ", out);printString(s);
     return out;
 }
 
 const char *DscDecoder::parseNext(char *out, unsigned char code) {
     sprintf(out, "NEXT-%d", code);
+sprintf(s, "NEXT %s ", out);printString(s);
     return out;
 }
 
 int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
     // @@@ TODO!!!
     out[0] = '\0';
+sprintf(s, "FREQ %s ", out);printString(s);
     return 0;
 }
 
 int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
     // @@@ TODO!!!
     out[0] = '\0';
+sprintf(s, "NUM %s ", out);printString(s);
     return 0;
 }
 

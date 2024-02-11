@@ -76,26 +76,12 @@ char Ccir493Decoder::toCode(unsigned short code) {
 }
 
 unsigned short Ccir493Decoder::fec(unsigned short code) {
-    switch (code & 0x7F) {
-        case CCIR493_PHASE_DX:
-            // This symbol is always received in DX phase
-            rxPhase = false;
-            break;
-        case CCIR493_PHASE_RX0:
-        case CCIR493_PHASE_RX1:
-        case CCIR493_PHASE_RX2:
-        case CCIR493_PHASE_RX3:
-        case CCIR493_PHASE_RX4:
-        case CCIR493_PHASE_RX5:
-        case CCIR493_PHASE_RX6:
-        case CCIR493_PHASE_RX7:
-            // DX phase next
-            rxPhase = false;
-            return code;
-    }
+    // This symbol is always received in DX phase
+    if (toCode(code)==CCIR493_PHASE_DX) rxPhase = false;
 
     if (rxPhase) {
-        code = c1==code? code
+        code = toCode(c1)==CCIR493_PHASE_DX? code
+             : c1==code? code
              : isValid(code)? code
              : isValid(c1)? c1
              : 0xFFFF;
