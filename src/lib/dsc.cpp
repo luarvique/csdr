@@ -19,7 +19,6 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "dsc.hpp"
-#include "ccir493.hpp"
 #include <string.h>
 #include <stdio.h>
 
@@ -74,30 +73,31 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     int next      = -1; // Subsequent communication type
     int cmd1      = -1; // Telecommand #1
     int cmd2      = -1; // Telecommand #2
-    int eos       = -1; // End-of-sequence code
     int ecc       = -1; // Checksum
 
-    const char *category = 0;
-    const char *distress = 0;
+    const char *category = 0; // Message category
+    const char *distress = 0; // Distress reason
+    const char *eos      = 0; // End-of-sequence code
 
-    int i, j;
+    int i, j, k, start;
 
     // Collect enough input first
     if (size < 32) return 0;
 
     // Check for sequence of phasing characters
-    for (i=0, j=CCIR493_PHASE_RX7+1 ; (i<size-2) && (in[i]<j) && (in[i]>=CCIR493_PHASE_RX0) ; i++) {
+    for (i=0, j=DSC_PHASE_RX7+1 ; (i<size-2) && (in[i]<j) && (in[i]>=DSC_PHASE_RX0) ; i++) {
         j = in[i];
     }
 
-    // Must have at least three phasing characters
-    if (i < 3) return i;
+    // Must have at least two phasing characters
+    if (i < 2) return i;
 
     // Must have repeated format specifier
     if (in[i] != in[i+1]) return i + 1;
 
     // Get message format and advance pointer
     format = in[i];
+    start  = i + 1;
     i += 2;
 
 sprintf(s, "FORMAT %d ", format);printString(s);
@@ -215,31 +215,37 @@ return i;
 }
 
     // Advance to the end of the message
-    eos = in[i];
+    eos = parseEos(in[i]);
     ecc = in[i+1];
-    i  += 3;
+
+    // Must have valid EOS
+    if (!eos) return i + 3;
+
+    // Compute actual ECC
+    for (k=0, j=start ; j<i+1 ; ++j) k ^= in[j];
+sprintf(s, "ECC %d/%d ", ecc, k);printString(s);
 
     // Write out accumulated data
     startJson(format);
-    if(*src)  outputJson("src", src);
-    if(*dst)  outputJson("dst", dst);
-    if(*id)   outputJson("id", loc);
-    if(*loc)  outputJson("loc", loc);
-    if(*time) outputJson("time", time);
-    if(*rxfq) outputJson("rxfreq", rxfq);
-    if(*txfq) outputJson("txfreq", txfq);
-    if(*num)  outputJson("num", num);
+    if(*src)     outputJson("src", src);
+    if(*dst)     outputJson("dst", dst);
+    if(*id)      outputJson("id", loc);
+    if(*loc)     outputJson("loc", loc);
+    if(*time)    outputJson("time", time);
+    if(*rxfq)    outputJson("rxfreq", rxfq);
+    if(*txfq)    outputJson("txfreq", txfq);
+    if(*num)     outputJson("num", num);
     if(category) outputJson("category", category);
     if(distress) outputJson("distress", distress);
     if(next>=0)  outputJson("next", next);
     if(cmd1>=0)  outputJson("cmd1", cmd1);
     if(cmd2>=0)  outputJson("cmd2", cmd2);
-    if(eos>=0)   outputJson("eos", eos);
-    if(ecc>=0)   outputJson("ecc", ecc);
+    if(eos)      outputJson("eos", eos);
+    outputJson("ecc", ecc==k);
     endJson();
 
     // Done
-    return i;
+    return i + 3;
 }
 
 void DscDecoder::startJson(unsigned char type) {
@@ -444,6 +450,17 @@ sprintf(s, "DIS %d ", code);printString(s);
         case DSC_DIS_PIRACY:     return "piracy / robbery";
         case DSC_DIS_MANOVERB:   return "man overboard";
         case DSC_DIS_EPIRB:      return "EPIRB emission";
+    }
+
+    return 0;
+}
+
+const char *DscDecoder::parseEos(unsigned char code) {
+sprintf(s, "EOS %d ", code);printString(s);
+    switch (code) {
+        case DSC_ACK_RQ: return "arq";
+        case DSC_ACK_BQ: return "abq";
+        case DSC_EOS:    return "done";
     }
 
     return 0;

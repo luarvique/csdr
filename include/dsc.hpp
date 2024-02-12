@@ -24,6 +24,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
     const unsigned char DSC_PHASE_RX0     = 104;
+    const unsigned char DSC_PHASE_RX7     = 111;
     const unsigned char DSC_ACK_RQ        = 117;
     const unsigned char DSC_ACK_BQ        = 122;
     const unsigned char DSC_EMPTY         = 126;
@@ -76,6 +77,7 @@ namespace Csdr {
             const char *parseType(unsigned char code);
             const char *parseCategory(unsigned char code);
             const char *parseDistress(unsigned char code);
+            const char *parseEos(unsigned char code);
 
             bool parseCommand(int *out, unsigned char code);
             bool parseNext(int *out, unsigned char code);
