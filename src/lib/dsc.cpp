@@ -67,16 +67,20 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     char id[16]   = ""; // Distress ID
     char loc[16]  = ""; // Distress location
     char time[16] = ""; // Time
-    char freq[16] = ""; // Frequency or duration
+    char rxfq[16] = ""; // RX frequency or duration
+    char txfq[16] = ""; // TX frequency or duration
     char num[16]  = ""; // Number
-    char next[16] = ""; // Subsequent communication type
-    char cmd1[16] = ""; // Telecommand #1
-    char cmd2[16] = ""; // Telecommand #2
+    int format    = -1; // Message format
+    int next      = -1; // Subsequent communication type
+    int cmd1      = -1; // Telecommand #1
+    int cmd2      = -1; // Telecommand #2
+    int eos       = -1; // End-of-sequence code
+    int ecc       = -1; // Checksum
 
     const char *category = 0;
     const char *distress = 0;
 
-    int format, i, j;
+    int i, j;
 
     // Collect enough input first
     if (size < 32) return 0;
@@ -115,7 +119,7 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             j = parseTime(time, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return i;
+            if((i>=size) || !parseNext(&next, in[i++])) return i;
             break;
 
         case DSC_FMT_ALLSHIPS:
@@ -126,7 +130,7 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommand
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
             // Parse distress address
             j = parseAddress(id, in + i, size - i);
             if (!j) return i; else i += j;
@@ -140,7 +144,7 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             j = parseTime(time, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(next, in[i++])) return i;
+            if((i>=size) || !parseNext(&next, in[i++])) return i;
             break;
 
         case DSC_FMT_AREACALL:
@@ -161,11 +165,19 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommands
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
-            if((i>=size) || !parseCommand(cmd2, in[i++])) return i;
-            // Parse frequency (@@@ TODO: position, position+utc)
-            j = parseFrequency(freq, in + i, size - i);
-            if (!j) return i; else i += j;
+            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd2, in[i++])) return i;
+            // Parse frequencies or position (@@@ TODO: UTC)
+            if((i<size) && (in[i]==55)) {
+                ++i;
+                j = parseLocation(loc, in + i, size - i);
+                if (!j) return i; else i += j;
+            } else {
+                j = parseFrequency(rxfq, in + i, size - i);
+                if (!j) return i; else i += j;
+                j = parseFrequency(txfq, in + i, size - i);
+                if (!j) return i; else i += j;
+            }
             break;
 
         case DSC_FMT_AUTOCALL:
@@ -179,13 +191,15 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommands
-            if((i>=size) || !parseCommand(cmd1, in[i++])) return i;
-            if((i>=size) || !parseCommand(cmd2, in[i++])) return i;
-            // Parse frequency or duration
-            j = parseFrequency(freq, in + i, size - i);
+            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd2, in[i++])) return i;
+            // Parse frequencies or duration
+            j = parseFrequency(rxfq, in + i, size - i);
             if (!j) return i; else i += j;
-            // Parse number
-            j = parseNumber(num, in + i, size - i);
+            j = parseFrequency(txfq, in + i, size - i);
+            if (!j) return i; else i += j;
+            // Parse phone number
+            j = parsePhone(num, in + i, size - i);
             if (!j) return i; else i += j;
             break;
 
@@ -194,6 +208,17 @@ sprintf(s, "FORMAT %d ", format);printString(s);
             return i;
     }
 
+    // Verify end-of-sequence
+    if ((i+4>size) || (in[i] != in[i+2]) || (in[i] != in[i+3])) {
+sprintf(s, "EOS %d %d %d %d ", in[i], in[i+1], in[i+2], in[i+3]);printString(s);
+return i;
+}
+
+    // Advance to the end of the message
+    eos = in[i];
+    ecc = in[i+1];
+    i  += 4;
+
     // Write out accumulated data
     startJson(format);
     if(*src)  outputJson("src", src);
@@ -201,13 +226,16 @@ sprintf(s, "FORMAT %d ", format);printString(s);
     if(*id)   outputJson("id", loc);
     if(*loc)  outputJson("loc", loc);
     if(*time) outputJson("time", time);
-    if(*freq) outputJson("freq", freq);
+    if(*rxfq) outputJson("rxfreq", rxfq);
+    if(*txfq) outputJson("txfreq", txfq);
     if(*num)  outputJson("num", num);
     if(category) outputJson("category", category);
     if(distress) outputJson("distress", distress);
-    if(*next)    outputJson("next", next);
-    if(*cmd1)    outputJson("cmd1", cmd1);
-    if(*cmd2)    outputJson("cmd2", cmd2);
+    if(next>=0)  outputJson("next", next);
+    if(cmd1>=0)  outputJson("cmd1", cmd1);
+    if(cmd2>=0)  outputJson("cmd2", cmd2);
+    if(eos>=0)   outputJson("eos", eos);
+    if(ecc>=0)   outputJson("ecc", ecc);
     endJson();
 
     // Done
@@ -223,6 +251,18 @@ void DscDecoder::startJson(unsigned char type) {
 void DscDecoder::outputJson(const char *name, const char *value) {
     char buf[256];
     sprintf(buf, ", \"%s\": \"%s\"", name, value);
+    printString(buf);
+}
+
+void DscDecoder::outputJson(const char *name, int value) {
+    char buf[64];
+    sprintf(buf, ", \"%s\": %d", name, value);
+    printString(buf);
+}
+
+void DscDecoder::outputJson(const char *name, bool value) {
+    char buf[64];
+    sprintf(buf, ", \"%s\": %s", name, value? "true":"false");
     printString(buf);
 }
 
@@ -409,40 +449,92 @@ sprintf(s, "DIS %d ", code);printString(s);
     return 0;
 }
 
-const char *DscDecoder::parseCommand(char *out, unsigned char code) {
-    sprintf(out, "%d", code);
-sprintf(s, "CMD %s ", out);printString(s);
+bool DscDecoder::parseCommand(int *out, unsigned char code) {
+    *out = code;
+sprintf(s, "CMD %d ", *out);printString(s);
     return out;
 }
 
-const char *DscDecoder::parseNext(char *out, unsigned char code) {
-    sprintf(out, "%d", code);
-sprintf(s, "NEXT %s ", out);printString(s);
+bool DscDecoder::parseNext(int *out, unsigned char code) {
+    *out = code;
+sprintf(s, "NEXT %d ", *out);printString(s);
     return out;
 }
 
 int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
     int i, j;
 
-    // Going to assume 6 characters (@@@ TODO FOR 8 CHARACTERS!)
-    if (size < 6) return 0;
+    // Will need 3-4 characters
+    if (size<4) return 0;
 
     // Check if frequency is blank
-    for (i=0 ; (i<6) && (in[i]==DSC_EMPTY) ; ++i);
-    if (i==6) return i;
+    for (i=0 ; (i<3) && (in[i]==DSC_EMPTY) ; ++i);
+    if (i==3) return i;
 
-    // Parse frequency
-    for (i=0, j=0 ; i<6 ; ++i) {
-        if (in[i] > 99) {
-            out[j++] = out[j++] = '-';
-        } else if ((in[i]>0) || (j>0)) {
-            out[j++] = '0' + in[i] / 10;
-            out[j++] = '0' + in[i] % 10;
-        }
+sprintf(s, "FREQ < %d %d %d %d ", in[0], in[1], in[2], in[3]);printString(s);
+
+    // Starting output from index 0
+    i = 0;
+    j = 0;
+
+    switch (in[0] / 10) {
+        case 0:
+        case 1:
+        case 2:
+            // Frequency in 100Hz increments
+            for (i=0 ; i<3 ; ++i) {
+                if (in[i] > 99) {
+                    out[j++] = out[j++] = '-';
+                } else if ((in[i]>0) || (j>0)) {
+                    out[j++] = '0' + in[i] / 10;
+                    out[j++] = '0' + in[i] % 10;
+                }
+            }
+            if (j>0) out[j++] = '0';
+            out[j++] = '0';
+            out[j++] = '\0';
+            break;
+        case 3:
+        case 8:
+        case 9:
+            // Only 3x, 8x, 90 are valid cases
+            if (in[0]>90) return 0;
+            out[j++] = 'C';
+            out[j++] = 'H';
+            if(in[0] % 10) out[j++] = '0' + in[0] % 10;
+            // Channel number
+            for (i=1 ; i<3 ; ++i) {
+                if (in[i] > 99) {
+                    out[j++] = out[j++] = '-';
+                } else if ((in[i]>0) || (j>2)) {
+                    out[j++] = '0' + in[i] / 10;
+                    out[j++] = '0' + in[i] % 10;
+                }
+            }
+            if (j==2) out[j++] = '0';
+            out[j++] = '\0';
+            break;
+        case 4:
+            // Only 40, 41, 42 are valid cases
+            if (in[0]>42) return 0;
+            if(in[0] % 10) out[j++] = '0' + in[0] % 10;
+            // Frequency in 10Hz increments
+            for (i=1 ; i<4 ; ++i) {
+                if (in[i] > 99) {
+                    out[j++] = out[j++] = '-';
+                } else if ((in[i]>0) || (j>0)) {
+                    out[j++] = '0' + in[i] / 10;
+                    out[j++] = '0' + in[i] % 10;
+                }
+            }
+            out[j++] = '0';
+            out[j++] = '\0';
+            break;
+        default:
+            // Anything else is not a frequency!
+            return 0;
     }
 
-    // In 100Hz units
-    strcpy(&out[j], j>0? "00" : "0");
 sprintf(s, "FREQ %s ", out);printString(s);
 
     // Done
@@ -453,7 +545,7 @@ int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
     int i, j;
 
     // Going to assume 5 characters
-    if (size < 5) return 0;
+    if (size<5) return 0;
 
     for (i=0, j=0 ; i<5 ; ++i) {
         if (in[i] > 99) {
@@ -469,7 +561,32 @@ int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
 sprintf(s, "NUM %s ", out);printString(s);
 
     // Parsed 5 characters
-    return 5;
+    return i;
+}
+
+int DscDecoder::parsePhone(char *out, const unsigned char *in, int size) {
+    int i, j;
+
+    // Must have odd/even code + 4 characters characters
+    if ((size<2) || ((in[0]!=106) && (in[0]!=105))) return 0;
+
+    // Use even number of digits for 106, odd for 105
+    j = 0;
+    if (in[0]==106) out[j++] = in[1]>99? '-' : '0' + in[1] / 10;
+    out[j++] = in[1]>99? '-' : '0' + in[1] % 10;
+
+    // Parse numeric characters
+    for (i=2, j=0 ; (i<size) && (in[i]<100) ; ++i) {
+        out[j++] = '0' + in[i] / 10;
+        out[j++] = '0' + in[i] % 10;
+    }
+
+    // Terminate number
+    out[j] = '\0';
+sprintf(s, "PHONE %s ", out);printString(s);
+
+    // Parsed until non-numeric character
+    return i;
 }
 
 void DscDecoder::printString(const char *buf) {

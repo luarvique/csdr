@@ -71,15 +71,19 @@ namespace Csdr {
             int parseTime(char *out, const unsigned char *in, int size);
             int parseFrequency(char *out, const unsigned char *in, int size);
             int parseNumber(char *out, const unsigned char *in, int size);
+            int parsePhone(char *out, const unsigned char *in, int size);
 
             const char *parseType(unsigned char code);
             const char *parseCategory(unsigned char code);
             const char *parseDistress(unsigned char code);
-            const char *parseCommand(char *out, unsigned char code);
-            const char *parseNext(char *out, unsigned char code);
+
+            bool parseCommand(int *out, unsigned char code);
+            bool parseNext(int *out, unsigned char code);
 
             void startJson(unsigned char type);
             void outputJson(const char *name, const char *value);
+            void outputJson(const char *name, int value);
+            void outputJson(const char *name, bool value);
             void endJson();
 
             void printString(const char *buf);
