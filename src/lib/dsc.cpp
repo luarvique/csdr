@@ -209,15 +209,15 @@ sprintf(s, "FORMAT %d ", format);printString(s);
     }
 
     // Verify end-of-sequence
-    if ((i+4>size) || (in[i] != in[i+2]) || (in[i] != in[i+3])) {
-sprintf(s, "EOS %d %d %d %d ", in[i], in[i+1], in[i+2], in[i+3]);printString(s);
+    if ((i+3>size) || (in[i] != in[i+2])) {
+sprintf(s, "EOS %d %d %d ", in[i], in[i+1], in[i+2]);printString(s);
 return i;
 }
 
     // Advance to the end of the message
     eos = in[i];
     ecc = in[i+1];
-    i  += 4;
+    i  += 3;
 
     // Write out accumulated data
     startJson(format);
