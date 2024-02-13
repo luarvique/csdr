@@ -45,7 +45,7 @@ void Ccir493Decoder::process() {
     output = (output & 0x17F) | ((output & 0x200) >> 2) | ((output & 0x080) << 2);
 
     // Resync after several repeated errors
-    if (!isValid(output) && (errors > 2)) {
+    if (!isValid(output) && (errors > CCIR493_MAX_ERRORS)) {
         // Skip a bit
         reader->advance(1);
     } else {
@@ -75,6 +75,11 @@ char Ccir493Decoder::toCode(unsigned short code) {
     return code & 0x07F;
 }
 
+unsigned short Ccir493Decoder::fromCode(char code) {
+    code &= 0x7F;
+    return code | ((unsigned short)CCIR493_ZEROCOUNT[code] << 7);
+}
+
 unsigned short Ccir493Decoder::fec(unsigned short code) {
     // This symbol is always received in DX phase
     if (toCode(code)==CCIR493_PHASE_DX) rxPhase = false;
@@ -84,6 +89,8 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
              : c1==code? code
              : isValid(code)? code
              : isValid(c1)? c1
+             : isValid(c1|code)? (c1|code)
+             : isValid(c1&code)? (c1&code)
              : 0xFFFF;
     } else {
         c1 = c2;

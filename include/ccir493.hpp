@@ -35,6 +35,9 @@ namespace Csdr {
         4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0  // 112
     };
 
+    // Maximum number of consequtive errors before decoder resyncs
+    const int CCIR493_MAX_ERRORS = 2;
+
     const unsigned char CCIR493_PHASE_RX0 = 104;
     const unsigned char CCIR493_PHASE_RX1 = 105;
     const unsigned char CCIR493_PHASE_RX2 = 106;
@@ -67,5 +70,6 @@ namespace Csdr {
             bool isValid(unsigned short code);
             unsigned short fec(unsigned short code);
             char toCode(unsigned short code);
+            unsigned short fromCode(char code);
     };
 }
