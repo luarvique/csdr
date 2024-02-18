@@ -42,6 +42,8 @@ namespace Csdr {
             bool canProcess() override;
             void process() override;
 
+            void reset();
+
         private:
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)

@@ -67,6 +67,34 @@ CwDecoder<T>::CwDecoder(unsigned int sampleRate, bool showCw)
 }
 
 template <typename T>
+void CwDecoder<T>::reset() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+
+    // Input signal characteristics
+    magL = 1000.0;  // Minimal observed magnitude
+    magH = 0.0;     // Maximal observed magnitude
+    realState0 = 0; // Last unfiltered signal state (0/1)
+    filtState0 = 0; // Last filtered signal state (0/1)
+
+    // HIGH / LOW timing
+    lastStartT = 0; // Time of the last signal change (ms)
+    startTimeH = 0; // Time HIGH signal started (ms)
+    durationH  = 0; // Duration of the HIGH signal (ms)
+    startTimeL = 0; // Time LOW signal started (ms)
+    durationL  = 0; // Duration of the LOW signal (ms)
+
+    // DIT / DAH / BREAK timing
+    avgDitT = 50;   // Average DIT signal duration (ms)
+    avgDahT = 100;  // Average DAH signal duration (ms)
+    avgBrkT = 50;   // Average BREAK duration (ms)
+
+    // Current CW code
+    code = 1;       // Currently accumulated CW code or 1
+    stop = 0;       // 1 if there is a code pending
+    wpm  = 0;       // Current CW speed (in wpm)
+}
+
+template <typename T>
 bool CwDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return (this->reader->available()>=quStep) && (this->writer->writeable()>=2);
