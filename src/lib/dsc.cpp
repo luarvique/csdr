@@ -100,8 +100,6 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     start  = i + 1;
     i += 2;
 
-sprintf(s, "FORMAT %d ", format);printString(s);
-
     // Depending on message format...
     switch (format) {
 
@@ -209,10 +207,7 @@ sprintf(s, "FORMAT %d ", format);printString(s);
     }
 
     // Verify end-of-sequence
-    if ((i+3>size) || (in[i] != in[i+2])) {
-sprintf(s, "EOS %d %d %d ", in[i], in[i+1], in[i+2]);printString(s);
-return i;
-}
+    if ((i+3>size) || (in[i] != in[i+2])) return i;
 
     // Advance to the end of the message
     eos = parseEos(in[i]);
@@ -223,7 +218,6 @@ return i;
 
     // Compute actual ECC
     for (k=0, j=start ; j<i+1 ; ++j) k ^= in[j];
-sprintf(s, "ECC %d/%d ", ecc, k);printString(s);
 
     // Write out accumulated data
     startJson(format);
@@ -273,7 +267,7 @@ void DscDecoder::outputJson(const char *name, bool value) {
 }
 
 void DscDecoder::endJson() {
-    printString(" }");
+    printString(" }\n");
 }
 
 int DscDecoder::parseAddress(char *out, const unsigned char *in, int size) {
@@ -295,10 +289,8 @@ int DscDecoder::parseAddress(char *out, const unsigned char *in, int size) {
         }
     }
 
-    // Terminate string
-    out[i] = '\0';
-
-sprintf(s, "ADDR %s ", out);printString(s);
+    // Terminate string, skipping the last digit (MMSIs are 9 digits)
+    out[i-1] = '\0';
 
     // Done
     return j==5? j : 0;
@@ -314,7 +306,6 @@ int DscDecoder::parseLocation(char *out, const unsigned char *in, int size) {
     // Check for "unknown location" (5 x 99)
     if ((in[0]==99) && (in[1]==99) && (in[2]==99) && (in[3]==99) && (in[4]==99)) {
         strcpy(out, "???");
-sprintf(s, "LOC %s ", out);printString(s);
         return 5;
     }
 
@@ -337,8 +328,6 @@ sprintf(s, "LOC %s ", out);printString(s);
         lonD + lonM / 60.0, quad&1? 'W' : 'E'
     );
 
-sprintf(s, "LOC %s ", out);printString(s);
-
     // Done
     return 5;
 }
@@ -353,7 +342,6 @@ int DscDecoder::parseArea(char *out, const unsigned char *in, int size) {
     // Check for "unknown location" (5 x 99)
     if ((in[0]==99) && (in[1]==99) && (in[2]==99) && (in[3]==99) && (in[4]==99)) {
         strcpy(out, "???");
-sprintf(s, "AREA %s ", out);printString(s);
         return 5;
     }
 
@@ -376,7 +364,6 @@ sprintf(s, "AREA %s ", out);printString(s);
         lonD, quad&1? 'W' : 'E',
         latH, lonW
     );
-sprintf(s, "AREA %s ", out);printString(s);
 
     // Done
     return 5;
@@ -410,7 +397,6 @@ int DscDecoder::parseTime(char *out, const unsigned char *in, int size) {
 }
 
 const char *DscDecoder::parseType(unsigned char code) {
-sprintf(s, "TYPE %d ", code);printString(s);
     switch (code) {
         case DSC_FMT_DISTRESS:  return "distress";
         case DSC_FMT_ALLSHIPS:  return "allships";
@@ -424,7 +410,6 @@ sprintf(s, "TYPE %d ", code);printString(s);
 }
 
 const char *DscDecoder::parseCategory(unsigned char code) {
-sprintf(s, "CAT %d ", code);printString(s);
     switch (code) {
         case DSC_CAT_ROUTINE:  return "routine";
         case DSC_CAT_SAFETY:   return "safety";
@@ -436,7 +421,6 @@ sprintf(s, "CAT %d ", code);printString(s);
 }
 
 const char *DscDecoder::parseDistress(unsigned char code) {
-sprintf(s, "DIS %d ", code);printString(s);
     switch (code) {
         case DSC_DIS_FIRE:       return "fire / explosion";
         case DSC_DIS_FLOODING:   return "flooding";
@@ -456,7 +440,6 @@ sprintf(s, "DIS %d ", code);printString(s);
 }
 
 const char *DscDecoder::parseEos(unsigned char code) {
-sprintf(s, "EOS %d ", code);printString(s);
     switch (code) {
         case DSC_ACK_RQ: return "arq";
         case DSC_ACK_BQ: return "abq";
@@ -468,13 +451,11 @@ sprintf(s, "EOS %d ", code);printString(s);
 
 bool DscDecoder::parseCommand(int *out, unsigned char code) {
     *out = code;
-sprintf(s, "CMD %d ", *out);printString(s);
     return out;
 }
 
 bool DscDecoder::parseNext(int *out, unsigned char code) {
     *out = code;
-sprintf(s, "NEXT %d ", *out);printString(s);
     return out;
 }
 
@@ -487,8 +468,6 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
     // Check if frequency is blank
     for (i=0 ; (i<3) && (in[i]==DSC_EMPTY) ; ++i);
     if (i==3) return i;
-
-sprintf(s, "FREQ < %d %d %d %d ", in[0], in[1], in[2], in[3]);printString(s);
 
     // Starting output from index 0
     i = 0;
@@ -552,8 +531,6 @@ sprintf(s, "FREQ < %d %d %d %d ", in[0], in[1], in[2], in[3]);printString(s);
             return 0;
     }
 
-sprintf(s, "FREQ %s ", out);printString(s);
-
     // Done
     return i;
 }
@@ -575,7 +552,6 @@ int DscDecoder::parseNumber(char *out, const unsigned char *in, int size) {
 
     // Terminate number
     out[j] = '\0';
-sprintf(s, "NUM %s ", out);printString(s);
 
     // Parsed 5 characters
     return i;
@@ -600,7 +576,6 @@ int DscDecoder::parsePhone(char *out, const unsigned char *in, int size) {
 
     // Terminate number
     out[j] = '\0';
-sprintf(s, "PHONE %s ", out);printString(s);
 
     // Parsed until non-numeric character
     return i;
