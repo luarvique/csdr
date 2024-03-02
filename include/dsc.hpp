@@ -1,6 +1,5 @@
 /*
-Copyright (c) 2023 Marat Fayzullin <luarvique@gmail.com>
-Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2023-2024 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 
@@ -36,6 +35,7 @@ namespace Csdr {
     const unsigned char DSC_FMT_SELCALL   = 120;
     const unsigned char DSC_FMT_AREACALL  = 102;
     const unsigned char DSC_FMT_AUTOCALL  = 123;
+    const unsigned char DSC_FMT_ERROR     = 255; // For debugging only
 
     const unsigned char DSC_CAT_ROUTINE   = 100;
     const unsigned char DSC_CAT_SAFETY    = 108;
@@ -83,6 +83,7 @@ namespace Csdr {
             bool parseNext(int *out, unsigned char code);
 
             void startJson(unsigned char type);
+            void outputJson(const char *name, const unsigned char *value, unsigned int length);
             void outputJson(const char *name, const char *value);
             void outputJson(const char *name, int value);
             void outputJson(const char *name, bool value);

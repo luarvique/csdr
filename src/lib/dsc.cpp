@@ -1,6 +1,5 @@
 /*
-Copyright (c) 2023 Marat Fayzullin <luarvique@gmail.com>
-Copyright (c) 2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2023-2024 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 
@@ -24,32 +23,30 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Csdr;
 
-// @@@ TODO: REMOVE THIS!!!
-char s[256];
-
 bool DscDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() >= 32) && (writer->writeable() > 8);
+    return (reader->available() >= 32) && (writer->writeable() >= 256);
 }
 
 void DscDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     int todo, done;
 
-#if 0
-    // @@@ TODO: REMOVE THIS!!!
-    unsigned char c = *reader->getReadPointer();
-    sprintf((char *)writer->getWritePointer(), " %d", c);
-    writer->advance(strlen((const char *)writer->getWritePointer()));
-    reader->advance(1);
-    return;
-#endif
-
     // Try obtaining complete DSC message from the input
     do {
+      unsigned char *in  = reader->getReadPointer();
+      unsigned char *out = writer->getWritePointer();
+
       todo = reader->available();
-      done = todo>0? parseMessage(reader->getReadPointer(), todo) : 0;
+      done = todo>0? parseMessage(in, todo) : 0;
       done = done>0? done : todo>32? 1 : 0;
+
+      // If failed to decode a message, output numeric data for debugging
+      if ((done>=4) && (writer->getWritePointer()==out)) {
+          startJson(DSC_FMT_ERROR);
+          outputJson("data", in, done);
+          endJson();
+      }
 
       // Advance input
       if (done>0) reader->advance(done);
@@ -248,6 +245,21 @@ void DscDecoder::startJson(unsigned char type) {
     printString(buf);
 }
 
+void DscDecoder::outputJson(const char *name, const unsigned char *value, unsigned int length) {
+    char buf[256];
+    sprintf(buf, ", \"%s\": \"", name);
+    printString(buf);
+
+    // Print a string of decimal values
+    for(unsigned int j=0 ; j<length ; ++j) {
+        sprintf(buf, "%s%d", j? " ":"", value[j]);
+        printString(buf);
+    }
+
+    sprintf(buf, "\"");
+    printString(buf);
+}
+
 void DscDecoder::outputJson(const char *name, const char *value) {
     char buf[256];
     sprintf(buf, ", \"%s\": \"%s\"", name, value);
@@ -404,6 +416,7 @@ const char *DscDecoder::parseType(unsigned char code) {
         case DSC_FMT_SELCALL:   return "selcall";
         case DSC_FMT_AREACALL:  return "areacall";
         case DSC_FMT_AUTOCALL:  return "autocall";
+        case DSC_FMT_ERROR:     return "error";
     }
 
     return 0;

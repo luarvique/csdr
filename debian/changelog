@@ -1,3 +1,10 @@
+csdr (0.18.19) bullseye jammy; urgency=low
+
+  * Finished initial CCIR493 / DSC decoder.
+  * Added reset() method to the CW decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 4 Mar 2024 16:12:00 +0000
+
 csdr (0.18.18) bullseye jammy; urgency=low
 
   * Merged changes from Jakob Ketterl's original development branch.
