@@ -83,7 +83,7 @@ namespace Csdr {
             bool parseNext(int *out, unsigned char code);
 
             void startJson(unsigned char type);
-            void outputJson(const char *name, const unsigned char *value, unsigned int length);
+            void outputJson(const char *name, const unsigned char *value, unsigned int length, int mark = -1);
             void outputJson(const char *name, const char *value);
             void outputJson(const char *name, int value);
             void outputJson(const char *name, bool value);

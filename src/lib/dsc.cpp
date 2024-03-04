@@ -44,7 +44,7 @@ void DscDecoder::process() {
       // If failed to decode a message, output numeric data for debugging
       if ((done>=4) && (writer->getWritePointer()==out)) {
           startJson(DSC_FMT_ERROR);
-          outputJson("data", in, done);
+          outputJson("data", in, todo>32? 32 : todo, done);
           endJson();
       }
 
@@ -245,14 +245,14 @@ void DscDecoder::startJson(unsigned char type) {
     printString(buf);
 }
 
-void DscDecoder::outputJson(const char *name, const unsigned char *value, unsigned int length) {
+void DscDecoder::outputJson(const char *name, const unsigned char *value, unsigned int length, int mark) {
     char buf[256];
     sprintf(buf, ", \"%s\": \"", name);
     printString(buf);
 
     // Print a string of decimal values
     for(unsigned int j=0 ; j<length ; ++j) {
-        sprintf(buf, "%s%d", j? " ":"", value[j]);
+        sprintf(buf, "%s%d", j==mark? "|":j? " ":"", value[j]);
         printString(buf);
     }
 
