@@ -20,6 +20,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "dsc.hpp"
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 using namespace Csdr;
 
@@ -45,6 +46,7 @@ void DscDecoder::process() {
       if ((done>=4) && (writer->getWritePointer()==out)) {
           startJson(DSC_FMT_ERROR);
           outputJson("data", in, todo>32? 32 : todo, done);
+          outputJson("timestamp", time(NULL));
           endJson();
       }
 
@@ -62,7 +64,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     char src[16]  = ""; // Source ID or location
     char id[16]   = ""; // Distress ID
     char loc[16]  = ""; // Distress location
-    char time[16] = ""; // Time
+    char msgt[16] = ""; // Time
     char rxfq[16] = ""; // RX frequency or duration
     char txfq[16] = ""; // TX frequency or duration
     char num[16]  = ""; // Number
@@ -97,6 +99,9 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     start  = i + 1;
     i += 2;
 
+    // Get timestamp
+    time_t ts = time(NULL);
+
     // Depending on message format...
     switch (format) {
 
@@ -111,7 +116,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseLocation(loc, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse time
-            j = parseTime(time, in + i, size - i);
+            j = parseTime(msgt, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
             if((i>=size) || !parseNext(&next, in[i++])) return i;
@@ -136,7 +141,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseLocation(loc, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse time
-            j = parseTime(time, in + i, size - i);
+            j = parseTime(msgt, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
             if((i>=size) || !parseNext(&next, in[i++])) return i;
@@ -222,7 +227,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     if(*dst)     outputJson("dst", dst);
     if(*id)      outputJson("id", loc);
     if(*loc)     outputJson("loc", loc);
-    if(*time)    outputJson("time", time);
+    if(*msgt)    outputJson("time", msgt);
     if(*rxfq)    outputJson("rxfreq", rxfq);
     if(*txfq)    outputJson("txfreq", txfq);
     if(*num)     outputJson("num", num);
@@ -233,6 +238,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     if(cmd2>=0)  outputJson("cmd2", cmd2);
     if(eos)      outputJson("eos", eos);
     outputJson("ecc", ecc==k);
+    outputJson("timestamp", ts);
     endJson();
 
     // Done
@@ -269,6 +275,12 @@ void DscDecoder::outputJson(const char *name, const char *value) {
 void DscDecoder::outputJson(const char *name, int value) {
     char buf[64];
     sprintf(buf, ", \"%s\": %d", name, value);
+    printString(buf);
+}
+
+void DscDecoder::outputJson(const char *name, const time_t &value) {
+    char buf[64];
+    sprintf(buf, ", \"%s\": %lld", name, (long long int)value);
     printString(buf);
 }
 

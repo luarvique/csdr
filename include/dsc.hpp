@@ -20,6 +20,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "module.hpp"
+#include <time.h>
 
 namespace Csdr {
     const unsigned char DSC_PHASE_RX0     = 104;
@@ -86,6 +87,7 @@ namespace Csdr {
             void outputJson(const char *name, const unsigned char *value, unsigned int length, int mark = -1);
             void outputJson(const char *name, const char *value);
             void outputJson(const char *name, int value);
+            void outputJson(const char *name, const time_t &value);
             void outputJson(const char *name, bool value);
             void endJson();
 
