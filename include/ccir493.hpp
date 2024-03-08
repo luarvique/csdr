@@ -35,7 +35,7 @@ namespace Csdr {
     };
 
     // Maximum number of consequtive errors before decoder resyncs
-    const int CCIR493_MAX_ERRORS = 3;
+    const int CCIR493_MAX_ERRORS = 4;
 
     const unsigned char CCIR493_PHASE_RX0 = 104;
     const unsigned char CCIR493_PHASE_RX1 = 105;

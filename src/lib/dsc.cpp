@@ -485,7 +485,7 @@ bool DscDecoder::parseNext(int *out, unsigned char code) {
 }
 
 int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
-    int i, j;
+    int i, j, k;
 
     // Will need 3-4 characters
     if (size<4) return 0;
@@ -538,7 +538,7 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
         case 4:
             // Only 40, 41, 42 are valid cases
             if (in[0]>42) return 0;
-            if(in[0] % 10) out[j++] = '0' + in[0] % 10;
+            if (in[0] % 10) out[j++] = '0' + in[0] % 10;
             // Frequency in 10Hz increments
             for (i=1 ; i<4 ; ++i) {
                 if (in[i] > 99) {
@@ -554,6 +554,13 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
         default:
             // Anything else is not a frequency!
             return 0;
+    }
+
+    // Skip leading zeros
+    for (k=0 ; out[k]=='0' ; ++k);
+    if (k>0) {
+        for (j=0 ; out[k] ; ++j, ++k) out[j] = out[k];
+        out[j] = '\0';
     }
 
     // Done
