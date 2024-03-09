@@ -4,6 +4,7 @@ csdr (0.18.20) bullseye jammy; urgency=low
   * Added output of broken DSC messages, for debugging.
   * Added timestamps to DSC messages.
   * Now skipping leading zeros in DSC frequencies.
+  * Slightly optimized ExecModule.
 
  -- Marat Fayzullin <luarvique@gmail.com>  Mon, 11 Mar 2024 16:12:00 +0000
 
