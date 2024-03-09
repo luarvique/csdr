@@ -242,7 +242,7 @@ void ExecModule<T, U>::setWriter(Writer<U> *writer) {
 template <typename T, typename U>
 bool ExecModule<T, U>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return this->writePipe != -1 && this->isPipeWriteable() && this->reader->available() > 0;
+    return this->reader->available() > 0 && this->isPipeWriteable();
 }
 
 template <typename T, typename U>
@@ -279,7 +279,7 @@ void ExecModule<T, U>::restart() {
 
 template <typename T, typename U>
 bool ExecModule<T, U>::isPipeWriteable() {
-    if (child_pid == 0) {
+    if (this->child_pid == 0 || this->writePipe == -1) {
         return false;
     }
     pollfd pfd = {
