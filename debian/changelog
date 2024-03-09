@@ -1,3 +1,12 @@
+csdr (0.18.20) bullseye jammy; urgency=low
+
+  * Improved CCIR493 by allowing more errors before resync.
+  * Added output of broken DSC messages, for debugging.
+  * Added timestamps to DSC messages.
+  * Now skipping leading zeros in DSC frequencies.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 11 Mar 2024 16:12:00 +0000
+
 csdr (0.18.19) bullseye jammy; urgency=low
 
   * Finished initial CCIR493 / DSC decoder.
