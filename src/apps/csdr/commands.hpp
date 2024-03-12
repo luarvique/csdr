@@ -345,8 +345,7 @@ namespace Csdr {
         public:
             SitorBDecodeCommand();
         private:
-            unsigned int jitter = 1;
-            unsigned int errorsAllowed = 16;
+            unsigned int errorsAllowed = 4;
             bool invert = false;
     };
 
@@ -364,6 +363,7 @@ namespace Csdr {
         public:
             Ccir493DecodeCommand();
         private:
+            unsigned int errorsAllowed = 4;
             bool invert = false;
     };
 }

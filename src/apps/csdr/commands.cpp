@@ -712,11 +712,10 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
 }
 
 SitorBDecodeCommand::SitorBDecodeCommand(): Command("sitorbdecode", "SITOR-B decoder") {
-    add_option("-j,--jitter", jitter, "Allowed signal jitter in bits (<= 6)");
     add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new SitorBDecoder(jitter, errorsAllowed, invert));
+        runModule(new SitorBDecoder(errorsAllowed, invert));
     });
 }
 
@@ -733,8 +732,9 @@ DscDecodeCommand::DscDecodeCommand(): Command("dscdecode", "DSC decoder") {
 }
 
 Ccir493DecodeCommand::Ccir493DecodeCommand(): Command("ccir493decode", "CCIR493 decoder") {
+    add_option("-e,--errors_allowed", errorsAllowed, "Number of errors allowed");
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
-        runModule(new Ccir493Decoder(invert));
+        runModule(new Ccir493Decoder(errorsAllowed, invert));
     });
 }

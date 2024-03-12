@@ -34,9 +34,6 @@ namespace Csdr {
         4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0  // 112
     };
 
-    // Maximum number of consequtive errors before decoder resyncs
-    const int CCIR493_MAX_ERRORS = 4;
-
     const unsigned char CCIR493_PHASE_RX0 = 104;
     const unsigned char CCIR493_PHASE_RX1 = 105;
     const unsigned char CCIR493_PHASE_RX2 = 106;
@@ -53,17 +50,19 @@ namespace Csdr {
 
     class Ccir493Decoder: public Module<float, unsigned char> {
         public:
-            explicit Ccir493Decoder(bool invert = false)
-            : invert(invert) {}
+            explicit Ccir493Decoder(unsigned int errorsAllowed = 4, bool invert = false)
+            : errorsAllowed(errorsAllowed), invert(invert) {}
 
             bool canProcess() override;
             void process() override;
 
         private:
+            unsigned int errorsAllowed;
+            bool invert;
+
             unsigned short c1 = 0, c2 = 0, c3 = 0;
             unsigned int errors = 0;
             bool rxPhase = false;
-            bool invert;
 
             bool toBit(float sample);
             bool isValid(unsigned short code);

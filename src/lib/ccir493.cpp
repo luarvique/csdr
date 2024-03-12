@@ -44,7 +44,7 @@ void Ccir493Decoder::process() {
     output = (output & 0x17F) | ((output & 0x200) >> 2) | ((output & 0x080) << 2);
 
     // Resync after several repeated errors
-    if (!isValid(output) && (errors > CCIR493_MAX_ERRORS)) {
+    if (!isValid(output) && (errors > errorsAllowed)) {
         // Skip a bit
         reader->advance(1);
     } else {
@@ -52,9 +52,10 @@ void Ccir493Decoder::process() {
         if(isValid(output)) errors = 0; else errors++;
         // Pass received character through FEC
         output = fec(output);
-        // Output received character
-        if (isValid(output)) {
-            *(writer->getWritePointer()) = toCode(output);
+        if (output) {
+            // Output received character, replace errors with EMPTY
+            *(writer->getWritePointer()) =
+                isValid(output)? toCode(output) : CCIR493_EMPTY;
             writer->advance(1);
         }
         // Skip 10 bits

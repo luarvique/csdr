@@ -25,14 +25,13 @@ namespace Csdr {
 
     class SitorBDecoder: public Module<float, unsigned char> {
         public:
-            explicit SitorBDecoder(unsigned int jitter = 1, unsigned int errorsAllowed = 16, bool invert = false)
-            : jitter(jitter<=6? jitter : 6), errorsAllowed(errorsAllowed), invert(invert) {}
+            explicit SitorBDecoder(unsigned int errorsAllowed = 4, bool invert = false)
+            : errorsAllowed(errorsAllowed), invert(invert) {}
 
             bool canProcess() override;
             void process() override;
 
         private:
-            unsigned int jitter;
             unsigned int errorsAllowed;
             bool invert;
 

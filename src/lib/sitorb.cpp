@@ -24,47 +24,36 @@ using namespace Csdr;
 
 bool SitorBDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= 7 + jitter;
+    return reader->available() >= 7;
 }
 
 void SitorBDecoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     float *data = reader->getReadPointer();
     unsigned int output = 0;
-    unsigned int marks = 0;
     int i;
 
-    // Get seven input bits AND some jitter bits
-    for (i = 0; i < 7 + jitter; i++) {
-        unsigned int bit = toBit(data[i]);
-        output |= (bit << i);
-        if (i<7) marks += bit;
+    // Get seven input bits
+    for (i = 0; i < 7; i++) {
+        output |= toBit(data[i])? (1 << i) : 0;
     }
 
-    // Try aligning input stream to get a valid CCIR476 character
-    for (i = 0; (marks != 4) && (i < jitter); i++) {
-        marks += ((output>>(i+7)) & 1) - ((output>>i) & 1);
+    // Resync after several repeated errors
+    if (!isValid(output) && (errors > errorsAllowed)) {
+        // Skip a bit
+        reader->advance(1);
+    } else {
+        // Count repeating errors
+        if(isValid(output)) errors = 0; else errors++;
+        // Process and output received character
+        output = fec(output);
+        if (output) {
+            *(writer->getWritePointer()) = output;
+            writer->advance(1);
+        }
+        // Skip 7 bits
+        reader->advance(7);
     }
-
-    // If a valid character found, use it, aligning input stream
-    if((i > 0) && (marks == 4)) {
-        reader->advance(i);
-        output >>= i;
-    // If no valid character and too many errors, keep looking
-    } else if (errors>errorsAllowed) {
-        reader->advance(jitter + 1);
-        return;
-    }
-
-    // Process and output received character
-    output = fec(output & 0x7F);
-    if (output) {
-        *(writer->getWritePointer()) = output;
-        writer->advance(1);
-    }
-
-    // Advance input
-    reader->advance(7);
 }
 
 bool SitorBDecoder::toBit(float sample) {
@@ -92,9 +81,7 @@ unsigned char SitorBDecoder::fec(unsigned char code) {
     }
 
     if (rxPhase) {
-        errors = c1==code? 0 : errors + 1;
         code = c1==code? code
-             : errors>errorsAllowed? '\0'
              : isValid(code)? code
              : isValid(c1)? c1
              : isValid(c1|code)? (c1|code)
