@@ -31,18 +31,14 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Csdr;
 
 template <typename T, typename U>
-ExecModule<T, U>::ExecModule(std::vector<std::string> args, size_t flushSize):
+ExecModule<T, U>::ExecModule(std::vector<std::string> args, size_t flushSize, bool doNotKill):
     Module<T, U>(),
     args(std::move(args)),
-    flushSize(flushSize)
+    flushSize(flushSize),
+    doNotKill(doNotKill)
 {
     startChild();
 }
-
-template <typename T, typename U>
-ExecModule<T, U>::ExecModule(std::vector<std::string> args):
-    ExecModule(std::move(args), 0)
-{}
 
 template <typename T, typename U>
 ExecModule<T, U>::~ExecModule<T, U>() {
@@ -157,7 +153,7 @@ void ExecModule<T, U>::stopChild() {
         }
         if (r == -1) {
             std::cerr << "ExecModule: waitpid failed: " << strerror(errno) << "\n";
-        } else if (r == 0) {
+        } else if (r == 0 && !doNotKill) {
             std::cerr << "ExecModule: child failed to terminate within 5 seconds, sending SIGKILL...\n";
             kill(child_pid, SIGKILL);
             r = waitpid(child_pid, &rc, 0);

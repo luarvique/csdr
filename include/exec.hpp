@@ -35,8 +35,7 @@ namespace Csdr {
     template<typename T, typename U>
     class ExecModule: public UntypedExecModule, public Module<T, U> {
         public:
-            ExecModule(std::vector<std::string> args, size_t flushSize);
-            explicit ExecModule(std::vector<std::string> args);
+            explicit ExecModule(std::vector<std::string> args, size_t flushSize = 0, bool doNotKill = false);
             ~ExecModule();
             bool canProcess() override;
             void process() override;
@@ -52,6 +51,7 @@ namespace Csdr {
             bool isPipeWriteable();
             std::vector<std::string> args;
             size_t flushSize = 0;
+            bool doNotKill = false;
             std::mutex childMutex;
             pid_t child_pid = 0;
             int readPipe = -1;
