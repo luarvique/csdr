@@ -486,12 +486,12 @@ const char *DscDecoder::parseEos(unsigned char code) {
 
 bool DscDecoder::parseCommand(int *out, unsigned char code) {
     *out = code;
-    return out;
+    return true;
 }
 
 bool DscDecoder::parseNext(int *out, unsigned char code) {
     *out = code;
-    return out;
+    return true;
 }
 
 int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {

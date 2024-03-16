@@ -91,7 +91,7 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
              : isValid(c1)? c1
              : isValid(c1|code)? (c1|code)
              : isValid(c1&code)? (c1&code)
-             : 0xFFFF;
+             : tryRecovery(code, c1);
     } else {
         c1 = c2;
         c2 = c3;
@@ -101,4 +101,34 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
 
     rxPhase = !rxPhase;
     return code;
+}
+
+unsigned short Ccir493Decoder::tryRecovery(unsigned short x, unsigned short y) {
+    unsigned short badBits = x ^ y;
+    unsigned short bit, data;
+    unsigned char bits[16];
+    int j, i;
+
+    // Must have mismatching bits
+    if (!badBits) return x;
+
+    // Count number of mismatching bits
+    for (j = 0, bit = 0, i = badBits ; i ; i >>= 1, bit++) {
+        if (i&1) bits[j++] = bit;
+    }
+
+    // Try all bit permutations
+    for (j = (1<<j) - 1 ; j >= 0 ; j--) {
+        // Choose bits to be selected from x vs y
+        for (data = 0, bit = 0, i = j ; i ; i >>= 1, bit++) {
+            if (i&1) data |= 1 << bits[bit];
+        }
+        // Combine bits from x and y
+        data = (x & data) | (y & ~data);
+        // Return first valid combination found
+        if (isValid(data)) return data;
+    }
+
+    // No valid combinations found
+    return 0xFFFF;
 }

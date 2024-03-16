@@ -69,5 +69,6 @@ namespace Csdr {
             unsigned short fec(unsigned short code);
             char toCode(unsigned short code);
             unsigned short fromCode(char code);
+            unsigned short tryRecovery(unsigned short x, unsigned short y);
     };
 }

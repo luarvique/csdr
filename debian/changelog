@@ -1,6 +1,7 @@
 csdr (0.18.21) bullseye jammy; urgency=low
 
   * Added doNotKill option to ExecModule.
+  * Added more complex CCIR493 bit recovery code.
   * Made CCIR493 resync error count configurable.
   * Made CCIR493 output EMPTY symbols for errors.
   * Improved DSC preamble detection.
