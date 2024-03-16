@@ -83,13 +83,23 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     // Collect enough input first
     if (size < 32) return 0;
 
+    // First character must be phasing
+    if ((in[0]<DSC_PHASE_RX0) || (in[0]>DSC_PHASE_RX7)) return 1;
+
     // Check for sequence of phasing characters
-    for (i=0, j=DSC_PHASE_RX7+1 ; (i<size-2) && (in[i]<j) && (in[i]>=DSC_PHASE_RX0) ; i++) {
-        j = in[i];
+    for (i=1, k=1, j=in[0] ; i<size-2 ; i++) {
+        if (in[i]==DSC_EMPTY) {
+            if (j<=DSC_PHASE_RX0) break;
+            j--;
+        } else {
+            if ((in[i]>=j) || (in[i]<DSC_PHASE_RX0)) break;
+            j = in[i];
+            k++;
+        }
     }
 
     // Must have at least two phasing characters
-    if (i < 2) return i;
+    if (k < 2) return 1;
 
     // Must have repeated format specifier
     if (in[i] != in[i+1]) return i + 1;
