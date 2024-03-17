@@ -42,6 +42,7 @@ namespace Csdr {
             bool toBit(float sample);
             unsigned char fec(unsigned char code);
             bool isValid(unsigned char code);
+            unsigned char tryRecovery(unsigned char x, unsigned char y);
     };
 
 }

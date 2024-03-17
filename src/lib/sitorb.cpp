@@ -86,7 +86,7 @@ unsigned char SitorBDecoder::fec(unsigned char code) {
              : isValid(c1)? c1
              : isValid(c1|code)? (c1|code)
              : isValid(c1&code)? (c1&code)
-             : 128;
+             : tryRecovery(code, c1);
     } else {
         c1 = c2;
         c2 = c3;
@@ -96,4 +96,34 @@ unsigned char SitorBDecoder::fec(unsigned char code) {
 
     rxPhase = !rxPhase;
     return code;
+}
+
+unsigned char SitorBDecoder::tryRecovery(unsigned char x, unsigned char y) {
+    unsigned char badBits = x ^ y;
+    unsigned char bit, data;
+    unsigned char bits[8];
+    int j, i;
+
+    // Must have mismatching bits
+    if (!badBits) return x;
+
+    // Count number of mismatching bits
+    for (j = 0, bit = 0, i = badBits ; i ; i >>= 1, bit++) {
+        if (i&1) bits[j++] = bit;
+    }
+
+    // Try all bit permutations
+    for (j = (1<<j) - 1 ; j >= 0 ; j--) {
+        // Choose bits to be selected from x vs y
+        for (data = 0, bit = 0, i = j ; i ; i >>= 1, bit++) {
+            if (i&1) data |= 1 << bits[bit];
+        }
+        // Combine bits from x and y
+        data = (x & data) | (y & ~data);
+        // Return first valid combination found
+        if (isValid(data)) return data;
+    }
+
+    // No valid combinations found
+    return 128;
 }

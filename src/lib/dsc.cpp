@@ -22,11 +22,13 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <time.h>
 
+#define MIN_INPUT_LEN (40)
+
 using namespace Csdr;
 
 bool DscDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() >= 32) && (writer->writeable() >= 256);
+    return (reader->available() >= MIN_INPUT_LEN) && (writer->writeable() >= 256);
 }
 
 void DscDecoder::process() {
@@ -40,12 +42,12 @@ void DscDecoder::process() {
 
       todo = reader->available();
       done = todo>0? parseMessage(in, todo) : 0;
-      done = done>0? done : todo>32? 1 : 0;
+      done = done>0? done : todo>MIN_INPUT_LEN? 1 : 0;
 
       // If failed to decode a message, output numeric data for debugging
       if ((done>=4) && (writer->getWritePointer()==out)) {
           startJson(DSC_FMT_ERROR);
-          outputJson("data", in, todo>32? 32 : todo, done);
+          outputJson("data", in, todo>MIN_INPUT_LEN? MIN_INPUT_LEN : todo, done);
           outputJson("timestamp", time(NULL));
           endJson();
       }
@@ -81,7 +83,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     int i, j, k, start;
 
     // Collect enough input first
-    if (size < 32) return 0;
+    if (size < MIN_INPUT_LEN) return 0;
 
     // First character must be phasing
     if ((in[0]<DSC_PHASE_RX0) || (in[0]>DSC_PHASE_RX7)) return 1;
@@ -283,19 +285,19 @@ void DscDecoder::outputJson(const char *name, const char *value) {
 }
 
 void DscDecoder::outputJson(const char *name, int value) {
-    char buf[64];
+    char buf[256];
     sprintf(buf, ", \"%s\": %d", name, value);
     printString(buf);
 }
 
 void DscDecoder::outputJson(const char *name, const time_t &value) {
-    char buf[64];
+    char buf[256];
     sprintf(buf, ", \"%s\": %lld", name, (long long int)value);
     printString(buf);
 }
 
 void DscDecoder::outputJson(const char *name, bool value) {
-    char buf[64];
+    char buf[256];
     sprintf(buf, ", \"%s\": %s", name, value? "true":"false");
     printString(buf);
 }
