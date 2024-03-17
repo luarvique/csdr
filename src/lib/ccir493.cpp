@@ -91,7 +91,7 @@ unsigned short Ccir493Decoder::fec(unsigned short code) {
              : isValid(c1)? c1
              : isValid(c1|code)? (c1|code)
              : isValid(c1&code)? (c1&code)
-             : 128; //tryRecovery(code, c1);
+             : tryRecovery(code, c1);
     } else {
         c1 = c2;
         c2 = c3;
