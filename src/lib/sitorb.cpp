@@ -81,7 +81,8 @@ unsigned char SitorBDecoder::fec(unsigned char code) {
     }
 
     if (rxPhase) {
-        code = c1==code? code
+        code = c1==CCIR476_SIA? code
+             : c1==code? code
              : isValid(code)? code
              : isValid(c1)? c1
              : isValid(c1|code)? (c1|code)

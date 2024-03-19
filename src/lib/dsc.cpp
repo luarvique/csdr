@@ -122,8 +122,8 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse distress type
-            distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return i;
+            distress = i<size? parseDistress(in[i]) : 0;
+            if (!distress) return i; else i++;
             // Parse distress location
             j = parseLocation(loc, in + i, size - i);
             if (!j) return i; else i += j;
@@ -131,24 +131,24 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseTime(msgt, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(&next, in[i++])) return i;
+            if((i>=size) || !parseNext(&next, in[i])) return i; else i++;
             break;
 
         case DSC_FMT_ALLSHIPS:
             // Parse category
-            category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return i;
+            category = i<size? parseCategory(in[i]) : 0;
+            if (!category) return i; else i++;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommand
-            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd1, in[i])) return i; else i++;
             // Parse distress address
             j = parseAddress(id, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse distress type
-            distress = i<size? parseDistress(in[i++]) : 0;
-            if (!distress) return i;
+            distress = i<size? parseDistress(in[i]) : 0;
+            if (!distress) return i; else i++;
             // Parse distress location
             j = parseLocation(loc, in + i, size - i);
             if (!j) return i; else i += j;
@@ -156,7 +156,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseTime(msgt, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse subsequent comms
-            if((i>=size) || !parseNext(&next, in[i++])) return i;
+            if((i>=size) || !parseNext(&next, in[i])) return i; else i++;
             break;
 
         case DSC_FMT_AREACALL:
@@ -171,17 +171,17 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             }
             if (!j) return i; else i += j;
             // Parse category
-            category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return i;
+            category = i<size? parseCategory(in[i]) : 0;
+            if (!category) return i; else i++;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommands
-            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
-            if((i>=size) || !parseCommand(&cmd2, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd1, in[i])) return i; else i++;
+            if((i>=size) || !parseCommand(&cmd2, in[i])) return i; else i++;
             // Parse frequencies or position (@@@ TODO: UTC)
             if((i<size) && (in[i]==55)) {
-                ++i;
+                i++;
                 j = parseLocation(loc, in + i, size - i);
                 if (!j) return i; else i += j;
             } else {
@@ -197,14 +197,14 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             j = parseAddress(dst, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse category
-            category = i<size? parseCategory(in[i++]) : 0;
-            if (!category) return i;
+            category = i<size? parseCategory(in[i]) : 0;
+            if (!category) return i; else i++;
             // Parse source address
             j = parseAddress(src, in + i, size - i);
             if (!j) return i; else i += j;
             // Parse telecommands
-            if((i>=size) || !parseCommand(&cmd1, in[i++])) return i;
-            if((i>=size) || !parseCommand(&cmd2, in[i++])) return i;
+            if((i>=size) || !parseCommand(&cmd1, in[i])) return i; else i++;
+            if((i>=size) || !parseCommand(&cmd2, in[i])) return i; else i++;
             // Parse frequencies or duration
             j = parseFrequency(rxfq, in + i, size - i);
             if (!j) return i; else i += j;
