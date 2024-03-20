@@ -43,13 +43,22 @@ void Ccir493Decoder::process() {
     // (they indicate the number of zeros in the bottom seven)
     output = (output & 0x17F) | ((output & 0x200) >> 2) | ((output & 0x080) << 2);
 
-    // Resync after several repeated errors
-    if (!isValid(output) && (errors > errorsAllowed)) {
-        // Skip a bit
+    // Detect start of a message
+    bool isPreamble = isValid(output) && (toCode(output) == CCIR493_PHASE_DX);
+
+    if (!isPreamble && (length >= CCIR493_MAX_MSG_LEN)) {
+        // Look for preamble after message ends
+        reader->advance(1);
+    } else if (!isValid(output) && (errors > errorsAllowed)) {
+        // Resync after several repeated errors
         reader->advance(1);
     } else {
+        // Count message length
+        if (isPreamble) length = 0; else length++;
+
         // Count repeating errors
-        if(isValid(output)) errors = 0; else errors++;
+        if (isValid(output)) errors = 0; else errors++;
+
         // Pass received character through FEC
         output = fec(output);
         if (output) {
@@ -58,7 +67,8 @@ void Ccir493Decoder::process() {
                 isValid(output)? toCode(output) : CCIR493_EMPTY;
             writer->advance(1);
         }
-        // Skip 10 bits
+
+        // Skip consumed 10-bit character
         reader->advance(10);
     }
 }

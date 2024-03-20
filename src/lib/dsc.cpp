@@ -22,13 +22,11 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <time.h>
 
-#define MIN_INPUT_LEN (40)
-
 using namespace Csdr;
 
 bool DscDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (reader->available() >= MIN_INPUT_LEN) && (writer->writeable() >= 256);
+    return (reader->available() >= DSC_MAX_MSG_LEN) && (writer->writeable() >= 256);
 }
 
 void DscDecoder::process() {
@@ -42,12 +40,12 @@ void DscDecoder::process() {
 
       todo = reader->available();
       done = todo>0? parseMessage(in, todo) : 0;
-      done = done>0? done : todo>MIN_INPUT_LEN? 1 : 0;
+      done = done>0? done : todo>DSC_MAX_MSG_LEN? 1 : 0;
 
       // If failed to decode a message, output numeric data for debugging
       if ((done>=4) && (writer->getWritePointer()==out)) {
           startJson(DSC_FMT_ERROR);
-          outputJson("data", in, todo>MIN_INPUT_LEN? MIN_INPUT_LEN : todo, done);
+          outputJson("data", in, todo>DSC_MAX_MSG_LEN? DSC_MAX_MSG_LEN : todo, done);
           outputJson("timestamp", time(NULL));
           endJson();
       }
@@ -83,7 +81,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     int i, j, k, start;
 
     // Collect enough input first
-    if (size < MIN_INPUT_LEN) return 0;
+    if (size < DSC_MAX_MSG_LEN) return 0;
 
     // First character must be phasing
     if ((in[0]<DSC_PHASE_RX0) || (in[0]>DSC_PHASE_RX7)) return 1;

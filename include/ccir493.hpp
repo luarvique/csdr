@@ -48,6 +48,9 @@ namespace Csdr {
     const unsigned char CCIR493_EMPTY     = 126;
     const unsigned char CCIR493_EOS       = 127;
 
+    // Maximum message length is 40 symbols x 2 copies
+    const unsigned int CCIR493_MAX_MSG_LEN = 2 * 40;
+
     class Ccir493Decoder: public Module<float, unsigned char> {
         public:
             explicit Ccir493Decoder(unsigned int errorsAllowed = 4, bool invert = false)
@@ -61,6 +64,7 @@ namespace Csdr {
             bool invert;
 
             unsigned short c1 = 0, c2 = 0, c3 = 0;
+            unsigned int length = CCIR493_MAX_MSG_LEN;
             unsigned int errors = 0;
             bool rxPhase = false;
 

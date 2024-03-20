@@ -20,6 +20,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "module.hpp"
+#include "ccir493.hpp"
 #include <time.h>
 
 namespace Csdr {
@@ -55,6 +56,9 @@ namespace Csdr {
     const unsigned char DSC_DIS_PIRACY    = 109;
     const unsigned char DSC_DIS_MANOVERB  = 110;
     const unsigned char DSC_DIS_EPIRB     = 112;
+
+    // Maximum message length is 40 symbols
+    const unsigned int DSC_MAX_MSG_LEN = CCIR493_MAX_MSG_LEN / 2;
 
     class DscDecoder: public Module<unsigned char, unsigned char> {
         public:
