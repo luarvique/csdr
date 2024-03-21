@@ -101,11 +101,11 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     // Must have at least two phasing characters
     if (k < 2) return 1;
 
-    // Must have repeated format specifier
-    if (in[i] != in[i+1]) return i + 1;
+    // Must have at least one valid format specifier
+    format = parseType(in[i+1])? in[i+1] : parseType(in[i])? in[i] : 0;
+    if (!format) return i;
 
-    // Get message format and advance pointer
-    format = in[i];
+    // Get message start and advance pointer
     start  = i + 1;
     i += 2;
 
@@ -218,15 +218,17 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
             return i;
     }
 
-    // Verify end-of-sequence
-    if ((i+3>size) || (in[i] != in[i+2])) return i;
-
     // Advance to the end of the message
-    eos = parseEos(in[i]);
-    ecc = in[i+1];
+    if (i+4>size) return i;
 
-    // Must have valid EOS
-    if (!eos) return i + 3;
+    // Verify end-of-sequence
+    ecc = in[i+1];
+    eos = parseEos(in[i]);
+    eos = eos? eos : parseEos(in[i+2]);
+    eos = eos? eos : parseEos(in[i+3]);
+
+    // Must have at least one valid EOS
+    if (!eos) return i;
 
     // Compute actual ECC
     for (k=0, j=start ; j<i+1 ; ++j) k ^= in[j];
@@ -252,7 +254,7 @@ int DscDecoder::parseMessage(const unsigned char *in, int size) {
     endJson();
 
     // Done
-    return i + 3;
+    return i + 4;
 }
 
 void DscDecoder::startJson(unsigned char type) {
