@@ -3,7 +3,7 @@ csdr (0.18.22) bullseye jammy; urgency=low
   * Improved preamble detection in CCIR493.
   * Relaxed DSC FORMAT/EOS field requirements.
   * Clarified DSC error positions.
-  * Slightly improved SITORB.
+  * Slightly improved SITOR-B.
 
  -- Marat Fayzullin <luarvique@gmail.com>  Mon, 25 Mar 2024 16:12:00 +0000
 
