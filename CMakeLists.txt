@@ -86,3 +86,8 @@ SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -O3 -DNDEBUG")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(src)
+
+add_subdirectory(glslang-main)
+
+add_library(VkFFT INTERFACE)
+target_compile_definitions(VkFFT INTERFACE -DVKFFT_BACKEND=0)
