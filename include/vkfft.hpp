@@ -34,6 +34,8 @@ namespace Csdr {
 
             VkFFTResult fft(fftwf_complex *input, fftwf_complex *output);
 
+            bool isReady();
+
         private:
             // glslang management
             static uint64_t instances;
@@ -108,9 +110,6 @@ namespace Csdr {
 
             VkFFTResult createApplication();
             void cleanupApplication();
-
-            VkResult transferFromCPU(void *source);
-            VkResult transferToCPU(void *dest);
     };
 
 }

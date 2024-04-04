@@ -66,7 +66,11 @@ void Fft::process() {
             } else {
                 memcpy(windowed, reader->getReadPointer(), fftSize);
             }
-            fftwf_execute(plan);
+            if (vkBackend->isReady()) {
+                vkBackend->fft((fftwf_complex*)windowed, (fftwf_complex*)output_buffer);
+            } else {
+                fftwf_execute(plan);
+            }
             std::memcpy(writer->getWritePointer(), output_buffer, sizeof(complex<float>) * fftSize);
             writer->advance(fftSize);
 

@@ -414,130 +414,115 @@ void VkFFTBackend::cleanupApplication() {
 }
 
 VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output) {
-    VkResult res = this->transferFromCPU(input);
+    // copy data from input to source buffer
+    void* data;
+    VkResult res = vkMapMemory(this->device, this->cpuSourceMemory, 0, this->bufferSize, 0, &data);
     if (res != VK_SUCCESS) {
-        // any errors mark this backend as not ready
-        this->ready = false;
-        std::cerr << "transfer from cpu source buffer error " << res << "\n";
-
-        return VKFFT_ERROR_FAILED_TO_COPY;
-    }
-
-
-    res = this->transferToCPU(output);
-    if (res != VK_SUCCESS) {
-        // any errors mark this backend as not ready
         this->ready = false;
         std::cerr << "transfer to cpu source buffer error " << res << "\n";
 
         return VKFFT_ERROR_FAILED_TO_COPY;
     }
+    memcpy(data, input, this->bufferSize);
+    vkUnmapMemory(this->device, this->cpuSourceMemory);
+
+    // create command buffer
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    commandBufferAllocateInfo.commandPool = this->commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = 1;
+    VkCommandBuffer commandBuffer = {};
+
+    // free commandBuffer before return
+    res = vkAllocateCommandBuffers(this->device, &commandBufferAllocateInfo, &commandBuffer);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+
+        return VKFFT_ERROR_FAILED_TO_ALLOCATE_COMMAND_BUFFERS;
+    }
+    VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return VKFFT_ERROR_FAILED_TO_BEGIN_COMMAND_BUFFER;
+    }
+
+    // add copy cpu -> gpu to command buffer
+    VkBufferCopy cpuCopyRegion = {};
+    cpuCopyRegion.srcOffset = 0;
+    cpuCopyRegion.dstOffset = 0;
+    cpuCopyRegion.size = this->bufferSize;
+    vkCmdCopyBuffer(commandBuffer, this->cpuSourceBuffer, this->outputBuffer, 1, &cpuCopyRegion);
+
+    // perform FFT
+    VkFFTLaunchParams launchParams = {};
+    launchParams.commandBuffer = &commandBuffer;
+    VkFFTResult resFFT = VkFFTAppend(&this->application, -1, &launchParams);
+    if (resFFT != VKFFT_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return resFFT;
+    }
+
+    // add copy gpu -> cpu to command buffer
+    VkBufferCopy gpuCopyRegion = {};
+    gpuCopyRegion.srcOffset = 0;
+    gpuCopyRegion.dstOffset = 0;
+    gpuCopyRegion.size = this->bufferSize;
+    vkCmdCopyBuffer(commandBuffer, this->outputBuffer, this->cpuDestBuffer, 1, &gpuCopyRegion);
+
+    // end command buffer and submit queue
+    res = vkEndCommandBuffer(commandBuffer);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return VKFFT_ERROR_FAILED_TO_END_COMMAND_BUFFER;
+    }
+    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    res = vkQueueSubmit(this->queue, 1, &submitInfo, this->fence);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return VKFFT_ERROR_FAILED_TO_SUBMIT_QUEUE;
+    }
+    res = vkWaitForFences(this->device, 1, &this->fence, VK_TRUE, 100000000000);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return VKFFT_ERROR_FAILED_TO_WAIT_FOR_FENCES;
+    }
+    res = vkResetFences(this->device, 1, &this->fence);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+        return VKFFT_ERROR_FAILED_TO_RESET_FENCES;
+    }
+    vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+    // copy data from destination buffer to output
+    res = vkMapMemory(this->device, this->cpuDestMemory, 0, this->bufferSize, 0, &data);
+    if (res != VK_SUCCESS) {
+        this->ready = false;
+        std::cerr << "transfer to cpu destination buffer error " << res << "\n";
+
+        return VKFFT_ERROR_FAILED_TO_COPY;
+    }
+    memcpy(output, data, this->bufferSize);
+    vkUnmapMemory(this->device, this->cpuDestMemory);
 
     return VKFFT_SUCCESS;
 };
 
-VkResult VkFFTBackend::transferFromCPU(void *source) {
-    // copy data to memory mapped to cpu source buffer
-    void* data;
-    VkResult res = vkMapMemory(this->device, this->cpuSourceMemory, 0, this->bufferSize, 0, &data);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    memcpy(data, source, this->bufferSize);
-    vkUnmapMemory(this->device, this->cpuSourceMemory);
-
-    // copy from cpu source buffer to output buffer - fft will be performed in-place
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    commandBufferAllocateInfo.commandPool = this->commandPool;
-    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocateInfo.commandBufferCount = 1;
-    VkCommandBuffer commandBuffer = {};
-    res = vkAllocateCommandBuffers(this->device, &commandBufferAllocateInfo, &commandBuffer);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = this->bufferSize;
-    vkCmdCopyBuffer(commandBuffer, this->cpuSourceBuffer, this->outputBuffer, 1, &copyRegion);
-    res = vkEndCommandBuffer(commandBuffer);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-    res = vkQueueSubmit(this->queue, 1, &submitInfo, this->fence);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    res = vkWaitForFences(this->device, 1, &this->fence, VK_TRUE, 100000000000);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    res = vkResetFences(this->device, 1, &this->fence);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
-
-    return VK_SUCCESS;
-}
-
-VkResult VkFFTBackend::transferToCPU(void *dest) {
-    // copy from output buffer to cpu destination buffer
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    commandBufferAllocateInfo.commandPool = this->commandPool;
-    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocateInfo.commandBufferCount = 1;
-    VkCommandBuffer commandBuffer = {};
-    VkResult res = vkAllocateCommandBuffers(this->device, &commandBufferAllocateInfo, &commandBuffer);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = this->bufferSize;
-    vkCmdCopyBuffer(commandBuffer, this->outputBuffer, this->cpuDestBuffer, 1, &copyRegion);
-    vkEndCommandBuffer(commandBuffer);
-    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-    res = vkQueueSubmit(this->queue, 1, &submitInfo, this->fence);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    res = vkWaitForFences(this->device, 1, &this->fence, VK_TRUE, 100000000000);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    res = vkResetFences(this->device, 1, &this->fence);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
-
-    void* data;
-    res = vkMapMemory(this->device, this->cpuDestMemory, 0, this->bufferSize, 0, &data);
-    if (res != VK_SUCCESS) {
-        return res;
-    }
-    memcpy(dest, data, this->bufferSize);
-    vkUnmapMemory(this->device, this->cpuDestMemory);
-
-    return VK_SUCCESS;
+bool VkFFTBackend::isReady() {
+    return ready;
 }
