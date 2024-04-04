@@ -26,12 +26,11 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Csdr;
 
 Fft::Fft(unsigned int fftSize, unsigned int everyNSamples, Window* window): fftSize(fftSize), everyNSamples(everyNSamples) {
-    VkFFTBackend *b = new VkFFTBackend(fftSize);
-
     windowed = (complex<float>*) malloc(sizeof(complex<float>) * fftSize);
     output_buffer = (complex<float>*) malloc(sizeof(complex<float>) * fftSize);
     plan = fftwf_plan_dft_1d(fftSize, (fftwf_complex*) windowed, (fftwf_complex*) output_buffer, FFTW_FORWARD, FFTW_ESTIMATE);
     this->window = window->precalculate(fftSize);
+    vkBackend = new VkFFTBackend(fftSize);
 }
 
 Fft::~Fft() {
@@ -39,6 +38,7 @@ Fft::~Fft() {
     free(output_buffer);
     delete window;
     fftwf_destroy_plan(plan);
+    delete vkBackend;
 }
 
 bool Fft::canProcess() {

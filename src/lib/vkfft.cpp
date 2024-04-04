@@ -22,9 +22,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 #include <mutex>
 
-#include "glslang_c_interface.h"
-#include "vulkan/vulkan.h"
-#include "vkFFT.h"
+#include <glslang_c_interface.h>
+#include <vulkan/vulkan.h>
 
 using namespace Csdr;
 
@@ -71,16 +70,38 @@ VkFFTBackend::VkFFTBackend(uint64_t size) {
         return;
     }
 
-    res = this->createVkBuffer();
-    if (res != VK_SUCCESS) {
-        std::cerr << "buffer creation error " << res << "\n";
+    VkFFTResult resFFT = this->createVkBuffer(
+        &this->outputBuffer,
+        &this->outputBufferMemory,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_HEAP_DEVICE_LOCAL_BIT
+    );
+    if (resFFT != VKFFT_SUCCESS) {
+        std::cerr << "output buffer creation error " << resFFT << "\n";
 
         return;
     }
 
-    VkFFTResult resFFT = this->allocateVkMemory();
+    resFFT = this->createVkBuffer(
+        &this->cpuSourceBuffer,
+        &this->cpuSourceMemory,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
     if (resFFT != VKFFT_SUCCESS) {
-        std::cerr << "memory allocation error " << resFFT << "\n";
+        std::cerr << "cpu source buffer creation error " << resFFT << "\n";
+
+        return;
+    }
+
+    resFFT = this->createVkBuffer(
+            &this->cpuDestBuffer,
+            &this->cpuDestMemory,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
+    if (resFFT != VKFFT_SUCCESS) {
+        std::cerr << "cpu source buffer creation error " << resFFT << "\n";
 
         return;
     }
@@ -100,8 +121,9 @@ VkFFTBackend::VkFFTBackend(uint64_t size) {
 VkFFTBackend::~VkFFTBackend() {
     this->ready = false;
 
-    this->cleanupVkBuffer();
-    this->cleanupVkMemory();
+    this->cleanupVkBuffer(this->outputBuffer, this->outputBufferMemory);
+    this->cleanupVkBuffer(this->cpuSourceBuffer, this->cpuSourceMemory);
+    this->cleanupVkBuffer(this->cpuDestBuffer, this->cpuDestMemory);
     this->cleanupApplication();
     this->cleanupVkCommandPool();
     this->cleanupVkFence();
@@ -290,36 +312,19 @@ void VkFFTBackend::cleanupVkCommandPool() {
     }
 }
 
-VkResult VkFFTBackend::createVkBuffer() {
-    this->bufferSize = sizeof(float) * 2 * this->size;
-    this->bufferSize += this->bufferSize % 4;
-    uint32_t queueFamilyIndices;
-    VkBufferCreateInfo bufferCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    bufferCreateInfo.queueFamilyIndexCount = 1;
-    bufferCreateInfo.pQueueFamilyIndices = &queueFamilyIndices;
-    bufferCreateInfo.size = this->bufferSize;
-    bufferCreateInfo.usage =
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    return vkCreateBuffer(this->device, &bufferCreateInfo, nullptr, &this->buffer);
-}
-
-void VkFFTBackend::cleanupVkBuffer() {
-    if (this->buffer != nullptr) {
-        vkDestroyBuffer(this->device, this->buffer, nullptr);
-    }
-}
-
-const VkMemoryPropertyFlags defaultProperties = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
-
-VkFFTResult VkFFTBackend::findMemoryType(uint64_t memoryTypeBits, uint64_t memorySize, uint32_t *memoryTypeIndex) {
+VkFFTResult VkFFTBackend::findMemoryType(
+    uint64_t memoryTypeBits,
+    uint64_t memorySize,
+    uint32_t *memoryTypeIndex,
+    VkMemoryPropertyFlags properties
+) {
     VkPhysicalDeviceMemoryProperties memoryProperties = {0};
 
     vkGetPhysicalDeviceMemoryProperties(this->physicalDevice, &memoryProperties);
 
     for (uint64_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
         if ((memoryTypeBits & ((uint64_t) 1 << i)) &&
-            ((memoryProperties.memoryTypes[i].propertyFlags & defaultProperties) == defaultProperties) &&
+            ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) &&
             (memoryProperties.memoryHeaps[memoryProperties.memoryTypes[i].heapIndex].size >= memorySize)) {
             memoryTypeIndex[0] = (uint32_t) i;
             return VKFFT_SUCCESS;
@@ -328,25 +333,45 @@ VkFFTResult VkFFTBackend::findMemoryType(uint64_t memoryTypeBits, uint64_t memor
     return VKFFT_ERROR_FAILED_TO_FIND_MEMORY;
 }
 
-VkFFTResult VkFFTBackend::allocateVkMemory() {
+VkFFTResult VkFFTBackend::createVkBuffer(
+    VkBuffer *buffer,
+    VkDeviceMemory *deviceMemory,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags properties
+) {
+    this->bufferSize = sizeof(float) * 2 * this->size;
+    this->bufferSize += this->bufferSize % 4;
+    uint32_t queueFamilyIndices;
+    VkBufferCreateInfo bufferCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferCreateInfo.queueFamilyIndexCount = 1;
+    bufferCreateInfo.pQueueFamilyIndices = &queueFamilyIndices;
+    bufferCreateInfo.size = this->bufferSize;
+    bufferCreateInfo.usage = usage;
+    VkResult res = vkCreateBuffer(this->device, &bufferCreateInfo, nullptr, buffer);
+    if (res != VK_SUCCESS) {
+        return VKFFT_ERROR_FAILED_TO_ALLOCATE_MEMORY;
+    }
+
     VkMemoryRequirements memoryRequirements = {0};
-    vkGetBufferMemoryRequirements(this->device, this->buffer, &memoryRequirements);
+    vkGetBufferMemoryRequirements(this->device, *buffer, &memoryRequirements);
     VkMemoryAllocateInfo memoryAllocateInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
     memoryAllocateInfo.allocationSize = memoryRequirements.size;
 
     VkFFTResult resFFT = findMemoryType(
             memoryRequirements.memoryTypeBits,
             memoryRequirements.size,
-            &memoryAllocateInfo.memoryTypeIndex
+            &memoryAllocateInfo.memoryTypeIndex,
+            properties
     );
     if (resFFT != VKFFT_SUCCESS) {
         return resFFT;
     }
-    VkResult res = vkAllocateMemory(this->device, &memoryAllocateInfo, nullptr, &this->deviceMemory);
+    res = vkAllocateMemory(this->device, &memoryAllocateInfo, nullptr, deviceMemory);
     if (res != VK_SUCCESS) {
         return VKFFT_ERROR_FAILED_TO_ALLOCATE_MEMORY;
     }
-    res = vkBindBufferMemory(this->device, this->buffer, this->deviceMemory, 0);
+    res = vkBindBufferMemory(this->device, *buffer, *deviceMemory, 0);
     if (res != VK_SUCCESS) {
         return VKFFT_ERROR_FAILED_TO_BIND_BUFFER_MEMORY;
     }
@@ -354,9 +379,12 @@ VkFFTResult VkFFTBackend::allocateVkMemory() {
     return VKFFT_SUCCESS;
 }
 
-void VkFFTBackend::cleanupVkMemory() {
-    if (this->deviceMemory != nullptr) {
-        vkFreeMemory(this->device, this->deviceMemory, nullptr);
+void VkFFTBackend::cleanupVkBuffer(VkBuffer buffer, VkDeviceMemory deviceMemory) {
+    if (buffer != nullptr) {
+        vkDestroyBuffer(this->device, buffer, nullptr);
+    }
+    if (deviceMemory != nullptr) {
+        vkFreeMemory(this->device, deviceMemory, nullptr);
     }
 }
 
@@ -369,15 +397,147 @@ void VkFFTBackend::createConfiguration() {
     this->configuration.commandPool = &this->commandPool;
     this->configuration.physicalDevice = &this->physicalDevice;
     this->configuration.isCompilerInitialized = 1;
-    this->configuration.buffer = &this->buffer;
+    this->configuration.buffer = &this->outputBuffer;
     this->configuration.bufferSize = &this->bufferSize;
+    this->configuration.outputBuffer = &this->outputBuffer;
+    this->configuration.outputBufferSize = &this->bufferSize;
     this->configuration.makeForwardPlanOnly = 1;
 }
 
 VkFFTResult VkFFTBackend::createApplication() {
-    return initializeVkFFT(&this->application, configuration);
+    return initializeVkFFT(&this->application, this->configuration);
 }
 
 void VkFFTBackend::cleanupApplication() {
+
     deleteVkFFT(&this->application);
+}
+
+VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output) {
+    VkResult res = this->transferFromCPU(input);
+    if (res != VK_SUCCESS) {
+        // any errors mark this backend as not ready
+        this->ready = false;
+        std::cerr << "transfer from cpu source buffer error " << res << "\n";
+
+        return VKFFT_ERROR_FAILED_TO_COPY;
+    }
+
+
+    res = this->transferToCPU(output);
+    if (res != VK_SUCCESS) {
+        // any errors mark this backend as not ready
+        this->ready = false;
+        std::cerr << "transfer to cpu source buffer error " << res << "\n";
+
+        return VKFFT_ERROR_FAILED_TO_COPY;
+    }
+
+    return VKFFT_SUCCESS;
+};
+
+VkResult VkFFTBackend::transferFromCPU(void *source) {
+    // copy data to memory mapped to cpu source buffer
+    void* data;
+    VkResult res = vkMapMemory(this->device, this->cpuSourceMemory, 0, this->bufferSize, 0, &data);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    memcpy(data, source, this->bufferSize);
+    vkUnmapMemory(this->device, this->cpuSourceMemory);
+
+    // copy from cpu source buffer to output buffer - fft will be performed in-place
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    commandBufferAllocateInfo.commandPool = this->commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = 1;
+    VkCommandBuffer commandBuffer = {};
+    res = vkAllocateCommandBuffers(this->device, &commandBufferAllocateInfo, &commandBuffer);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = this->bufferSize;
+    vkCmdCopyBuffer(commandBuffer, this->cpuSourceBuffer, this->outputBuffer, 1, &copyRegion);
+    res = vkEndCommandBuffer(commandBuffer);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    res = vkQueueSubmit(this->queue, 1, &submitInfo, this->fence);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    res = vkWaitForFences(this->device, 1, &this->fence, VK_TRUE, 100000000000);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    res = vkResetFences(this->device, 1, &this->fence);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+    return VK_SUCCESS;
+}
+
+VkResult VkFFTBackend::transferToCPU(void *dest) {
+    // copy from output buffer to cpu destination buffer
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    commandBufferAllocateInfo.commandPool = this->commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = 1;
+    VkCommandBuffer commandBuffer = {};
+    VkResult res = vkAllocateCommandBuffers(this->device, &commandBufferAllocateInfo, &commandBuffer);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = this->bufferSize;
+    vkCmdCopyBuffer(commandBuffer, this->outputBuffer, this->cpuDestBuffer, 1, &copyRegion);
+    vkEndCommandBuffer(commandBuffer);
+    VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    res = vkQueueSubmit(this->queue, 1, &submitInfo, this->fence);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    res = vkWaitForFences(this->device, 1, &this->fence, VK_TRUE, 100000000000);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    res = vkResetFences(this->device, 1, &this->fence);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
+
+    void* data;
+    res = vkMapMemory(this->device, this->cpuDestMemory, 0, this->bufferSize, 0, &data);
+    if (res != VK_SUCCESS) {
+        return res;
+    }
+    memcpy(dest, data, this->bufferSize);
+    vkUnmapMemory(this->device, this->cpuDestMemory);
+
+    return VK_SUCCESS;
 }

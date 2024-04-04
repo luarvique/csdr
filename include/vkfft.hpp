@@ -21,15 +21,18 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <mutex>
 
-#include "vulkan/vulkan.h"
-#include "vkFFT.h"
+#include <fftw3.h>
+#include <vulkan/vulkan.h>
+#include <vkFFT.h>
 
 namespace Csdr {
 
     class VkFFTBackend {
         public:
-            VkFFTBackend(uint64_t size);
+            explicit VkFFTBackend(uint64_t size);
             ~VkFFTBackend();
+
+            VkFFTResult fft(fftwf_complex *input, fftwf_complex *output);
 
         private:
             // glslang management
@@ -44,11 +47,20 @@ namespace Csdr {
             VkQueue queue = nullptr;
             VkFence fence = nullptr;
             VkCommandPool commandPool = nullptr;
-            uint64_t bufferSize = 0;
-            VkBuffer buffer = nullptr;
-            VkDeviceMemory deviceMemory = nullptr;
+
 
             // VkFFT resources
+            uint64_t bufferSize = 0;
+
+            VkBuffer outputBuffer = nullptr;
+            VkDeviceMemory outputBufferMemory = nullptr;
+
+            VkBuffer cpuSourceBuffer = nullptr;
+            VkDeviceMemory cpuSourceMemory = nullptr;
+
+            VkBuffer cpuDestBuffer = nullptr;
+            VkDeviceMemory cpuDestMemory = nullptr;
+
             VkFFTConfiguration configuration = {};
             VkFFTApplication   application = {};
 
@@ -76,19 +88,29 @@ namespace Csdr {
             VkResult createVkCommandPool();
             void cleanupVkCommandPool();
 
-            VkResult createVkBuffer();
-            void cleanupVkBuffer();
+            VkFFTResult createVkBuffer(
+                VkBuffer *buffer,
+                VkDeviceMemory *deviceMemory,
+                VkBufferUsageFlags usage,
+                VkMemoryPropertyFlags properties
+            );
+            void cleanupVkBuffer(VkBuffer buffer, VkDeviceMemory deviceMemory);
 
-            VkFFTResult findMemoryType(uint64_t memoryTypeBits, uint64_t memorySize, uint32_t* memoryTypeIndex);
-
-            VkFFTResult allocateVkMemory();
-            void cleanupVkMemory();
+            VkFFTResult findMemoryType(
+                uint64_t memoryTypeBits,
+                uint64_t memorySize,
+                uint32_t* memoryTypeIndex,
+                VkMemoryPropertyFlags properties
+            );
 
             // VkFFT initialization & cleanup
             void createConfiguration();
 
             VkFFTResult createApplication();
             void cleanupApplication();
+
+            VkResult transferFromCPU(void *source);
+            VkResult transferToCPU(void *dest);
     };
 
 }

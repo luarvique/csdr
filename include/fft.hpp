@@ -22,6 +22,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "module.hpp"
 #include "complex.hpp"
 #include "window.hpp"
+#include "vkfft.hpp"
 
 #include <fftw3.h>
 
@@ -42,6 +43,8 @@ namespace Csdr {
             fftwf_plan plan;
             complex<float>* windowed;
             complex<float>* output_buffer;
+            VkFFTBackend* vkBackend;
+
     };
 
 }
