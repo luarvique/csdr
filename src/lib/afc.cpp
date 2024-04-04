@@ -43,6 +43,8 @@ Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0
     fftIn   = fftwf_alloc_complex(fftSize);
     fftOut  = fftwf_alloc_complex(fftSize);
     fftPlan = fftwf_plan_dft_1d(fftSize, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+
+    vkBackend = new VkFFTBackend(fftSize);
 }
 
 Afc::~Afc()
@@ -51,6 +53,8 @@ Afc::~Afc()
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftIn);
     fftwf_free(fftOut);
+
+    delete vkBackend;
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
@@ -75,7 +79,14 @@ void Afc::process(complex<float>* input, complex<float>* output)
             updateCount = updatePeriod;
 
             // Calculate FFT on the input buffer
-            fftwf_execute(fftPlan);
+            if (vkBackend->isReady()) {
+                VkFFTResult  res = vkBackend->fft(fftIn, fftOut, -1);
+                if (res != VKFFT_SUCCESS) {
+                    std::cerr << "vkfft failed " << res << "\n";
+                }
+            } else {
+                fftwf_execute(fftPlan);
+            }
 
             unsigned int fftSize = size * samplePeriod;
             float maxMag = mag2(fftOut[0]);

@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "module.hpp"
 #include "shift.hpp"
+#include "vkfft.hpp"
 
 #include <fftw3.h>
 
@@ -51,5 +52,7 @@ namespace Csdr {
             // Compute squared magnitude of a complex value
             static float mag2(const fftwf_complex &v)
             { return(v[0]*v[0] + v[1]*v[1]); }
+
+            VkFFTBackend* vkBackend;
     };
 }

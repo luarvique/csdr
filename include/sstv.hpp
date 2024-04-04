@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "module.hpp"
+#include "vkfft.hpp"
 
 #include <fftw3.h>
 
@@ -123,6 +124,8 @@ namespace Csdr {
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
+
+            VkFFTBackend* vkBackend;
 
             // Get current time in milliseconds
             unsigned long msecs(int dSamples=0)

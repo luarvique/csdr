@@ -67,7 +67,10 @@ void Fft::process() {
                 memcpy(windowed, reader->getReadPointer(), fftSize);
             }
             if (vkBackend->isReady()) {
-                vkBackend->fft((fftwf_complex*)windowed, (fftwf_complex*)output_buffer);
+                VkFFTResult  res = vkBackend->fft((fftwf_complex*)windowed, (fftwf_complex*)output_buffer, -1);
+                if (res != VKFFT_SUCCESS) {
+                    std::cerr << "vkfft failed " << res << "\n";
+                }
             } else {
                 fftwf_execute(plan);
             }

@@ -19,7 +19,6 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "vkfft.hpp"
 
-#include <iostream>
 #include <mutex>
 
 #include <glslang_c_interface.h>
@@ -401,7 +400,6 @@ void VkFFTBackend::createConfiguration() {
     this->configuration.bufferSize = &this->bufferSize;
     this->configuration.outputBuffer = &this->outputBuffer;
     this->configuration.outputBufferSize = &this->bufferSize;
-    this->configuration.makeForwardPlanOnly = 1;
 }
 
 VkFFTResult VkFFTBackend::createApplication() {
@@ -413,13 +411,13 @@ void VkFFTBackend::cleanupApplication() {
     deleteVkFFT(&this->application);
 }
 
-VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output) {
+VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output, int inverse) {
     // copy data from input to source buffer
     void* data;
     VkResult res = vkMapMemory(this->device, this->cpuSourceMemory, 0, this->bufferSize, 0, &data);
     if (res != VK_SUCCESS) {
         this->ready = false;
-        std::cerr << "transfer to cpu source buffer error " << res << "\n";
+
 
         return VKFFT_ERROR_FAILED_TO_COPY;
     }
@@ -460,7 +458,7 @@ VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output) {
     // perform FFT
     VkFFTLaunchParams launchParams = {};
     launchParams.commandBuffer = &commandBuffer;
-    VkFFTResult resFFT = VkFFTAppend(&this->application, -1, &launchParams);
+    VkFFTResult resFFT = VkFFTAppend(&this->application, inverse, &launchParams);
     if (resFFT != VKFFT_SUCCESS) {
         this->ready = false;
         vkFreeCommandBuffers(this->device, this->commandPool, 1, &commandBuffer);
@@ -523,6 +521,6 @@ VkFFTResult VkFFTBackend::fft(fftwf_complex *input, fftwf_complex *output) {
     return VKFFT_SUCCESS;
 };
 
-bool VkFFTBackend::isReady() {
+bool VkFFTBackend::isReady() const {
     return ready;
 }

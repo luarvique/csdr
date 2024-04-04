@@ -19,6 +19,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include <iostream>
 #include <mutex>
 
 #include <fftw3.h>
@@ -32,9 +33,9 @@ namespace Csdr {
             explicit VkFFTBackend(uint64_t size);
             ~VkFFTBackend();
 
-            VkFFTResult fft(fftwf_complex *input, fftwf_complex *output);
+            VkFFTResult fft(fftwf_complex *input, fftwf_complex *output, int inverse);
 
-            bool isReady();
+            bool isReady() const;
 
         private:
             // glslang management

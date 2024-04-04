@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "filter.hpp"
 #include "complex.hpp"
+#include "vkfft.hpp"
 
 #include <fftw3.h>
 
@@ -56,6 +57,8 @@ namespace Csdr {
 
             // Convert output complex into a sample
             inline T complex2sample(complex<float> input);
+
+            VkFFTBackend* vkBackend;
     };
 
     class AFNoiseFilter: public NoiseFilter<float> {

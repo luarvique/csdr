@@ -43,6 +43,7 @@ namespace Csdr {
             fftwf_plan plan;
             complex<float>* windowed;
             complex<float>* output_buffer;
+
             VkFFTBackend* vkBackend;
 
     };

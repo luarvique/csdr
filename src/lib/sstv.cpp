@@ -120,6 +120,7 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
     fftIn     = new float[wndSize*2];
     fftOut    = new fftwf_complex[wndSize*2];
     fftHeader = fftwf_plan_dft_r2c_1d(wndSize, fftIn, fftOut, FFTW_ESTIMATE);
+    vkBackend = new VkFFTBackend(wndSize);
 }
 
 template <typename T>
@@ -131,6 +132,8 @@ SstvDecoder<T>::~SstvDecoder() {
 
     fftwf_free(fftIn);
     fftwf_free(fftOut);
+
+    delete vkBackend;
 }
 
 template <typename T>
@@ -418,7 +421,14 @@ int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int s
         fftIn[j] = buf[j] * (0.5 - 0.5 * cos(CONST_2PI_BY_SIZE * j));
 
     // Compute FFT
-    fftwf_execute(fft);
+    if (vkBackend->isReady()) {
+        VkFFTResult  res = vkBackend->fft((fftwf_complex*)fftIn, fftOut, -1);
+        if (res != VKFFT_SUCCESS) {
+            std::cerr << "vkfft failed " << res << "\n";
+        }
+    } else {
+        fftwf_execute(fft);
+    }
 
     // Go to magnitudes, find highest magnitude bin
     // Ignore top FFT bins (Scottie does not like these)

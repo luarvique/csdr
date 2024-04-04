@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "filter.hpp"
 #include "complex.hpp"
 #include "window.hpp"
+#include "vkfft.hpp"
 
 #include <fftw3.h>
 
@@ -62,6 +63,8 @@ namespace Csdr {
             fftwf_complex* inverseOutput;
             fftwf_plan inversePlan;
             T* overlap;
+
+            VkFFTBackend* vkBackend;
     };
 
     class FftBandPassFilter: public FftFilter<complex<float>> {

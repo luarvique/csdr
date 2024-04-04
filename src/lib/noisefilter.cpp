@@ -78,6 +78,8 @@ NoiseFilter<T>::NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize):
     {
         histPower[i] = 0.0;
     }
+
+    vkBackend = new VkFFTBackend(fftSize);
 }
 
 template<typename T>
@@ -90,6 +92,8 @@ NoiseFilter<T>::~NoiseFilter()
     fftwf_free(inverseInput);
     fftwf_free(inverseOutput);
     fftwf_free(overlapBuf);
+
+    delete vkBackend;
 }
 
 template<typename T>
@@ -106,7 +110,14 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     }
 
     // Calculate FFT on input buffer
-    fftwf_execute(forwardPlan);
+    if (vkBackend->isReady()) {
+        VkFFTResult  res = vkBackend->fft(forwardInput, forwardOutput, -1);
+        if (res != VKFFT_SUCCESS) {
+            std::cerr << "vkfft failed " << res << "\n";
+        }
+    } else {
+        fftwf_execute(forwardPlan);
+    }
 
     auto* in = (complex<float>*) forwardOutput;
     auto* out = (complex<float>*) inverseInput;
@@ -162,7 +173,14 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     }
 
     // Calculate inverse FFT on the filtered buffer
-    fftwf_execute(inversePlan);
+    if (vkBackend->isReady()) {
+        VkFFTResult  res = vkBackend->fft(inverseInput, inverseOutput, 1);
+        if (res != VKFFT_SUCCESS) {
+            std::cerr << "inverse vkfft failed " << res << "\n";
+        }
+    } else {
+        fftwf_execute(inversePlan);
+    }
 
     // Add the overlap of the previous segment
     auto result = (complex<float>*) inverseOutput;

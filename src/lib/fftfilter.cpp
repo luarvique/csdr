@@ -58,6 +58,8 @@ FftFilter<T>::FftFilter(size_t fftSize):
         forwardInput[i][0] = 0.0f;
         forwardInput[i][1] = 0.0f;
     };
+
+    vkBackend = new VkFFTBackend(fftSize);
 }
 
 template <typename T>
@@ -77,6 +79,8 @@ FftFilter<T>::~FftFilter() {
     fftwf_free(inverseInput);
     fftwf_free(inverseOutput);
     free(overlap);
+
+    delete vkBackend;
 }
 
 template<typename T>
@@ -87,7 +91,14 @@ size_t FftFilter<T>::apply(T *input, T *output, size_t size) {
     std::memcpy(forwardInput, input, sizeof(T) * inputSize);
 
     // calculate FFT on input buffer
-    fftwf_execute(forwardPlan);
+    if (vkBackend->isReady()) {
+        VkFFTResult  res = vkBackend->fft(forwardInput, forwardOutput, -1);
+        if (res != VKFFT_SUCCESS) {
+            std::cerr << "vkfft failed " << res << "\n";
+        }
+    } else {
+        fftwf_execute(forwardPlan);
+    }
 
     auto* in = (complex<float>*) forwardOutput;
     auto* out = (complex<float>*) inverseInput;
@@ -98,7 +109,14 @@ size_t FftFilter<T>::apply(T *input, T *output, size_t size) {
     }
 
     // calculate inverse FFT on multiplied buffer
-    fftwf_execute(inversePlan);
+    if (vkBackend->isReady()) {
+        VkFFTResult  res = vkBackend->fft(inverseInput, inverseOutput, 1);
+        if (res != VKFFT_SUCCESS) {
+            std::cerr << "inverse vkfft failed " << res << "\n";
+        }
+    } else {
+        fftwf_execute(inversePlan);
+    }
 
     // add the overlap of the previous segment
     auto result = (complex<float>*) inverseOutput;
