@@ -366,4 +366,9 @@ namespace Csdr {
             unsigned int errorsAllowed = 4;
             bool invert = false;
     };
+
+    class NavtexDecodeCommand: public Command {
+        public:
+            NavtexDecodeCommand();
+    };
 }
