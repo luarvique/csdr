@@ -24,7 +24,7 @@ using namespace Csdr;
 
 bool NavtexDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return reader->available() >= receiving? 7 : 11;
+    return reader->available() >= 11;
 }
 
 void NavtexDecoder::process() {
@@ -33,52 +33,49 @@ void NavtexDecoder::process() {
     size_t length = reader->available();
     size_t i;
 
-    // Look for a message start
-    for (i = 0 ; !receiving && (i + 11 <= length) ; i++) {
-        unsigned char *p = in + i;
-        receiving =
-            (p[0]=='Z') && (p[1]=='C') && (p[2]=='Z') && (p[3]=='C') &&
-            (p[4]==' ') && (p[9]=='\r') && (p[10]=='\n');
-        // Reset character counter when starting a message
-        if (receiving) received = 0;
-    }
-
-    // If still not receiving...
+    // If looking for a message...
     if (!receiving) {
-        // Skip non-message characters and drop out
-        if (length > 10) reader->advance(length - 10);
-        return;
+        // Need at least 11 characters
+        if (length < 11) return;
+
+        // Look for a message start
+        receiving =
+            (in[0]=='Z') && (in[1]=='C') && (in[2]=='Z') && (in[3]=='C') &&
+            (in[4]==' ') && (in[9]=='\r') && (in[10]=='\n');
+
+        // Reset character counter when starting a message
+        if (receiving) {
+            received = 0;
+        } else {
+            reader->advance(1);
+            return;
+        }
     }
 
     //
     // ... RECEIVING NAVTEX MESSAGE ...
     //
 
-    // Move to the first message character, if any
-    if (i > 1) {
-        i -= 1;
-        reader->advance(i);
-        length -= i;
-        in += i;
-    }
-
     // Look for a message end
-    for (i = 0 ; receiving && (i + 7 <= length) ; i++) {
+    for (i = 0 ; i + 7 <= length ; i++) {
         unsigned char *p = in + i;
         receiving = !(
             (p[0]=='N') && (p[1]=='N') && (p[2]=='N') && (p[3]=='N') &&
             (p[4]=='\r') && (p[5]=='\n') && (p[6]=='\n')
         );
-    }
 
-    // Determine number of characters to copy
-    i = !receiving? i + 6 : length > 6? length - 6 : 0;
+        if (!receiving) {
+            i += 7;
+            break;
+        }
+    }
 
     // Copy received message content to the output
     memcpy(writer->getWritePointer(), in, i);
     writer->advance(i);
+    reader->advance(i);
     received += i;
 
     // Limit the number of characters per message
-    if (received >= NAVTEXT_MAX_CHARS) receiving = false;
+    if (received >= NAVTEX_MAX_CHARS) receiving = false;
 }

@@ -22,8 +22,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "module.hpp"
 
 namespace Csdr {
-    // 15 minutes * 100 baud / 10 bit / 2 characters
-    const size_t NAVTEXT_MAX_CHARS = 15 * 60 * 100 / 10 / 2;
+    // 11 minutes * 100 baud / 10 bit / 2 characters
+    const size_t NAVTEX_MAX_CHARS = 11 * 60 * 100 / 10 / 2;
 
     class NavtexDecoder: public Module<unsigned char, unsigned char> {
         public:
