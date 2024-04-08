@@ -39,6 +39,8 @@ void NavtexDecoder::process() {
         receiving =
             (p[0]=='Z') && (p[1]=='C') && (p[2]=='Z') && (p[3]=='C') &&
             (p[4]==' ') && (p[9]=='\r') && (p[10]=='\n');
+        // Reset character counter when starting a message
+        if (receiving) received = 0;
     }
 
     // If still not receiving...
@@ -75,4 +77,8 @@ void NavtexDecoder::process() {
     // Copy received message content to the output
     memcpy(writer->getWritePointer(), in, i);
     writer->advance(i);
+    received += i;
+
+    // Limit the number of characters per message
+    if (received >= NAVTEXT_MAX_CHARS) receiving = false;
 }
