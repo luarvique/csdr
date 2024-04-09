@@ -54,6 +54,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "ccir476.hpp"
 #include "dsc.hpp"
 #include "ccir493.hpp"
+#include "navtex.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -736,5 +737,11 @@ Ccir493DecodeCommand::Ccir493DecodeCommand(): Command("ccir493decode", "CCIR493 
     add_flag("-i,--invert", invert, "Inverse operation (swap MARK/SPACE)");
     callback([this] () {
         runModule(new Ccir493Decoder(errorsAllowed, invert));
+    });
+}
+
+NavtexDecodeCommand::NavtexDecodeCommand(): Command("navtexdecode", "NAVTEX decoder") {
+    callback([this] () {
+        runModule(new NavtexDecoder());
     });
 }
