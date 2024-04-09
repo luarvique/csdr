@@ -56,24 +56,26 @@ namespace Csdr {
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
             unsigned int  quStep;         // Quantization step (samples)
+            double attack;                // Attack factor for MagL/MagH
+            double decay;                 // Decay factor for MagL/MagH
 
             // Input signal characteristics
-            double magL = 1000.0;        // Minimal observed magnitude
-            double magH = 0.0;           // Maximal observed magnitude
+            double magL = 0.5;           // Minimal observed magnitude
+            double magH = 0.5;           // Maximal observed magnitude
             unsigned int realState0 = 0; // Last unfiltered signal state (0/1)
             unsigned int filtState0 = 0; // Last filtered signal state (0/1)
 
             // HIGH / LOW timing
             unsigned long lastStartT = 0; // Time of the last signal change (ms)
             unsigned long startTimeH = 0; // Time HIGH signal started (ms)
-            unsigned long durationH  = 0; // Duration of the HIGH signal (ms)
             unsigned long startTimeL = 0; // Time LOW signal started (ms)
-            unsigned long durationL  = 0; // Duration of the LOW signal (ms)
+            double durationH = 0;         // Duration of the HIGH signal (ms)
+            double durationL = 0;         // Duration of the LOW signal (ms)
 
             // DIT / DAH / BREAK timing
-            unsigned long avgDitT = 50;   // Average DIT signal duration (ms)
-            unsigned long avgDahT = 100;  // Average DAH signal duration (ms)
-            unsigned long avgBrkT = 50;   // Average BREAK duration (ms)
+            double avgDitT = 50;          // Average DIT signal duration (ms)
+            double avgDahT = 100;         // Average DAH signal duration (ms)
+            double avgBrkT = 50;          // Average BREAK duration (ms)
 
             // Current CW code
             unsigned int code = 1;        // Currently accumulated CW code or 1
@@ -106,7 +108,7 @@ namespace Csdr {
             { return(data<256? cwTable[data] : '_'); }
 
             // Process a quantum of input data
-            void processInternal(const T *data, unsigned int size);
+            void processInternal(unsigned int newState);
 
             // Print debug information
             void printDebug();

@@ -62,8 +62,10 @@ CwDecoder<T>::CwDecoder(unsigned int sampleRate, bool showCw)
   dbgTime(0),     // Debug printout period (ms)
   showCw(showCw)  // TRUE: print DITs/DAHs
 {
-    // Minimal number of samples to process
+    // Minimal number of samples to process, attack and decay factors
     quStep = quTime * sampleRate / 1000;
+    attack = (double)quTime / 50.0;
+    decay  = (double)quTime / 5000.0;
 }
 
 template <typename T>
@@ -71,8 +73,8 @@ void CwDecoder<T>::reset() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     // Input signal characteristics
-    magL = 1000.0;  // Minimal observed magnitude
-    magH = 0.0;     // Maximal observed magnitude
+    magL = 0.5;     // Minimal observed magnitude
+    magH = 0.5;     // Maximal observed magnitude
     realState0 = 0; // Last unfiltered signal state (0/1)
     filtState0 = 0; // Last filtered signal state (0/1)
 
@@ -97,53 +99,57 @@ void CwDecoder<T>::reset() {
 template <typename T>
 bool CwDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return (this->reader->available()>=quStep) && (this->writer->writeable()>=2);
+    return this->reader->available() >= quStep;
 }
 
 template <typename T>
 void CwDecoder<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
-    // Until we run out of input data...
-    for(; this->reader->available()>=quStep ; this->reader->advance(quStep)) {
-        // Process data
-        processInternal(this->reader->getReadPointer(), quStep);
+    // Must have at least quStep samples
+    if(this->reader->available()<quStep) return;
 
-        // Update time
-        curSamples += quStep;
-        if(curSamples>=sampleRate)
-        {
-            unsigned int secs = curSamples/sampleRate;
-            curSeconds += secs;
-            curSamples -= secs*sampleRate;
-        }
+    const T *data = this->reader->getReadPointer();
+    double magnitude = 0.0;
+
+    // Compute overall magnitude
+    for(unsigned int i=0 ; i<quStep ; ++i)
+        magnitude += sample2level(data[i]);
+
+    this->reader->advance(quStep);
+    magnitude /= quStep;
+
+    // Keep track of minimal/maximal magnitude
+    magL += magnitude<magL? (magnitude-magL)*attack : (magH-magL)*decay;
+    magH += magnitude>magH? (magnitude-magH)*attack : (magL-magH)*decay;
+
+    // Compute current state based on the magnitude
+    unsigned int realState =
+        magnitude>(magL+(magH-magL)*0.7)? 1 :
+        magnitude<(magL+(magH-magL)*0.3)? 0 :
+        realState0;
+
+    // Process input
+    processInternal(realState);
+
+    // Update time
+    curSamples += quStep;
+    if(curSamples>=sampleRate)
+    {
+        unsigned int secs = curSamples/sampleRate;
+        curSeconds += secs;
+        curSamples -= secs*sampleRate;
     }
 }
 
 template <typename T>
-void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
+void CwDecoder<T>::processInternal(unsigned int newState) {
     unsigned long millis = msecs();
     unsigned int i, j;
-    double magnitude;
-
-    // Compute overall magnitude
-    for(i=0, magnitude=0.0 ; i<size ; ++i)
-        magnitude += sample2level(data[i]);
-    magnitude /= size;
-
-    // Keep track of minimal/maximal magnitude
-    magL += magnitude<magL? (magnitude-magL)/10.0 : (magH-magL)/1000.0;
-    magH += magnitude>magH? (magnitude-magH)/10.0 : (magL-magH)/1000.0;
-
-    // Compute current state based on the magnitude
-    unsigned int realState =
-        magnitude>(magL+(magH-magL)*0.6)? 1 :
-        magnitude<(magL+(magH-magL)*0.4)? 0 :
-        realState0;
 
     // Filter out jitter based on nbTime
-    if(realState!=realState0) lastStartT = millis;
-    unsigned int filtState = (millis-lastStartT)>nbTime? realState : filtState0;
+    if(newState!=realState0) lastStartT = millis;
+    unsigned int filtState = (millis-lastStartT)>nbTime? newState : filtState0;
 
     // If signal state changed...
     if(filtState!=filtState0)
@@ -165,38 +171,27 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
             histL[j<i? j:i-1]++;
             histCntL++;
 
-            // If we have got some DITs or DAHs...
-            if(code>1)
+            // If we have got some DITs or DAHs and there is a BREAK...
+            if((code>1) && (durationL>=2.5*avgBrkT))
             {
-                // If a letter BREAK...
-                if((durationL>=5*avgBrkT/2) && (durationL<5*avgBrkT))
-                {
-                    // Print character
-                    *(this->writer->getWritePointer()) = cw2char(code);
-                    this->writer->advance(1);
+                // Print character
+                *(this->writer->getWritePointer()) = cw2char(code);
+                this->writer->advance(1);
 
-                    // Start new character
-                    code = 1;
-                }
-                // If a word BREAK...
-                else if(durationL>=5*avgBrkT)
+                // If a word BREAK, print a space...
+                if(durationL>=5.0*avgBrkT)
                 {
-                    // Print character
-                    *(this->writer->getWritePointer()) = cw2char(code);
-                    this->writer->advance(1);
-
-                    // Print word BREAK
                     *(this->writer->getWritePointer()) = ' ';
                     this->writer->advance(1);
-
-                    // Start new character
-                    code = 1;
                 }
+
+                // Start new character
+                code = 1;
             }
 
             // Keep track of the average small BREAK duration
-            if((durationL>20) && (durationL<3*avgDitT/2) && (durationL>2*avgDitT/3))
-                avgBrkT += (int)(durationL - avgBrkT)/10;
+            if((durationL>20.0) && (durationL<1.5*avgDitT) && (durationL>0.6*avgDitT))
+                avgBrkT += (durationL - avgBrkT)/10.0;
         }
         else
         {
@@ -213,7 +208,7 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
             histCntH++;
 
             // 2/3 to filter out false DITs
-            if((durationH<3*avgDitT/2) && (durationH>avgDitT/2))
+            if((durationH<1.5*avgDitT) && (durationH>0.5*avgDitT))
             {
                 // Add a DIT to the code
                 code = (code<<1) | 1;
@@ -225,13 +220,13 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
                     this->writer->advance(1);
                 }
             }
-            else if((durationH<3*avgDahT) && (durationH>2*avgDahT/3))
+            else if((durationH<3.0*avgDahT) && (durationH>0.6*avgDahT))
             {
                 // Add a DAH to the code
                 code = (code<<1) | 0;
 
                 // Try computing WPM
-                wpm = (wpm + (1200/(durationH/3)))/2;
+                wpm = (wpm + (int)(3600.0/durationH))/2;
 
                 // Print a DAH
                 if(showCw)
@@ -242,12 +237,12 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
             }
 
             // Keep track of the average DIT duration
-            if((durationH>20) && (durationH<2*avgDitT))
-                avgDitT += (int)(durationH - avgDitT)/10;
+            if((durationH>20.0) && (durationH<2.0*avgDitT))
+                avgDitT += (durationH - avgDitT)/10.0;
 
             // Keep track of the average DAH duration
-            if((durationH<300) && (durationH>5*avgDitT/2))
-                avgDahT += (int)(durationH - avgDahT)/10;
+            if((durationH<300.0) && (durationH>2.5*avgDitT))
+                avgDahT += (durationH - avgDahT)/10.0;
         }
     }
 
@@ -280,7 +275,7 @@ void CwDecoder<T>::processInternal(const T *data, unsigned int size) {
     }
 
     // Update state
-    realState0 = realState;
+    realState0 = newState;
     filtState0 = filtState;
 }
 
@@ -311,7 +306,7 @@ void CwDecoder<T>::printDebug()
     buf[i+2] = '|';
 
     // Create complete string to print
-    sprintf(buf+2*i+3, "] [%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, avgDitT, avgDahT, avgBrkT, wpm);
+    sprintf(buf+2*i+3, "] [%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, (int)avgDitT, (int)avgDahT, (int)avgBrkT, wpm);
 
     // Print
     printString(buf);
