@@ -110,6 +110,7 @@ void CwDecoder<T>::process() {
     if(this->reader->available()<quStep) return;
 
     const T *data = this->reader->getReadPointer();
+    double range = magH - magL;
     double magnitude = 0.0;
 
     // Compute overall magnitude
@@ -119,15 +120,15 @@ void CwDecoder<T>::process() {
     this->reader->advance(quStep);
     magnitude /= quStep;
 
-    // Keep track of minimal/maximal magnitude
-    magL += magnitude<magL? (magnitude-magL)*attack : (magH-magL)*decay;
-    magH += magnitude>magH? (magnitude-magH)*attack : (magL-magH)*decay;
-
     // Compute current state based on the magnitude
     unsigned int realState =
-        magnitude>(magL+(magH-magL)*0.7)? 1 :
-        magnitude<(magL+(magH-magL)*0.3)? 0 :
+        magnitude>(magL+range*0.7)? 1 :
+        magnitude<(magL+range*0.3)? 0 :
         realState0;
+
+    // Keep track of minimal/maximal magnitude
+    magL += magnitude<magL? (magnitude-magL)*attack :  range*decay;
+    magH += magnitude>magH? (magnitude-magH)*attack : -range*decay;
 
     // Process input
     processInternal(realState);
