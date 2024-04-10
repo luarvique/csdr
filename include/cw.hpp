@@ -46,48 +46,46 @@ namespace Csdr {
 
         private:
             // Configurable input parameters
-            unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int nbTime;       // Noise blanker time (ms)
-            unsigned int quTime;       // Quantization step (ms)
-            unsigned int dbgTime;      // Debug printout time (ms)
-            bool showCw;               // TRUE: show dits/dahs
+            unsigned int sampleRate;      // Input sampling rate (Hz)
+            unsigned int nbTime;          // Noise blanker time (ms)
+            unsigned int quTime;          // Quantization step (ms)
+            unsigned int dbgTime;         // Debug printout time (ms)
+            bool showCw;                  // TRUE: show dits/dahs
 
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
             unsigned int  curSamples = 0; // Sample count since last second mark
             unsigned int  quStep;         // Quantization step (samples)
+            double attack;                // Attack factor for MagL/MagH
+            double decay;                 // Decay factor for MagL/MagH
 
             // Input signal characteristics
-            double magL = 1000.0;        // Minimal observed magnitude
-            double magH = 0.0;           // Maximal observed magnitude
-            unsigned int realState0 = 0; // Last unfiltered signal state (0/1)
-            unsigned int filtState0 = 0; // Last filtered signal state (0/1)
+            double magL = 0.5;            // Minimal observed magnitude
+            double magH = 0.5;            // Maximal observed magnitude
+            bool realState0 = false;      // Last unfiltered signal state (0/1)
+            bool filtState0 = false;      // Last filtered signal state (0/1)
 
             // HIGH / LOW timing
             unsigned long lastStartT = 0; // Time of the last signal change (ms)
             unsigned long startTimeH = 0; // Time HIGH signal started (ms)
-            unsigned long durationH  = 0; // Duration of the HIGH signal (ms)
             unsigned long startTimeL = 0; // Time LOW signal started (ms)
-            unsigned long durationL  = 0; // Duration of the LOW signal (ms)
+            double durationH = 0;         // Duration of the HIGH signal (ms)
+            double durationL = 0;         // Duration of the LOW signal (ms)
 
             // DIT / DAH / BREAK timing
-            unsigned long avgDitT = 50;   // Average DIT signal duration (ms)
-            unsigned long avgDahT = 100;  // Average DAH signal duration (ms)
-            unsigned long avgBrkT = 50;   // Average BREAK duration (ms)
+            double avgDitT = 50;          // Average DIT signal duration (ms)
+            double avgDahT = 100;         // Average DAH signal duration (ms)
+            double avgBrkT = 50;          // Average BREAK duration (ms)
 
             // Current CW code
             unsigned int code = 1;        // Currently accumulated CW code or 1
-            unsigned int stop = 0;        // 1 if there is a code pending
             unsigned int wpm  = 0;        // Current CW speed (in wpm)
+            bool stop = false;            // TRUE if there is a code pending
 
             // Code to character conversion table
             static const char cwTable[];
 
             // Debugging data
-            unsigned int histH[25] = {0}; // HIGH level duration histogram
-            unsigned int histL[25] = {0}; // LOW level duration histogram
-            unsigned int histCntH  = 0;   // Number of values in histH[]
-            unsigned int histCntL  = 0;   // Number of values in histL[]
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Convert input sample into signal level
@@ -106,7 +104,7 @@ namespace Csdr {
             { return(data<256? cwTable[data] : '_'); }
 
             // Process a quantum of input data
-            void processInternal(const T *data, unsigned int size);
+            void processInternal(bool newState);
 
             // Print debug information
             void printDebug();
