@@ -46,11 +46,11 @@ namespace Csdr {
 
         private:
             // Configurable input parameters
-            unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int nbTime;       // Noise blanker time (ms)
-            unsigned int quTime;       // Quantization step (ms)
-            unsigned int dbgTime;      // Debug printout time (ms)
-            bool showCw;               // TRUE: show dits/dahs
+            unsigned int sampleRate;      // Input sampling rate (Hz)
+            unsigned int nbTime;          // Noise blanker time (ms)
+            unsigned int quTime;          // Quantization step (ms)
+            unsigned int dbgTime;         // Debug printout time (ms)
+            bool showCw;                  // TRUE: show dits/dahs
 
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
@@ -60,10 +60,10 @@ namespace Csdr {
             double decay;                 // Decay factor for MagL/MagH
 
             // Input signal characteristics
-            double magL = 0.5;           // Minimal observed magnitude
-            double magH = 0.5;           // Maximal observed magnitude
-            unsigned int realState0 = 0; // Last unfiltered signal state (0/1)
-            unsigned int filtState0 = 0; // Last filtered signal state (0/1)
+            double magL = 0.5;            // Minimal observed magnitude
+            double magH = 0.5;            // Maximal observed magnitude
+            bool realState0 = false;      // Last unfiltered signal state (0/1)
+            bool filtState0 = false;      // Last filtered signal state (0/1)
 
             // HIGH / LOW timing
             unsigned long lastStartT = 0; // Time of the last signal change (ms)
@@ -79,17 +79,13 @@ namespace Csdr {
 
             // Current CW code
             unsigned int code = 1;        // Currently accumulated CW code or 1
-            unsigned int stop = 0;        // 1 if there is a code pending
             unsigned int wpm  = 0;        // Current CW speed (in wpm)
+            bool stop = false;            // TRUE if there is a code pending
 
             // Code to character conversion table
             static const char cwTable[];
 
             // Debugging data
-            unsigned int histH[25] = {0}; // HIGH level duration histogram
-            unsigned int histL[25] = {0}; // LOW level duration histogram
-            unsigned int histCntH  = 0;   // Number of values in histH[]
-            unsigned int histCntL  = 0;   // Number of values in histL[]
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
             // Convert input sample into signal level
@@ -108,7 +104,7 @@ namespace Csdr {
             { return(data<256? cwTable[data] : '_'); }
 
             // Process a quantum of input data
-            void processInternal(unsigned int newState);
+            void processInternal(bool newState);
 
             // Print debug information
             void printDebug();

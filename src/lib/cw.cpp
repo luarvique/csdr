@@ -73,10 +73,10 @@ void CwDecoder<T>::reset() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     // Input signal characteristics
+    realState0 = false; // Last unfiltered signal state (0/1)
+    filtState0 = false; // Last filtered signal state (0/1)
     magL = 0.5;     // Minimal observed magnitude
     magH = 0.5;     // Maximal observed magnitude
-    realState0 = 0; // Last unfiltered signal state (0/1)
-    filtState0 = 0; // Last filtered signal state (0/1)
 
     // HIGH / LOW timing
     lastStartT = 0; // Time of the last signal change (ms)
@@ -92,7 +92,7 @@ void CwDecoder<T>::reset() {
 
     // Current CW code
     code = 1;       // Currently accumulated CW code or 1
-    stop = 0;       // 1 if there is a code pending
+    stop = false;   // TRUE if there is a code pending
     wpm  = 0;       // Current CW speed (in wpm)
 }
 
@@ -121,7 +121,7 @@ void CwDecoder<T>::process() {
     magnitude /= quStep;
 
     // Compute current state based on the magnitude
-    unsigned int realState =
+    bool realState =
         magnitude>(magL+range*0.7)? 1 :
         magnitude<(magL+range*0.3)? 0 :
         realState0;
@@ -144,19 +144,19 @@ void CwDecoder<T>::process() {
 }
 
 template <typename T>
-void CwDecoder<T>::processInternal(unsigned int newState) {
+void CwDecoder<T>::processInternal(bool newState) {
     unsigned long millis = msecs();
     unsigned int i, j;
 
     // Filter out jitter based on nbTime
     if(newState!=realState0) lastStartT = millis;
-    unsigned int filtState = (millis-lastStartT)>nbTime? newState : filtState0;
+    bool filtState = (millis-lastStartT)>nbTime? newState : filtState0;
 
     // If signal state changed...
     if(filtState!=filtState0)
     {
         // Mark change in signal state
-        stop = 0;
+        stop = false;
 
         if(filtState)
         {
@@ -165,12 +165,6 @@ void CwDecoder<T>::processInternal(unsigned int newState) {
             // Compute LOW duration
             startTimeH = millis;
             durationL  = millis - startTimeL;
-
-            // Accumulate histogram data
-            i = sizeof(histL) / sizeof(histL[0]);
-            j = durationL / 10;
-            histL[j<i? j:i-1]++;
-            histCntL++;
 
             // If we have got some DITs or DAHs and there is a BREAK...
             if((code>1) && (durationL>=2.5*avgBrkT))
@@ -201,12 +195,6 @@ void CwDecoder<T>::processInternal(unsigned int newState) {
             // Compute HIGH duration
             startTimeL = millis;
             durationH  = millis - startTimeH;
-
-            // Accumulate histogram data
-            i = sizeof(histH) / sizeof(histH[0]);
-            j = durationH / 10;
-            histH[j<i? j:i-1]++;
-            histCntH++;
 
             // 2/3 to filter out false DITs
             if((durationH<1.5*avgDitT) && (durationH>0.5*avgDitT))
@@ -265,7 +253,7 @@ void CwDecoder<T>::processInternal(unsigned int newState) {
             code = 1;
         }
 
-        stop = 1;
+        stop = true;
     }
 
     // Periodically print debug information, if enabled
@@ -284,30 +272,9 @@ template <typename T>
 void CwDecoder<T>::printDebug()
 {
     char buf[256];
-    int i, j;
-
-    // Number of histogram entries
-    i = sizeof(histH) / sizeof(histH[0]);
-
-    // Draw HIGH/LOW duration histograms
-    for(j=0 ; j<i ; ++j)
-    {
-        int h = 10 * histH[j] / (histCntH+1);
-        int l = 10 * histL[j] / (histCntL+1);
-
-        buf[j+2]   = h>9? '*' : h>0? '0'+h : histH[j]>0? '0' : '-';
-        buf[j+i+3] = l>9? '*' : l>0? '0'+l : histL[j]>0? '0' : '-';
-        histH[j] = histL[j] = 0;
-    }
-
-    // Complete histograms
-    histCntH = histCntL = 0;
-    buf[0]   = '\n';
-    buf[1]   = '[';
-    buf[i+2] = '|';
 
     // Create complete string to print
-    sprintf(buf+2*i+3, "] [%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, (int)avgDitT, (int)avgDahT, (int)avgBrkT, wpm);
+    sprintf(buf, "[%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, (int)avgDitT, (int)avgDahT, (int)avgBrkT, wpm);
 
     // Print
     printString(buf);
