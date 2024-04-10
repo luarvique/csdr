@@ -123,7 +123,7 @@ void CwDecoder<T>::process() {
     // Compute current state based on the magnitude
     bool realState =
         magnitude>(magL+range*0.7)? 1 :
-        magnitude<(magL+range*0.3)? 0 :
+        magnitude<(magL+range*0.5)? 0 :
         realState0;
 
     // Keep track of minimal/maximal magnitude
