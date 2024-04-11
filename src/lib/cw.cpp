@@ -186,7 +186,7 @@ void CwDecoder<T>::processInternal(bool newState) {
 
             // Keep track of the average small BREAK duration
             if((durationL>20.0) && (durationL<1.5*avgDitT) && (durationL>0.6*avgDitT))
-                avgBrkT += (durationL - avgBrkT)/10.0;
+                avgBrkT += (durationL - avgBrkT)/4.0;
         }
         else
         {
@@ -227,11 +227,11 @@ void CwDecoder<T>::processInternal(bool newState) {
 
             // Keep track of the average DIT duration
             if((durationH>20.0) && (durationH<2.0*avgDitT))
-                avgDitT += (durationH - avgDitT)/10.0;
+                avgDitT += (durationH - avgDitT)/4.0;
 
             // Keep track of the average DAH duration
-            if((durationH<300.0) && (durationH>2.5*avgDitT))
-                avgDahT += (durationH - avgDahT)/10.0;
+            if((durationH<500.0) && (durationH>2.5*avgDitT))
+                avgDahT += (durationH - avgDahT)/4.0;
         }
     }
 
