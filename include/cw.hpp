@@ -69,8 +69,6 @@ namespace Csdr {
             unsigned long lastStartT = 0; // Time of the last signal change (ms)
             unsigned long startTimeH = 0; // Time HIGH signal started (ms)
             unsigned long startTimeL = 0; // Time LOW signal started (ms)
-            double durationH = 0;         // Duration of the HIGH signal (ms)
-            double durationL = 0;         // Duration of the LOW signal (ms)
 
             // DIT / DAH / BREAK timing
             double avgDitT = 50;          // Average DIT signal duration (ms)
@@ -80,7 +78,6 @@ namespace Csdr {
             // Current CW code
             unsigned int code = 1;        // Currently accumulated CW code or 1
             unsigned int wpm  = 0;        // Current CW speed (in wpm)
-            bool stop = false;            // TRUE if there is a code pending
 
             // Code to character conversion table
             static const char cwTable[];

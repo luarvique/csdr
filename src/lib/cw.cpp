@@ -81,9 +81,7 @@ void CwDecoder<T>::reset() {
     // HIGH / LOW timing
     lastStartT = 0; // Time of the last signal change (ms)
     startTimeH = 0; // Time HIGH signal started (ms)
-    durationH  = 0; // Duration of the HIGH signal (ms)
     startTimeL = 0; // Time LOW signal started (ms)
-    durationL  = 0; // Duration of the LOW signal (ms)
 
     // DIT / DAH / BREAK timing
     avgDitT = 50;   // Average DIT signal duration (ms)
@@ -92,7 +90,6 @@ void CwDecoder<T>::reset() {
 
     // Current CW code
     code = 1;       // Currently accumulated CW code or 1
-    stop = false;   // TRUE if there is a code pending
     wpm  = 0;       // Current CW speed (in wpm)
 }
 
@@ -147,6 +144,7 @@ template <typename T>
 void CwDecoder<T>::processInternal(bool newState) {
     unsigned long millis = msecs();
     unsigned int i, j;
+    double duration;
 
     // Filter out jitter based on nbTime
     if(newState!=realState0) lastStartT = millis;
@@ -155,26 +153,23 @@ void CwDecoder<T>::processInternal(bool newState) {
     // If signal state changed...
     if(filtState!=filtState0)
     {
-        // Mark change in signal state
-        stop = false;
-
         if(filtState)
         {
             // Ending a LOW state...
 
             // Compute LOW duration
             startTimeH = millis;
-            durationL  = millis - startTimeL;
+            duration   = millis - startTimeL;
 
             // If we have got some DITs or DAHs and there is a BREAK...
-            if((code>1) && (durationL>=2.5*avgBrkT))
+            if((code>1) && (duration>=2.5*avgBrkT))
             {
                 // Print character
                 *(this->writer->getWritePointer()) = cw2char(code);
                 this->writer->advance(1);
 
                 // If a word BREAK, print a space...
-                if(durationL>=5.0*avgBrkT)
+                if(duration>=5.0*avgBrkT)
                 {
                     *(this->writer->getWritePointer()) = ' ';
                     this->writer->advance(1);
@@ -185,8 +180,8 @@ void CwDecoder<T>::processInternal(bool newState) {
             }
 
             // Keep track of the average small BREAK duration
-            if((durationL>20.0) && (durationL<1.5*avgDitT) && (durationL>0.6*avgDitT))
-                avgBrkT += (durationL - avgBrkT)/4.0;
+            if((duration>20.0) && (duration<1.5*avgDitT) && (duration>0.6*avgDitT))
+                avgBrkT += (duration - avgBrkT)/4.0;
         }
         else
         {
@@ -194,10 +189,12 @@ void CwDecoder<T>::processInternal(bool newState) {
 
             // Compute HIGH duration
             startTimeL = millis;
-            durationH  = millis - startTimeH;
+            duration   = millis - startTimeH;
 
-            // 2/3 to filter out false DITs
-            if((durationH<1.5*avgDitT) && (durationH>0.5*avgDitT))
+            double midT = (avgDitT + avgDahT)/2.0;
+
+            // Filter out false DITs
+            if((duration<=midT) && (duration>0.5*avgDitT))
             {
                 // Add a DIT to the code
                 code = (code<<1) | 1;
@@ -209,13 +206,13 @@ void CwDecoder<T>::processInternal(bool newState) {
                     this->writer->advance(1);
                 }
             }
-            else if((durationH<3.0*avgDahT) && (durationH>0.6*avgDahT))
+            else if((duration>midT) && (duration<3.0*avgDahT))
             {
                 // Add a DAH to the code
                 code = (code<<1) | 0;
 
                 // Try computing WPM
-                wpm = (wpm + (int)(3600.0/durationH))/2;
+                wpm = (wpm + (int)(3600.0/duration))/2;
 
                 // Print a DAH
                 if(showCw)
@@ -226,34 +223,28 @@ void CwDecoder<T>::processInternal(bool newState) {
             }
 
             // Keep track of the average DIT duration
-            if((durationH>20.0) && (durationH<2.0*avgDitT))
-                avgDitT += (durationH - avgDitT)/4.0;
+            if((duration>20.0) && (duration<0.4*avgDahT))
+                avgDitT += (duration - avgDitT)/4.0;
 
             // Keep track of the average DAH duration
-            if((durationH<500.0) && (durationH>2.5*avgDitT))
-                avgDahT += (durationH - avgDahT)/4.0;
+            if((duration<500.0) && (duration>2.5*avgDitT))
+                avgDahT += (duration - avgDahT)/4.0;
         }
     }
 
-    // If no more characters...
-    if(((millis-startTimeL)>6*durationH) && !stop)
+    // If long silence, print the last buffered character
+    if((code>1) && !filtState && ((millis-startTimeL)>5.0*avgBrkT))
     {
-        // If there is a buffered code...
-        if(code>1)
-        {
-            // Print character
-            *(this->writer->getWritePointer()) = cw2char(code);
-            this->writer->advance(1);
+        // Print character
+        *(this->writer->getWritePointer()) = cw2char(code);
+        this->writer->advance(1);
 
-            // Print word break
-            *(this->writer->getWritePointer()) = ' ';
-            this->writer->advance(1);
+        // Print word break
+        *(this->writer->getWritePointer()) = ' ';
+        this->writer->advance(1);
 
-            // Start new character
-            code = 1;
-        }
-
-        stop = true;
+        // Start new character
+        code = 1;
     }
 
     // Periodically print debug information, if enabled
