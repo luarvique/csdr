@@ -31,10 +31,11 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Csdr;
 
 template <typename T, typename U>
-ExecModule<T, U>::ExecModule(std::vector<std::string> args, size_t flushSize, bool doNotKill):
+ExecModule<T, U>::ExecModule(std::vector<std::string> args, size_t flushSize, size_t procSize, bool doNotKill):
     Module<T, U>(),
     args(std::move(args)),
     flushSize(flushSize),
+    procSize(std::min(procSize, (size_t)1)),
     doNotKill(doNotKill)
 {
     startChild();
@@ -238,7 +239,7 @@ void ExecModule<T, U>::setWriter(Writer<U> *writer) {
 template <typename T, typename U>
 bool ExecModule<T, U>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    return this->reader->available() > 0 && this->isPipeWriteable();
+    return this->reader->available() >= procSize && this->isPipeWriteable();
 }
 
 template <typename T, typename U>
@@ -246,7 +247,7 @@ void ExecModule<T, U>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     size_t available = this->reader->available();
-    if (available == 0) return;
+    if (available < procSize) return;
 
     size_t size = std::min(available, (size_t) 1024) * sizeof(T) - writeOffset;
     ssize_t written = write(this->writePipe, ((char*) this->reader->getReadPointer()) + writeOffset, size);
