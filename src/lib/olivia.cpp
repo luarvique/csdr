@@ -89,7 +89,59 @@ void OliviaDecoder<T>::process() {
 
 template <typename T>
 bool OliviaDecoder<T>::decodeBlock(const unsigned int *buf) {
+    Decodes a full block of 64 symbols, then prints it
+    to standard output.
+    '''
+    w = np.zeros((spb, 64))
+    
+    # key = 0xE257E6D0291574EC
+    key = np.flip(np.array(
+          [1, 1, 1, 0, 0, 0, 1, 0,
+           0, 1, 0, 1, 0, 1, 1, 1,
+           1, 1, 1, 0, 0, 1, 1, 0,
+           1, 1, 0, 1, 0, 0, 0, 0,
+           0, 0, 1, 0, 1, 0, 0, 1,
+           0, 0, 0, 1, 0, 1, 0, 1,
+           0, 1, 1, 1, 0, 1, 0, 0,
+           1, 1, 1, 0, 1, 1, 0, 0]))
+    
+    output = ""
+    doubt = 0
 
+    for (i = 0 ; i < spb ; i++) {
+        for (j = 0 ; j < 64 ; j++) {
+            w[i][j] = ((buf[j] >> ((i+j) & (spb-1))) & 1)? -1 : 1;
+        }
+
+        w
+    for i in range(0, spb):
+        for j in range(0, 64):
+            bit = (syms[j] >> ((i+j) % spb)) & 1
+            if bit == 1:
+                w[i,j] = -1
+            else:
+                w[i,j] = 1
+                
+        w[i,:] = w[i,:] * (-2*np.roll(key, -13*i)+1)
+        w[i,:] = fwht(w[i,:])
+        
+        c = np.argmax(np.abs(w[i,:]))
+        
+        if abs(w[i,c]) < BLOCK_THRESHOLD:
+            doubt += 1
+            
+        if w[i,c] < 0:
+            c = c + 64    
+        if c != 0:
+            output += chr(c)
+    
+    if doubt == 0:
+        print(output, end="", flush=True)
+        return True
+    else:
+        return False
+        
+#
 
 
 }
@@ -115,6 +167,21 @@ unsigned int OliviaDecoder<T>::degray(unsigned int v) {
     unsigned int mask;
     for (mask=v ; mask ; v^=mask) mask>>=1;
     return v;
+}
+
+template <typename T>
+void OliviaDecoder<T>::fwht(unsigned int *data, unsigned int length) {
+    unsigned int step, i, j;
+
+    for (step = 1 ; step < length ; step *= 2) {
+        for (j = 0 ; j < length ; j += step*2) {
+            for (i = j ; i < j+step ; i++) {
+                unsigned int bit1 = data[i];
+                unsigned int bit2 = data[i + step];
+                data[i] = bit2 + bit1;
+                data[i + step] = bit2 - bit1;
+            }
+        }
 }
 
 template <>
