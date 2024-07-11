@@ -67,9 +67,9 @@ void Throttle<T>::loop() {
         {
             std::lock_guard<std::mutex> lock(this->processMutex);
             if (this->reader->available() < chunkSize) {
-                std::cerr << "Csdr::Throttle buffer under-run" << std::endl;
+//                std::cerr << "Csdr::Throttle buffer under-run" << std::endl;
             } else if (this->writer->writeable() < chunkSize) {
-                std::cerr << "Csdr::Throttle buffer over-run" << std::endl;
+//                std::cerr << "Csdr::Throttle buffer over-run" << std::endl;
             } else {
                 std::memcpy(this->writer->getWritePointer(), this->reader->getReadPointer(), sizeof(T) * chunkSize);
                 this->reader->advance(chunkSize);
