@@ -401,7 +401,7 @@ void SstvDecoder<T>::print(const char *format, ...)
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
-#if 1
+#if 0
     // @@@ Enable to dump log into a file
     {
         FILE *F = fopen("/tmp/sstv-decoder.log", "a");
