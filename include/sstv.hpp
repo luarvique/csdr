@@ -37,35 +37,44 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace Csdr {
     class SSTVMode {
         public:
-        const char *NAME;
+        const char *NAME = "Invalid";
 
-        int ID;
-        int COLOR;
-        int LINE_WIDTH;
-        int LINE_COUNT;
+        int ID         = 0x00;
+        int COLOR      = 0;
+        int LINE_WIDTH = 320;
+        int LINE_COUNT = 256;
+        int LINE_STEP  = 1;
+        int CHAN_COUNT = 3;
+        int CHAN_SYNC  = 0;
 
-        double SCAN_TIME;
-        double SYNC_PULSE;
-        double SYNC_PORCH;
-        double SEP_PULSE;
-        double SEP_PORCH;
+        double SCAN_TIME  = 0.0;
+        double SYNC_PULSE = 0.0;
+        double SYNC_PORCH = 0.0;
+        double SEP_PULSE  = 0.0;
+        double SEP_PORCH  = 0.0;
+        double WINDOW_FACTOR  = 1.0;
 
-        int CHAN_COUNT;
-        int CHAN_SYNC;
-        double CHAN_TIME;
+        bool HAS_START_SYNC = false;
+        bool HAS_HALF_SCAN  = false;
+        bool HAS_ALT_SCAN   = false;
 
-        double CHAN_OFFSETS[8];
+        // These values are usually computed automatically
         double LINE_TIME;
+        double CHAN_TIME;
         double PIXEL_TIME;
-        double WINDOW_FACTOR;
-
-        bool HAS_START_SYNC;
-        bool HAS_HALF_SCAN;
-        bool HAS_ALT_SCAN;
-
-        double HALF_SCAN_TIME;
         double HALF_PIXEL_TIME;
-        double HALF_CHAN_TIME;
+        double CHAN_OFFSETS[8];
+
+        void ComputeTimings() {
+            CHAN_TIME  = SEP_PULSE + SCAN_TIME;
+            LINE_TIME  = SYNC_PULSE + SYNC_PORCH + CHAN_COUNT*CHAN_TIME;
+            PIXEL_TIME = SCAN_TIME / LINE_WIDTH;
+            HALF_PIXEL_TIME = SCAN_TIME / 2.0 / LINE_WIDTH;
+
+            CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
+            CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
+            CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
+        }
     };
 
     template <typename T>
@@ -79,7 +88,7 @@ namespace Csdr {
 
         private:
             // Maximum scanline width
-            enum { MAX_LINE_WIDTH = 320 };
+            enum { MAX_LINE_WIDTH = 640 };
 
             // Configurable input parameters
             unsigned int sampleRate;   // Input sampling rate (Hz)
@@ -118,8 +127,8 @@ namespace Csdr {
             unsigned int lastLineT;      // Time of last scanline decoded (ms)
             int curState;                // Current decoder state
 
-            // U/V component from a previous scanline (must be large enough!)
-            unsigned char linebuf[MAX_LINE_WIDTH];
+            // U/V components from a previous scanline (must be large enough!)
+            unsigned char linebuf[2][MAX_LINE_WIDTH];
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
