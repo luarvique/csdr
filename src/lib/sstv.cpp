@@ -149,7 +149,7 @@ bool SstvDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return
         (this->reader->available() >= sampleRate*2) &&
-        (this->writer->writeable() >= MAX_LINE_WIDTH*3);
+        (this->writer->writeable() >= 2*MAX_LINE_WIDTH*3);
 }
 
 template <typename T>
@@ -523,7 +523,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 {
     // Temporary output buffers
     unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
-    unsigned char bmp[3 * mode->LINE_WIDTH];
 
     // Scanline and sync pulse size in samples
     unsigned int lineSize = round(mode->LINE_TIME * sampleRate);
@@ -582,113 +581,35 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     }
 
     // If there is enough output space available for this scanline...
-    if(this->writer->writeable()>=sizeof(bmp)*mode->LINE_STEP)
+    if(this->writer->writeable()>=mode->LINE_WIDTH*mode->LINE_STEP)
     {
-        unsigned char *p = bmp;
+        unsigned char *outPtr[3];
+        for(int j=0 ; j<3 ; j++)
+            outPtr[j] = j<mode->CHAN_COUNT? out[j] : 0;
 
         // R36: This is the only case where two channels are valid
         if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
-        {
-            // V in even lines, U in odd lines
-            unsigned char *u = line&1? out[1] : linebuf[0];
-            unsigned char *v = line&1? linebuf[0] : out[1];
-
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                unsigned int rgb = yuv2rgb(out[0][px], u[px], v[px]);
-                *p++ = rgb & 0xFF;
-                *p++ = (rgb >> 8) & 0xFF;
-                *p++ = (rgb >> 16) & 0xFF;
-            }
-
-            // Retain U/V value until the next scanline
-            memcpy(linebuf[0], out[1], mode->LINE_WIDTH);
-        }
+            convertR36(mode, line, outPtr);
 
         // M1, M2, S1, S2, SDX: GBR color
         else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                *p++ = out[1][px];
-                *p++ = out[0][px];
-                *p++ = out[2][px];
-            }
-        }
+            convertGBR(mode, line, outPtr);
 
         // PD90, PD120, ...: Interleaved YUV color
         else if((mode->CHAN_COUNT==3) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
-        {
-            // Use average U/V from two scanlines
-            if((line > 0) && (line < mode->LINE_COUNT-1))
-            {
-                // Draw first scanline
-                for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-                {
-                    unsigned char u  = (linebuf[1][px] + out[2][px]) >> 1;
-                    unsigned char v  = (linebuf[0][px] + out[1][px]) >> 1;
-                    unsigned int rgb = yuv2rgb(out[0][px], u, v);
-                    *p++ = rgb & 0xFF;
-                    *p++ = (rgb >> 8) & 0xFF;
-                    *p++ = (rgb >> 16) & 0xFF;
-                }
-            }
-
-            // Write out first scanline, if drawn above
-            if(p!=bmp)
-            {
-                writeData(bmp, sizeof(bmp));
-                p = bmp;
-            }
-
-            // Draw second scanline
-            unsigned char *u = line<mode->LINE_COUNT-1? out[2] : linebuf[1];
-            unsigned char *v = line<mode->LINE_COUNT-1? out[1] : linebuf[0];
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                unsigned int rgb = yuv2rgb(out[0][px], u[px], v[px]);
-                *p++ = rgb & 0xFF;
-                *p++ = (rgb >> 8) & 0xFF;
-                *p++ = (rgb >> 16) & 0xFF;
-            }
-
-            // Retain U/V values until the next scanline
-            memcpy(linebuf[0], out[1], mode->LINE_WIDTH);
-            memcpy(linebuf[1], out[2], mode->LINE_WIDTH);
-        }
+            convertPD(mode, line, outPtr);
 
         // R72: YUV color
         else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                unsigned int rgb = yuv2rgb(out[0][px], out[2][px], out[1][px]);
-                *p++ = rgb & 0xFF;
-                *p++ = (rgb >> 8) & 0xFF;
-                *p++ = (rgb >> 16) & 0xFF;
-            }
-        }
+            convertYUV(mode, line, outPtr);
 
         // Normal RGB color
         else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                *p++ = out[2][px];
-                *p++ = out[1][px];
-                *p++ = out[0][px];
-            }
-        }
+            convertRGB(mode, line, outPtr);
 
         // Unknown mode
         else
-        {
-            // No scanline
-            memset(bmp, 0, sizeof(bmp));
-        }
-
-        // Output scanline
-        writeData(bmp, sizeof(bmp));
+            printBmpEmptyLines(mode, 1);
     }
 
     // Done, return the number of input samples consumed, but leave
@@ -696,6 +617,131 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     start += lineSize - syncSize;
     return(start<0? 0 : start<size? start : size);
 }
+
+template <typename T>
+void SstvDecoder<T>::convertYUV(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertRGB(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        *p++ = buf[2][px];
+        *p++ = buf[1][px];
+        *p++ = buf[0][px];
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertGBR(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        *p++ = buf[1][px];
+        *p++ = buf[0][px];
+        *p++ = buf[2][px];
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertR36(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    // V in even lines, U in odd lines
+    unsigned char *u = line&1? buf[1] : linebuf[0];
+    unsigned char *v = line&1? linebuf[0] : buf[1];
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    // Retain U/V value until the next scanline
+    memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertPD(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p = bmp;
+    unsigned int px;
+
+    // Use average U/V from two scanlines
+    if((line > 0) && (line < mode->LINE_COUNT-1))
+    {
+        // Draw first scanline
+        for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+        {
+            unsigned char u  = (linebuf[1][px] + buf[2][px]) >> 1;
+            unsigned char v  = (linebuf[0][px] + buf[1][px]) >> 1;
+            unsigned int rgb = yuv2rgb(buf[0][px], u, v);
+            *p++ = rgb & 0xFF;
+            *p++ = (rgb >> 8) & 0xFF;
+            *p++ = (rgb >> 16) & 0xFF;
+        }
+    }
+
+    // Write out first scanline, if drawn above
+    if(p!=bmp)
+    {
+        writeData(bmp, sizeof(bmp));
+        p = bmp;
+    }
+
+    // Draw second scanline
+    unsigned char *u = line<mode->LINE_COUNT-1? buf[2] : linebuf[1];
+    unsigned char *v = line<mode->LINE_COUNT-1? buf[1] : linebuf[0];
+    for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    // Retain U/V values until the next scanline
+    memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
+    memcpy(linebuf[1], buf[2], mode->LINE_WIDTH);
+
+    writeData(bmp, sizeof(bmp));
+}
+
 
 template <typename T>
 unsigned char SstvDecoder<T>::luminance(int freq)

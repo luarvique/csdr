@@ -185,5 +185,12 @@ namespace Csdr {
 
             // Write output data
             bool writeData(const void *buf, unsigned int size);
+
+            // Individual scanline conversion functions for different modes
+            void convertYUV(const SSTVMode *mode, unsigned int line, unsigned char *buf[3]);
+            void convertRGB(const SSTVMode *mode, unsigned int line, unsigned char *buf[3]);
+            void convertGBR(const SSTVMode *mode, unsigned int line, unsigned char *buf[3]);
+            void convertR36(const SSTVMode *mode, unsigned int line, unsigned char *buf[3]);
+            void convertPD(const SSTVMode *mode, unsigned int line, unsigned char *buf[3]);
     };
 }
