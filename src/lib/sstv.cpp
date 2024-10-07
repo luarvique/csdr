@@ -57,6 +57,26 @@ using namespace Csdr;
 #define STATE_SYNC      (-1)
 #define STATE_LINE0     (0)
 
+// VIS IDs
+#define ID_ROBOT36      (8)
+#define ID_ROBOT72      (12)
+#define ID_MARTIN2      (40)
+#define ID_MARTIN1      (44)
+#define ID_SC2_30       (51)
+#define ID_SC2_180      (55)
+#define ID_SCOTTIE2     (56)
+#define ID_SC2_60       (59)
+#define ID_SCOTTIE1     (60)
+#define ID_SC2_120      (63)
+#define ID_AVT90        (68)
+#define ID_SCOTTIEDX    (76)
+#define ID_PD50         (93)
+#define ID_PD120        (95)
+#define ID_PD180        (96)
+#define ID_PD240        (97)
+#define ID_PD160        (98)
+#define ID_PD90         (99)
+
 //
 // Forward class declarations
 //
