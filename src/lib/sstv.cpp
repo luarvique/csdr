@@ -60,9 +60,13 @@ using namespace Csdr;
 // VIS IDs
 #define ID_ROBOT36      (8)
 #define ID_ROBOT72      (12)
+#define ID_MARTIN4      (32)
+#define ID_MARTIN3      (36)
 #define ID_MARTIN2      (40)
 #define ID_MARTIN1      (44)
+#define ID_SCOTTIE4     (48)
 #define ID_SC2_30       (51)
+#define ID_SCOTTIE3     (52)
 #define ID_SC2_180      (55)
 #define ID_SCOTTIE2     (56)
 #define ID_SC2_60       (59)
@@ -829,6 +833,32 @@ class Martin2: public Martin1
     }
 };
 
+class Martin3: public Martin1
+{
+  public:
+    Martin3()
+    {
+      NAME       = "Martin 3";
+      ID         = ID_MARTIN3;
+      LINE_COUNT = 128;
+
+      ComputeTimings();
+    }
+};
+
+class Martin4: public Martin2
+{
+  public:
+    Martin4()
+    {
+      NAME       = "Martin 4";
+      ID         = ID_MARTIN4;
+      LINE_COUNT = 128;
+
+      ComputeTimings();
+    }
+};
+
 class Scottie1: public SSTVMode
 {
   public:
@@ -866,14 +896,40 @@ class Scottie2: public Scottie1
   public:
     Scottie2()
     {
-      NAME = "Scottie 2";
-      ID          = ID_SCOTTIE2;
-      LINE_WIDTH  = 320;
-      SCAN_TIME   = 0.088064;
-      SYNC_PULSE  = 0.009000;
-      SYNC_PORCH  = 0.001500;
-      SEP_PULSE   = 0.001500;
+      NAME       = "Scottie 2";
+      ID         = ID_SCOTTIE2;
+      LINE_WIDTH = 320;
+      SCAN_TIME  = 0.088064;
+      SYNC_PULSE = 0.009000;
+      SYNC_PORCH = 0.001500;
+      SEP_PULSE  = 0.001500;
       WINDOW_FACTOR = 3.82;
+
+      ComputeTimings();
+    }
+};
+
+class Scottie3: public Scottie1
+{
+  public:
+    Scottie3()
+    {
+      NAME       = "Scottie 3";
+      ID         = ID_SCOTTIE3;
+      LINE_COUNT = 128;
+
+      ComputeTimings();
+    }
+};
+
+class Scottie4: public Scottie2
+{
+  public:
+    Scottie4()
+    {
+      NAME       = "Scottie 4";
+      ID         = ID_SCOTTIE4;
+      LINE_COUNT = 128;
 
       ComputeTimings();
     }
@@ -983,9 +1039,9 @@ class PD90: public PD50
   public:
     PD90()
     {
-      NAME       = "PD-90";
-      ID         = ID_PD90;
-      SCAN_TIME  = 0.17024;
+      NAME      = "PD-90";
+      ID        = ID_PD90;
+      SCAN_TIME = 0.17024;
       WINDOW_FACTOR = 2.01;
 
       ComputeTimings();
@@ -1029,9 +1085,9 @@ class PD180: public PD120
   public:
     PD180()
     {
-      NAME       = "PD-180";
-      ID         = ID_PD180;
-      SCAN_TIME  = 0.18304;
+      NAME      = "PD-180";
+      ID        = ID_PD180;
+      SCAN_TIME = 0.18304;
       WINDOW_FACTOR = 1.87;
 
       ComputeTimings();
@@ -1043,9 +1099,9 @@ class PD240: public PD120
   public:
     PD240()
     {
-      NAME       = "PD-240";
-      ID         = ID_PD240;
-      SCAN_TIME  = 0.24448;
+      NAME      = "PD-240";
+      ID        = ID_PD240;
+      SCAN_TIME = 0.24448;
       WINDOW_FACTOR = 1.40;
 
       ComputeTimings();
@@ -1119,9 +1175,9 @@ class SC2_120: public SC2_60
   public:
     SC2_120()
     {
-      NAME       = "Wraase SC2-120";
-      ID         = ID_SC2_120;
-      SCAN_TIME  = 0.235;
+      NAME      = "Wraase SC2-120";
+      ID        = ID_SC2_120;
+      SCAN_TIME = 0.235;
       WINDOW_FACTOR = 2.93;
 
       ComputeTimings();
@@ -1133,9 +1189,9 @@ class SC2_180: public SC2_60
   public:
     SC2_180()
     {
-      NAME       = "Wraase SC2-180";
-      ID         = ID_SC2_180;
-      SCAN_TIME  = 0.235;
+      NAME      = "Wraase SC2-180";
+      ID        = ID_SC2_180;
+      SCAN_TIME = 0.235;
       WINDOW_FACTOR = 1.46;
 
       // All channels are same length
@@ -1150,8 +1206,12 @@ static Robot36   MODE_Robot36;
 static Robot72   MODE_Robot72;
 static Martin1   MODE_Martin1;
 static Martin2   MODE_Martin2;
+static Martin3   MODE_Martin3;
+static Martin4   MODE_Martin4;
 static Scottie1  MODE_Scottie1;
 static Scottie2  MODE_Scottie2;
+static Scottie3  MODE_Scottie3;
+static Scottie4  MODE_Scottie4;
 static ScottieDX MODE_ScottieDX;
 static PD50      MODE_PD50;
 static PD90      MODE_PD90;
@@ -1197,9 +1257,13 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
     {
         case ID_ROBOT36:   return(&MODE_Robot36);
         case ID_ROBOT72:   return(&MODE_Robot72);
+        case ID_MARTIN4:   return(&MODE_Martin4);
+        case ID_MARTIN3:   return(&MODE_Martin3);
         case ID_MARTIN2:   return(&MODE_Martin2);
         case ID_MARTIN1:   return(&MODE_Martin1);
+        case ID_SCOTTIE4:  return(&MODE_Scottie4);
         case ID_SC2_30:    return(&MODE_SC2_30);
+        case ID_SCOTTIE3:  return(&MODE_Scottie3);
         case ID_SC2_180:   return(&MODE_SC2_180);
         case ID_SCOTTIE2:  return(&MODE_Scottie2);
         case ID_SC2_60:    return(&MODE_SC2_60);
@@ -1228,12 +1292,8 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
         case 13:
         case 14:
         case 15: // Robot BW36
-        case 32: // Martin M4
-        case 36: // Martin M3
         case 41: // Martin HQ1
         case 42: // Martin HQ2
-        case 48: // Scottie 4
-        case 52: // Scottie 3
         case 85: // FAX480
         case 90: // FAST FM
         case 100: // Proskan J120
