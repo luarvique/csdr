@@ -78,28 +78,6 @@ using namespace Csdr;
 #define ID_PD90         (99)
 
 //
-// Forward class declarations
-//
-class Robot36;
-class Robot72;
-class Martin1;
-class Martin2;
-class Scottie1;
-class Scottie2;
-class ScottieDX;
-class PD50;
-class PD90;
-class PD120;
-class PD160;
-class PD180;
-class PD240;
-class AVT90;
-class SC2_30;
-class SC2_60;
-class SC2_120;
-class SC2_180;
-
-//
 // BMP file header
 //
 typedef struct
@@ -571,9 +549,16 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         double pxTime, pxWindow;
         fftwf_plan fftPlan;
 
-        // Robot mode has half-length second/third scans
-        if(mode->HAS_HALF_SCAN && (ch>0))
+        if((ch>0) && ((mode->ID==ID_ROBOT36) || (mode->ID==ID_ROBOT72)))
         {
+            // Robot modes have half-length second/third channels
+            pxTime   = mode->HALF_PIXEL_TIME;
+            pxWindow = halfpSize;
+            fftPlan  = fftHalfp;
+        }
+        else if((ch!=1) && ((mode->ID==ID_SC2_30) || (mode->ID==ID_SC2_60) || (mode->ID==ID_SC2_120)))
+        {
+            // SC2 modes have half-length first/third channels
             pxTime   = mode->HALF_PIXEL_TIME;
             pxWindow = halfpSize;
             fftPlan  = fftHalfp;
@@ -607,29 +592,37 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         for(int j=0 ; j<3 ; j++)
             outPtr[j] = j<mode->CHAN_COUNT? out[j] : 0;
 
-        // R36: This is the only case where two channels are valid
-        if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
-            convertR36(mode, line, outPtr);
+        switch(mode->ID)
+        {
+            case ID_PD50:
+            case ID_PD90:
+            case ID_PD120:
+            case ID_PD160:
+            case ID_PD180:
+            case ID_PD240:
+                // PD90, PD120, ...: Interleaved YUV color
+                convertPD(mode, line, outPtr);
+                break;
 
-        // M1, M2, S1, S2, SDX: GBR color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
-            convertGBR(mode, line, outPtr);
+            case ID_ROBOT36:
+                // R36: This is the only case where two channels are valid
+                convertR36(mode, line, outPtr);
+                break;
 
-        // PD90, PD120, ...: Interleaved YUV color
-        else if((mode->CHAN_COUNT==3) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
-            convertPD(mode, line, outPtr);
-
-        // R72: YUV color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
-            convertYUV(mode, line, outPtr);
-
-        // Normal RGB color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
-            convertRGB(mode, line, outPtr);
-
-        // Unknown mode
-        else
-            printBmpEmptyLines(mode, 1);
+            default:
+                // Normal RGB color
+                if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
+                    convertRGB(mode, line, outPtr);
+                // M1, M2, S1, S2, SDX: GBR color
+                else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
+                    convertGBR(mode, line, outPtr);
+                // R72: YUV color
+                else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
+                    convertYUV(mode, line, outPtr);
+                else
+                    printBmpEmptyLines(mode, 1);
+                break;
+        }
     }
 
     // Done, return the number of input samples consumed, but leave
@@ -804,7 +797,7 @@ class Martin1: public SSTVMode
     Martin1()
     {
       NAME       = "Martin 1";
-      ID         = 44;
+      ID         = ID_MARTIN1;
       COLOR      = COLOR_GBR;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
@@ -824,7 +817,7 @@ class Martin2: public Martin1
     Martin2()
     {
       NAME       = "Martin 2";
-      ID         = 40;
+      ID         = ID_MARTIN2;
       LINE_WIDTH = 320;
       SCAN_TIME  = 0.073216;
       SYNC_PULSE = 0.004862;
@@ -842,14 +835,14 @@ class Scottie1: public SSTVMode
     Scottie1()
     {
       NAME       = "Scottie 1";
-      ID         = 60;
+      ID         = ID_SCOTTIE1;
       COLOR      = COLOR_GBR;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
-      SCAN_TIME  = 0.138240;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.001500;
-      SEP_PULSE  = 0.001500;
+      SCAN_TIME  = 0.13824;
+      SYNC_PULSE = 0.00900;
+      SYNC_PORCH = 0.00150;
+      SEP_PULSE  = 0.00150;
       CHAN_SYNC  = 2;
       WINDOW_FACTOR  = 2.48;
       HAS_START_SYNC = true;
@@ -859,12 +852,12 @@ class Scottie1: public SSTVMode
 
     void ComputeTimings()
     {
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
-      LINE_TIME  = SYNC_PULSE + CHAN_COUNT*CHAN_TIME;
-      PIXEL_TIME = SCAN_TIME / LINE_WIDTH;
+      SSTVMode::ComputeTimings();
+      // Sync is in the middle
       CHAN_OFFSETS[0] = SEP_PULSE;
       CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
       CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
+      LINE_TIME       = SYNC_PULSE + CHAN_COUNT*CHAN_TIME;
     }
 };
 
@@ -874,7 +867,7 @@ class Scottie2: public Scottie1
     Scottie2()
     {
       NAME = "Scottie 2";
-      ID          = 56;
+      ID          = ID_SCOTTIE2;
       LINE_WIDTH  = 320;
       SCAN_TIME   = 0.088064;
       SYNC_PULSE  = 0.009000;
@@ -892,12 +885,12 @@ class ScottieDX: public Scottie2
     ScottieDX()
     {
       NAME       = "Scottie DX";
-      ID         = 75;
+      ID         = ID_SCOTTIEDX;
       LINE_WIDTH = 320;
-      SCAN_TIME  = 0.345600;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.001500;
-      SEP_PULSE  = 0.001500;
+      SCAN_TIME  = 0.3456;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0015;
+      SEP_PULSE  = 0.0015;
       WINDOW_FACTOR = 0.98;
 
       ComputeTimings();
@@ -910,18 +903,16 @@ class Robot36: public SSTVMode
     Robot36()
     {
       NAME       = "Robot 36";
-      ID         = 8;
+      ID         = ID_ROBOT36;
       COLOR      = COLOR_YUV;
       LINE_WIDTH = 320;
       LINE_COUNT = 240;
-      SCAN_TIME  = 0.088000;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.003000;
-      SEP_PULSE  = 0.004500;
-      SEP_PORCH  = 0.001500;
+      SCAN_TIME  = 0.0880;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0030;
+      SEP_PULSE  = 0.0045;
+      SEP_PORCH  = 0.0015;
       CHAN_COUNT = 2;
-      HAS_HALF_SCAN  = true;
-      HAS_ALT_SCAN   = true;
       WINDOW_FACTOR  = 7.70;
 
       ComputeTimings();
@@ -929,13 +920,10 @@ class Robot36: public SSTVMode
 
     void ComputeTimings()
     {
-      CHAN_TIME       = SEP_PULSE + SCAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      HALF_PIXEL_TIME = SCAN_TIME / 2.0 / LINE_WIDTH;
-
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
+      SSTVMode::ComputeTimings();
+      // Only two channels, channel #1 is half width
       CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
-
+      CHAN_OFFSETS[2] = CHAN_OFFSETS[1];
       LINE_TIME       = CHAN_OFFSETS[1] + SCAN_TIME / 2.0;
     }
 };
@@ -946,16 +934,14 @@ class Robot72: public Robot36
     Robot72()
     {
       NAME       = "Robot 72";
-      ID         = 12;
+      ID         = ID_ROBOT72;
       LINE_WIDTH = 320;
-      SCAN_TIME  = 0.138000;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.003000;
-      SEP_PULSE  = 0.004500;
-      SEP_PORCH  = 0.001500;
+      SCAN_TIME  = 0.1380;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0030;
+      SEP_PULSE  = 0.0045;
+      SEP_PORCH  = 0.0015;
       CHAN_COUNT = 3;
-      HAS_HALF_SCAN  = true;
-      HAS_ALT_SCAN   = false;
       WINDOW_FACTOR  = 4.88;
 
       ComputeTimings();
@@ -963,14 +949,10 @@ class Robot72: public Robot36
 
     void ComputeTimings()
     {
-      CHAN_TIME       = SEP_PULSE + SCAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      HALF_PIXEL_TIME = SCAN_TIME / 2.0 / LINE_WIDTH;
-
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
+      SSTVMode::ComputeTimings();
+      // Channels #1 and #2 are half width
       CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
       CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME / 2.0 + SEP_PORCH;
-
       LINE_TIME       = CHAN_OFFSETS[2] + SCAN_TIME / 2.0;
     }
 };
@@ -981,17 +963,16 @@ class PD50: public SSTVMode
     PD50()
     {
       NAME       = "PD-50";
-      ID         = 93;
+      ID         = ID_PD50;
       COLOR      = COLOR_YUV;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
       LINE_STEP  = 2;
       SCAN_TIME  = 0.09152;
-      SYNC_PULSE = 0.02;
+      SYNC_PULSE = 0.02000;
       SYNC_PORCH = 0.00208;
-      SEP_PULSE  = 0.0;
+      SEP_PULSE  = 0.00000;
       WINDOW_FACTOR = 3.74;
-      HAS_ALT_SCAN  = true;
 
       ComputeTimings();
     }
@@ -1003,7 +984,7 @@ class PD90: public PD50
     PD90()
     {
       NAME       = "PD-90";
-      ID         = 99;
+      ID         = ID_PD90;
       SCAN_TIME  = 0.17024;
       WINDOW_FACTOR = 2.01;
 
@@ -1017,7 +998,7 @@ class PD120: public PD50
     PD120()
     {
       NAME       = "PD-120";
-      ID         = 95;
+      ID         = ID_PD120;
       LINE_WIDTH = 640;
       LINE_COUNT = 496;
       SCAN_TIME  = 0.1216;
@@ -1033,7 +1014,7 @@ class PD160: public PD50
     PD160()
     {
       NAME       = "PD-160";
-      ID         = 98;
+      ID         = ID_PD160;
       LINE_WIDTH = 512;
       LINE_COUNT = 400;
       SCAN_TIME  = 0.195854;
@@ -1049,7 +1030,7 @@ class PD180: public PD120
     PD180()
     {
       NAME       = "PD-180";
-      ID         = 96;
+      ID         = ID_PD180;
       SCAN_TIME  = 0.18304;
       WINDOW_FACTOR = 1.87;
 
@@ -1063,7 +1044,7 @@ class PD240: public PD120
     PD240()
     {
       NAME       = "PD-240";
-      ID         = 97;
+      ID         = ID_PD240;
       SCAN_TIME  = 0.24448;
       WINDOW_FACTOR = 1.40;
 
@@ -1077,14 +1058,14 @@ class AVT90: public SSTVMode
     AVT90()
     {
       NAME       = "AVT-90";
-      ID         = 68;
+      ID         = ID_AVT90;
       COLOR      = COLOR_RGB;
       LINE_WIDTH = 256;
       LINE_COUNT = 240;
       SCAN_TIME  = 0.125;
-      SYNC_PULSE = 0.0;
-      SYNC_PORCH = 0.0;
-      SEP_PULSE  = 0.0;
+      SYNC_PULSE = 0.000;
+      SYNC_PORCH = 0.000;
+      SEP_PULSE  = 0.000;
       WINDOW_FACTOR = 2.74;
 
       ComputeTimings();
@@ -1097,20 +1078,26 @@ class SC2_60: public SSTVMode
     SC2_60()
     {
       NAME       = "Wraase SC2-60";
-      ID         = 59;
+      ID         = ID_SC2_60;
       COLOR      = COLOR_RGB;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
-      SCAN_TIME  = 0.058;
+      SCAN_TIME  = 0.117;
       SYNC_PULSE = 0.005;
-      SYNC_PORCH = 0.0;
-      SEP_PULSE  = 0.0;
+      SYNC_PORCH = 0.000;
+      SEP_PULSE  = 0.000;
       WINDOW_FACTOR = 5.91;
 
       ComputeTimings();
+    }
 
-      // Channel #1 (GREEN) is twice the width + 1ms
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + 2*CHAN_TIME + 0.001;
+    void ComputeTimings()
+    {
+      SSTVMode::ComputeTimings();
+      // Channels #0 (RED) and #2 (BLUE) are half width
+      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME / 2.0;
+      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
+      LINE_TIME       = CHAN_OFFSETS[2] + CHAN_TIME / 2.0;
     }
 };
 
@@ -1120,13 +1107,10 @@ class SC2_30: public SC2_60
     SC2_30()
     {
       NAME       = "Wraase SC2-30";
-      ID         = 51;
+      ID         = ID_SC2_30;
       LINE_COUNT = 128;
 
       ComputeTimings();
-
-      // Channel #1 (GREEN) is twice the width + 1ms
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + 2*CHAN_TIME + 0.001;
     }
 };
 
@@ -1136,14 +1120,11 @@ class SC2_120: public SC2_60
     SC2_120()
     {
       NAME       = "Wraase SC2-120";
-      ID         = 63;
-      SCAN_TIME  = 0.117;
+      ID         = ID_SC2_120;
+      SCAN_TIME  = 0.235;
       WINDOW_FACTOR = 2.93;
 
       ComputeTimings();
-
-      // Channel #1 (GREEN) is twice the width + 1ms
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + 2*CHAN_TIME + 0.001;
     }
 };
 
@@ -1153,12 +1134,12 @@ class SC2_180: public SC2_60
     SC2_180()
     {
       NAME       = "Wraase SC2-180";
-      ID         = 55;
+      ID         = ID_SC2_180;
       SCAN_TIME  = 0.235;
       WINDOW_FACTOR = 1.46;
 
       // All channels are same length
-      ComputeTimings();
+      SSTVMode::ComputeTimings();
     }
 };
 
@@ -1214,24 +1195,24 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
     // Get mode
     switch(mode)
     {
-        case 8:  return(&MODE_Robot36);
-        case 12: return(&MODE_Robot72);
-        case 40: return(&MODE_Martin2);
-        case 44: return(&MODE_Martin1);
-        case 51: return(&MODE_SC2_30);
-        case 55: return(&MODE_SC2_180);
-        case 56: return(&MODE_Scottie2);
-        case 59: return(&MODE_SC2_60);
-        case 60: return(&MODE_Scottie1);
-        case 63: return(&MODE_SC2_120);
-        case 68: return(&MODE_AVT90);
-        case 76: return(&MODE_ScottieDX);
-        case 93: return(&MODE_PD50);
-        case 95: return(&MODE_PD120);
-        case 96: return(&MODE_PD180);
-        case 97: return(&MODE_PD240);
-        case 98: return(&MODE_PD160);
-        case 99: return(&MODE_PD90);
+        case ID_ROBOT36:   return(&MODE_Robot36);
+        case ID_ROBOT72:   return(&MODE_Robot72);
+        case ID_MARTIN2:   return(&MODE_Martin2);
+        case ID_MARTIN1:   return(&MODE_Martin1);
+        case ID_SC2_30:    return(&MODE_SC2_30);
+        case ID_SC2_180:   return(&MODE_SC2_180);
+        case ID_SCOTTIE2:  return(&MODE_Scottie2);
+        case ID_SC2_60:    return(&MODE_SC2_60);
+        case ID_SCOTTIE1:  return(&MODE_Scottie1);
+        case ID_SC2_120:   return(&MODE_SC2_120);
+        case ID_AVT90:     return(&MODE_AVT90);
+        case ID_SCOTTIEDX: return(&MODE_ScottieDX);
+        case ID_PD50:      return(&MODE_PD50);
+        case ID_PD120:     return(&MODE_PD120);
+        case ID_PD180:     return(&MODE_PD180);
+        case ID_PD240:     return(&MODE_PD240);
+        case ID_PD160:     return(&MODE_PD160);
+        case ID_PD90:      return(&MODE_PD90);
 
         case 0:  // Robot 12
         case 1:

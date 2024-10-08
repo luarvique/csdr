@@ -39,7 +39,7 @@ namespace Csdr {
         public:
         const char *NAME = "Invalid";
 
-        int ID         = 0x00;
+        int ID         = 127;
         int COLOR      = 0;
         int LINE_WIDTH = 320;
         int LINE_COUNT = 256;
@@ -55,8 +55,6 @@ namespace Csdr {
         double WINDOW_FACTOR  = 1.0;
 
         bool HAS_START_SYNC = false;
-        bool HAS_HALF_SCAN  = false;
-        bool HAS_ALT_SCAN   = false;
 
         // These values are usually computed automatically
         double LINE_TIME;
