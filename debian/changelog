@@ -1,3 +1,13 @@
+csdr (0.18.25) bullseye jammy; urgency=low
+
+  * Fixed command line CSDR hanging in SSTV decoder.
+  * Added PD50, PD90, PD120, PD160, PD180, PD240 SSTV modes.
+  * Added Wraase SC2-30, SC2-60, SC2-120 SSTV modes.
+  * Added AVT-90 SSTV mode.
+  * Refactored SSTV code.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 7 Oct 2024 16:12:00 +0000
+
 csdr (0.18.24) bullseye jammy; urgency=low
 
   * [jketterl] Added Throttle module.

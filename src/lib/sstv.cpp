@@ -57,16 +57,25 @@ using namespace Csdr;
 #define STATE_SYNC      (-1)
 #define STATE_LINE0     (0)
 
-//
-// Forward class declarations
-//
-class Robot36;
-class Robot72;
-class Martin1;
-class Martin2;
-class Scottie1;
-class Scottie2;
-class ScottieDX;
+// VIS IDs
+#define ID_ROBOT36      (8)
+#define ID_ROBOT72      (12)
+#define ID_MARTIN2      (40)
+#define ID_MARTIN1      (44)
+#define ID_SC2_30       (51)
+#define ID_SC2_180      (55)
+#define ID_SCOTTIE2     (56)
+#define ID_SC2_60       (59)
+#define ID_SCOTTIE1     (60)
+#define ID_SC2_120      (63)
+#define ID_AVT90        (68)
+#define ID_SCOTTIEDX    (76)
+#define ID_PD50         (93)
+#define ID_PD120        (95)
+#define ID_PD180        (96)
+#define ID_PD240        (97)
+#define ID_PD160        (98)
+#define ID_PD90         (99)
 
 //
 // BMP file header
@@ -137,8 +146,8 @@ template <typename T>
 bool SstvDecoder<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return
-        (this->reader->available() >= sampleRate/10) &&
-        (this->writer->writeable() >= MAX_LINE_WIDTH*3);
+        (this->reader->available() >= sampleRate*2) &&
+        (this->writer->writeable() >= 2*MAX_LINE_WIDTH*3);
 }
 
 template <typename T>
@@ -147,7 +156,7 @@ void SstvDecoder<T>::process() {
 
     const T *buf = this->reader->getReadPointer();
     unsigned int size = this->reader->available();
-    unsigned int j, i;
+    unsigned int j, i, lines;
 
     // Depending on the current state...
     switch(curState)
@@ -243,7 +252,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             break;
 
         default:
-            // If invalid state or done with a frame...
+            // If invalid state or done with scanlines...
             if(!curMode || (curState<0) || (curState>=curMode->LINE_COUNT))
             {
                 // Go back to header detection
@@ -264,7 +273,8 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Drop processed input data
                 skipInput(i);
                 // Go to the next scanline
-                if(++curState>=curMode->LINE_COUNT) finishFrame();
+                curState += curState>0? curMode->LINE_STEP : 1;
+                if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             // If have not decoded a scanline for a while...
             else if(msecs() > lastLineT + round(curMode->LINE_TIME*8.0))
@@ -276,11 +286,12 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
             else
             {
                 // Scanline not found, draw empty line
-                printBmpEmptyLines(curMode, 1);
+                printBmpEmptyLines(curMode, curMode->LINE_STEP);
                 // Skip scanline worth of input
                 skipInput(j);
                 // Go to the next scanline
-                if(++curState>=curMode->LINE_COUNT) finishFrame();
+                curState += curState>0? curMode->LINE_STEP : 1;
+                if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             break;
     }
@@ -510,7 +521,6 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
 {
     // Temporary output buffers
     unsigned char out[mode->CHAN_COUNT][mode->LINE_WIDTH];
-    unsigned char bmp[3 * mode->LINE_WIDTH];
 
     // Scanline and sync pulse size in samples
     unsigned int lineSize = round(mode->LINE_TIME * sampleRate);
@@ -539,9 +549,16 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         double pxTime, pxWindow;
         fftwf_plan fftPlan;
 
-        // Robot mode has half-length second/third scans
-        if(mode->HAS_HALF_SCAN && (ch>0))
+        if((ch>0) && ((mode->ID==ID_ROBOT36) || (mode->ID==ID_ROBOT72)))
         {
+            // Robot modes have half-length second/third channels
+            pxTime   = mode->HALF_PIXEL_TIME;
+            pxWindow = halfpSize;
+            fftPlan  = fftHalfp;
+        }
+        else if((ch!=1) && ((mode->ID==ID_SC2_30) || (mode->ID==ID_SC2_60) || (mode->ID==ID_SC2_120)))
+        {
+            // SC2 modes have half-length first/third channels
             pxTime   = mode->HALF_PIXEL_TIME;
             pxWindow = halfpSize;
             fftPlan  = fftHalfp;
@@ -569,72 +586,43 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     }
 
     // If there is enough output space available for this scanline...
-    if(this->writer->writeable()>=sizeof(bmp))
+    if(this->writer->writeable()>=mode->LINE_WIDTH*mode->LINE_STEP)
     {
-        unsigned char *p = bmp;
+        unsigned char *outPtr[3];
+        for(int j=0 ; j<3 ; j++)
+            outPtr[j] = j<mode->CHAN_COUNT? out[j] : 0;
 
-        // R36: This is the only case where two channels are valid
-        if((mode->CHAN_COUNT==2) && mode->HAS_ALT_SCAN && (mode->COLOR==COLOR_YUV))
+        switch(mode->ID)
         {
-            // V in even lines, U in odd lines
-            unsigned char *u = line&1? out[1] : linebuf;
-            unsigned char *v = line&1? linebuf : out[1];
+            case ID_PD50:
+            case ID_PD90:
+            case ID_PD120:
+            case ID_PD160:
+            case ID_PD180:
+            case ID_PD240:
+                // PD90, PD120, ...: Interleaved YUV color
+                convertPD(mode, line, outPtr);
+                break;
 
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                unsigned int rgb = yuv2rgb(out[0][px], u[px], v[px]);
-                *p++ = rgb & 0xFF;
-                *p++ = (rgb >> 8) & 0xFF;
-                *p++ = (rgb >> 16) & 0xFF;
-            }
+            case ID_ROBOT36:
+                // R36: This is the only case where two channels are valid
+                convertR36(mode, line, outPtr);
+                break;
 
-            // Retain U/V value until the next scanline
-            memcpy(linebuf, out[1], mode->LINE_WIDTH);
+            default:
+                // Normal RGB color
+                if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
+                    convertRGB(mode, line, outPtr);
+                // M1, M2, S1, S2, SDX: GBR color
+                else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
+                    convertGBR(mode, line, outPtr);
+                // R72: YUV color
+                else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
+                    convertYUV(mode, line, outPtr);
+                else
+                    printBmpEmptyLines(mode, 1);
+                break;
         }
-
-        // M1, M2, S1, S2, SDX: GBR color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_GBR))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                *p++ = out[1][px];
-                *p++ = out[0][px];
-                *p++ = out[2][px];
-            }
-        }
-
-        // R72: YUV color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_YUV))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                unsigned int rgb = yuv2rgb(out[0][px], out[2][px], out[1][px]);
-                *p++ = rgb & 0xFF;
-                *p++ = (rgb >> 8) & 0xFF;
-                *p++ = (rgb >> 16) & 0xFF;
-            }
-        }
-
-        // Normal RGB color
-        else if((mode->CHAN_COUNT==3) && (mode->COLOR==COLOR_RGB))
-        {
-            for(unsigned int px=0 ; px<mode->LINE_WIDTH ; ++px)
-            {
-                *p++ = out[2][px];
-                *p++ = out[1][px];
-                *p++ = out[0][px];
-            }
-        }
-
-        // Unknown mode
-        else
-        {
-            // No scanline
-            memset(bmp, 0, sizeof(bmp));
-        }
-
-        // Output scanline
-        writeData(bmp, sizeof(bmp));
     }
 
     // Done, return the number of input samples consumed, but leave
@@ -642,6 +630,131 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
     start += lineSize - syncSize;
     return(start<0? 0 : start<size? start : size);
 }
+
+template <typename T>
+void SstvDecoder<T>::convertYUV(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertRGB(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        *p++ = buf[2][px];
+        *p++ = buf[1][px];
+        *p++ = buf[0][px];
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertGBR(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        *p++ = buf[1][px];
+        *p++ = buf[0][px];
+        *p++ = buf[2][px];
+    }
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertR36(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p;
+    unsigned int px;
+
+    // V in even lines, U in odd lines
+    unsigned char *u = line&1? buf[1] : linebuf[0];
+    unsigned char *v = line&1? linebuf[0] : buf[1];
+
+    for(p=bmp, px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    // Retain U/V value until the next scanline
+    memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
+
+    writeData(bmp, sizeof(bmp));
+}
+
+template <typename T>
+void SstvDecoder<T>::convertPD(const SSTVMode *mode, unsigned int line, unsigned char *buf[3])
+{
+    unsigned char bmp[3 * mode->LINE_WIDTH];
+    unsigned char *p = bmp;
+    unsigned int px;
+
+    // Use average U/V from two scanlines
+    if((line > 0) && (line < mode->LINE_COUNT-1))
+    {
+        // Draw first scanline
+        for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+        {
+            unsigned char u  = (linebuf[1][px] + buf[2][px]) >> 1;
+            unsigned char v  = (linebuf[0][px] + buf[1][px]) >> 1;
+            unsigned int rgb = yuv2rgb(buf[0][px], u, v);
+            *p++ = rgb & 0xFF;
+            *p++ = (rgb >> 8) & 0xFF;
+            *p++ = (rgb >> 16) & 0xFF;
+        }
+    }
+
+    // Write out first scanline, if drawn above
+    if(p!=bmp)
+    {
+        writeData(bmp, sizeof(bmp));
+        p = bmp;
+    }
+
+    // Draw second scanline
+    unsigned char *u = line<mode->LINE_COUNT-1? buf[2] : linebuf[1];
+    unsigned char *v = line<mode->LINE_COUNT-1? buf[1] : linebuf[0];
+    for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+
+    // Retain U/V values until the next scanline
+    memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
+    memcpy(linebuf[1], buf[2], mode->LINE_WIDTH);
+
+    writeData(bmp, sizeof(bmp));
+}
+
 
 template <typename T>
 unsigned char SstvDecoder<T>::luminance(int freq)
@@ -684,7 +797,7 @@ class Martin1: public SSTVMode
     Martin1()
     {
       NAME       = "Martin 1";
-      ID         = 44;
+      ID         = ID_MARTIN1;
       COLOR      = COLOR_GBR;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
@@ -692,22 +805,9 @@ class Martin1: public SSTVMode
       SYNC_PULSE = 0.004862;
       SYNC_PORCH = 0.000572;
       SEP_PULSE  = 0.000572;
+      WINDOW_FACTOR = 2.34;
 
-      CHAN_COUNT = 3;
-      CHAN_SYNC  = 0;
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
-
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
-      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
-
-      LINE_TIME       = SYNC_PULSE + SYNC_PORCH + 3*CHAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 2.34;
-
-      HAS_START_SYNC  = false;
-      HAS_HALF_SCAN   = false;
-      HAS_ALT_SCAN    = false;
+      ComputeTimings();
     }
 };
 
@@ -717,22 +817,15 @@ class Martin2: public Martin1
     Martin2()
     {
       NAME       = "Martin 2";
-      ID         = 40;
+      ID         = ID_MARTIN2;
       LINE_WIDTH = 320;
       SCAN_TIME  = 0.073216;
       SYNC_PULSE = 0.004862;
       SYNC_PORCH = 0.000572;
       SEP_PULSE  = 0.000572;
+      WINDOW_FACTOR = 4.68;
 
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
-
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
-      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME;
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
-
-      LINE_TIME       = SYNC_PULSE + SYNC_PORCH + 3*CHAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 4.68;
+      ComputeTimings();
     }
 };
 
@@ -742,30 +835,29 @@ class Scottie1: public SSTVMode
     Scottie1()
     {
       NAME       = "Scottie 1";
-      ID         = 60;
+      ID         = ID_SCOTTIE1;
       COLOR      = COLOR_GBR;
       LINE_WIDTH = 320;
       LINE_COUNT = 256;
-      SCAN_TIME  = 0.138240;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.001500;
-      SEP_PULSE  = 0.001500;
-
-      CHAN_COUNT = 3;
+      SCAN_TIME  = 0.13824;
+      SYNC_PULSE = 0.00900;
+      SYNC_PORCH = 0.00150;
+      SEP_PULSE  = 0.00150;
       CHAN_SYNC  = 2;
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
+      WINDOW_FACTOR  = 2.48;
+      HAS_START_SYNC = true;
 
+      ComputeTimings();
+    }
+
+    void ComputeTimings()
+    {
+      SSTVMode::ComputeTimings();
+      // Sync is in the middle
       CHAN_OFFSETS[0] = SEP_PULSE;
       CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
       CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
-
-      LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 2.48;
-
-      HAS_START_SYNC  = true;
-      HAS_HALF_SCAN   = false;
-      HAS_ALT_SCAN    = false;
+      LINE_TIME       = SYNC_PULSE + CHAN_COUNT*CHAN_TIME;
     }
 };
 
@@ -775,22 +867,15 @@ class Scottie2: public Scottie1
     Scottie2()
     {
       NAME = "Scottie 2";
-      ID          = 56;
+      ID          = ID_SCOTTIE2;
       LINE_WIDTH  = 320;
       SCAN_TIME   = 0.088064;
       SYNC_PULSE  = 0.009000;
       SYNC_PORCH  = 0.001500;
       SEP_PULSE   = 0.001500;
+      WINDOW_FACTOR = 3.82;
 
-      CHAN_TIME   = SEP_PULSE + SCAN_TIME;
-
-      CHAN_OFFSETS[0] = SEP_PULSE;
-      CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
-      CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
-
-      LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 3.82;
+      ComputeTimings();
     }
 };
 
@@ -800,22 +885,15 @@ class ScottieDX: public Scottie2
     ScottieDX()
     {
       NAME       = "Scottie DX";
-      ID         = 75;
+      ID         = ID_SCOTTIEDX;
       LINE_WIDTH = 320;
-      SCAN_TIME  = 0.345600;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.001500;
-      SEP_PULSE  = 0.001500;
+      SCAN_TIME  = 0.3456;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0015;
+      SEP_PULSE  = 0.0015;
+      WINDOW_FACTOR = 0.98;
 
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
-
-      CHAN_OFFSETS[0] = SEP_PULSE;
-      CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
-      CHAN_OFFSETS[2] = 2*CHAN_TIME + SYNC_PULSE + SYNC_PORCH;
-
-      LINE_TIME       = SYNC_PULSE + 3*CHAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 0.98;
+      ComputeTimings();
     }
 };
 
@@ -825,33 +903,28 @@ class Robot36: public SSTVMode
     Robot36()
     {
       NAME       = "Robot 36";
-      ID         = 8;
+      ID         = ID_ROBOT36;
       COLOR      = COLOR_YUV;
       LINE_WIDTH = 320;
       LINE_COUNT = 240;
-      SCAN_TIME  = 0.088000;
-
-      HALF_SCAN_TIME = 0.044000;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.003000;
-      SEP_PULSE  = 0.004500;
-      SEP_PORCH  = 0.001500;
-
+      SCAN_TIME  = 0.0880;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0030;
+      SEP_PULSE  = 0.0045;
+      SEP_PORCH  = 0.0015;
       CHAN_COUNT = 2;
-      CHAN_SYNC  = 0;
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
+      WINDOW_FACTOR  = 7.70;
 
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
+      ComputeTimings();
+    }
+
+    void ComputeTimings()
+    {
+      SSTVMode::ComputeTimings();
+      // Only two channels, channel #1 is half width
       CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
-
-      LINE_TIME       = CHAN_OFFSETS[1] + HALF_SCAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      HALF_PIXEL_TIME = HALF_SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 7.70;
-
-      HAS_START_SYNC  = false;
-      HAS_HALF_SCAN   = true;
-      HAS_ALT_SCAN    = true;
+      CHAN_OFFSETS[2] = CHAN_OFFSETS[1];
+      LINE_TIME       = CHAN_OFFSETS[1] + SCAN_TIME / 2.0;
     }
 };
 
@@ -861,30 +934,212 @@ class Robot72: public Robot36
     Robot72()
     {
       NAME       = "Robot 72";
-      ID         = 12;
+      ID         = ID_ROBOT72;
       LINE_WIDTH = 320;
-
-      SCAN_TIME  = 0.138000;
-      HALF_SCAN_TIME = 0.069000;
-      SYNC_PULSE = 0.009000;
-      SYNC_PORCH = 0.003000;
-      SEP_PULSE  = 0.004500;
-      SEP_PORCH  = 0.001500;
-
+      SCAN_TIME  = 0.1380;
+      SYNC_PULSE = 0.0090;
+      SYNC_PORCH = 0.0030;
+      SEP_PULSE  = 0.0045;
+      SEP_PORCH  = 0.0015;
       CHAN_COUNT = 3;
-      CHAN_TIME  = SEP_PULSE + SCAN_TIME;
-      HALF_CHAN_TIME = SEP_PULSE + HALF_SCAN_TIME;
+      WINDOW_FACTOR  = 4.88;
 
-      CHAN_OFFSETS[0] = SYNC_PULSE + SYNC_PORCH;
+      ComputeTimings();
+    }
+
+    void ComputeTimings()
+    {
+      SSTVMode::ComputeTimings();
+      // Channels #1 and #2 are half width
       CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
-      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + HALF_CHAN_TIME + SEP_PORCH;
+      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME / 2.0 + SEP_PORCH;
+      LINE_TIME       = CHAN_OFFSETS[2] + SCAN_TIME / 2.0;
+    }
+};
 
-      LINE_TIME       = CHAN_OFFSETS[2] + HALF_SCAN_TIME;
-      PIXEL_TIME      = SCAN_TIME / LINE_WIDTH;
-      HALF_PIXEL_TIME = HALF_SCAN_TIME / LINE_WIDTH;
-      WINDOW_FACTOR   = 4.88;
+class PD50: public SSTVMode
+{
+  public:
+    PD50()
+    {
+      NAME       = "PD-50";
+      ID         = ID_PD50;
+      COLOR      = COLOR_YUV;
+      LINE_WIDTH = 320;
+      LINE_COUNT = 256;
+      LINE_STEP  = 2;
+      SCAN_TIME  = 0.09152;
+      SYNC_PULSE = 0.02000;
+      SYNC_PORCH = 0.00208;
+      SEP_PULSE  = 0.00000;
+      WINDOW_FACTOR = 3.74;
 
-      HAS_ALT_SCAN    = false;
+      ComputeTimings();
+    }
+};
+
+class PD90: public PD50
+{
+  public:
+    PD90()
+    {
+      NAME       = "PD-90";
+      ID         = ID_PD90;
+      SCAN_TIME  = 0.17024;
+      WINDOW_FACTOR = 2.01;
+
+      ComputeTimings();
+    }
+};
+
+class PD120: public PD50
+{
+  public:
+    PD120()
+    {
+      NAME       = "PD-120";
+      ID         = ID_PD120;
+      LINE_WIDTH = 640;
+      LINE_COUNT = 496;
+      SCAN_TIME  = 0.1216;
+      WINDOW_FACTOR = 2.82;
+
+      ComputeTimings();
+    }
+};
+
+class PD160: public PD50
+{
+  public:
+    PD160()
+    {
+      NAME       = "PD-160";
+      ID         = ID_PD160;
+      LINE_WIDTH = 512;
+      LINE_COUNT = 400;
+      SCAN_TIME  = 0.195854;
+      WINDOW_FACTOR = 1.75;
+
+      ComputeTimings();
+    }
+};
+
+class PD180: public PD120
+{
+  public:
+    PD180()
+    {
+      NAME       = "PD-180";
+      ID         = ID_PD180;
+      SCAN_TIME  = 0.18304;
+      WINDOW_FACTOR = 1.87;
+
+      ComputeTimings();
+    }
+};
+
+class PD240: public PD120
+{
+  public:
+    PD240()
+    {
+      NAME       = "PD-240";
+      ID         = ID_PD240;
+      SCAN_TIME  = 0.24448;
+      WINDOW_FACTOR = 1.40;
+
+      ComputeTimings();
+    }
+};
+
+class AVT90: public SSTVMode
+{
+  public:
+    AVT90()
+    {
+      NAME       = "AVT-90";
+      ID         = ID_AVT90;
+      COLOR      = COLOR_RGB;
+      LINE_WIDTH = 256;
+      LINE_COUNT = 240;
+      SCAN_TIME  = 0.125;
+      SYNC_PULSE = 0.000;
+      SYNC_PORCH = 0.000;
+      SEP_PULSE  = 0.000;
+      WINDOW_FACTOR = 2.74;
+
+      ComputeTimings();
+    }
+};
+
+class SC2_60: public SSTVMode
+{
+  public:
+    SC2_60()
+    {
+      NAME       = "Wraase SC2-60";
+      ID         = ID_SC2_60;
+      COLOR      = COLOR_RGB;
+      LINE_WIDTH = 320;
+      LINE_COUNT = 256;
+      SCAN_TIME  = 0.117;
+      SYNC_PULSE = 0.005;
+      SYNC_PORCH = 0.000;
+      SEP_PULSE  = 0.000;
+      WINDOW_FACTOR = 5.91;
+
+      ComputeTimings();
+    }
+
+    void ComputeTimings()
+    {
+      SSTVMode::ComputeTimings();
+      // Channels #0 (RED) and #2 (BLUE) are half width
+      CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME / 2.0;
+      CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
+      LINE_TIME       = CHAN_OFFSETS[2] + CHAN_TIME / 2.0;
+    }
+};
+
+class SC2_30: public SC2_60
+{
+  public:
+    SC2_30()
+    {
+      NAME       = "Wraase SC2-30";
+      ID         = ID_SC2_30;
+      LINE_COUNT = 128;
+
+      ComputeTimings();
+    }
+};
+
+class SC2_120: public SC2_60
+{
+  public:
+    SC2_120()
+    {
+      NAME       = "Wraase SC2-120";
+      ID         = ID_SC2_120;
+      SCAN_TIME  = 0.235;
+      WINDOW_FACTOR = 2.93;
+
+      ComputeTimings();
+    }
+};
+
+class SC2_180: public SC2_60
+{
+  public:
+    SC2_180()
+    {
+      NAME       = "Wraase SC2-180";
+      ID         = ID_SC2_180;
+      SCAN_TIME  = 0.235;
+      WINDOW_FACTOR = 1.46;
+
+      // All channels are same length
+      SSTVMode::ComputeTimings();
     }
 };
 
@@ -898,6 +1153,17 @@ static Martin2   MODE_Martin2;
 static Scottie1  MODE_Scottie1;
 static Scottie2  MODE_Scottie2;
 static ScottieDX MODE_ScottieDX;
+static PD50      MODE_PD50;
+static PD90      MODE_PD90;
+static PD120     MODE_PD120;
+static PD160     MODE_PD160;
+static PD180     MODE_PD180;
+static PD240     MODE_PD240;
+static AVT90     MODE_AVT90;
+static SC2_30    MODE_SC2_30;
+static SC2_60    MODE_SC2_60;
+static SC2_120   MODE_SC2_120;
+static SC2_180   MODE_SC2_180;
 
 template <typename T>
 const SSTVMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
@@ -929,13 +1195,24 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
     // Get mode
     switch(mode)
     {
-        case 8:  return(&MODE_Robot36);
-        case 12: return(&MODE_Robot72);
-        case 40: return(&MODE_Martin2);
-        case 44: return(&MODE_Martin1);
-        case 56: return(&MODE_Scottie2);
-        case 60: return(&MODE_Scottie1);
-        case 76: return(&MODE_ScottieDX);
+        case ID_ROBOT36:   return(&MODE_Robot36);
+        case ID_ROBOT72:   return(&MODE_Robot72);
+        case ID_MARTIN2:   return(&MODE_Martin2);
+        case ID_MARTIN1:   return(&MODE_Martin1);
+        case ID_SC2_30:    return(&MODE_SC2_30);
+        case ID_SC2_180:   return(&MODE_SC2_180);
+        case ID_SCOTTIE2:  return(&MODE_Scottie2);
+        case ID_SC2_60:    return(&MODE_SC2_60);
+        case ID_SCOTTIE1:  return(&MODE_Scottie1);
+        case ID_SC2_120:   return(&MODE_SC2_120);
+        case ID_AVT90:     return(&MODE_AVT90);
+        case ID_SCOTTIEDX: return(&MODE_ScottieDX);
+        case ID_PD50:      return(&MODE_PD50);
+        case ID_PD120:     return(&MODE_PD120);
+        case ID_PD180:     return(&MODE_PD180);
+        case ID_PD240:     return(&MODE_PD240);
+        case ID_PD160:     return(&MODE_PD160);
+        case ID_PD90:      return(&MODE_PD90);
 
         case 0:  // Robot 12
         case 1:
@@ -959,12 +1236,6 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
         case 52: // Scottie 3
         case 85: // FAX480
         case 90: // FAST FM
-        case 93: // PD 50
-        case 95: // PD 120
-        case 96: // PD 180
-        case 97: // PD 240
-        case 98: // PD 160
-        case 99: // PD 90
         case 100: // Proskan J120
         case 104: // MSCAN TV-1
         case 105: // MSCAN TV-2
