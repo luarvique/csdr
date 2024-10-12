@@ -997,12 +997,7 @@ class Robot72: public Robot36
     {
       NAME       = "Robot 72";
       ID         = ID_ROBOT72;
-      LINE_WIDTH = 320;
       SCAN_TIME  = 0.1380;
-      SYNC_PULSE = 0.0090;
-      SYNC_PORCH = 0.0030;
-      SEP_PULSE  = 0.0045;
-      SEP_PORCH  = 0.0015;
       CHAN_COUNT = 3;
       WINDOW_FACTOR = 4.88;
 

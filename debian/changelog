@@ -10,7 +10,7 @@ csdr (0.18.25) bullseye jammy; urgency=low
   * Added AVT-90 SSTV mode.
   * Refactored SSTV code.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Mon, 7 Oct 2024 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 14 Oct 2024 16:12:00 +0000
 
 csdr (0.18.24) bullseye jammy; urgency=low
 
