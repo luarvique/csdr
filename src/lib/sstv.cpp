@@ -2,7 +2,7 @@
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
-Copyright (c) 2022-2023 Marat Fayzullin <luarvique@gmail.com>
+Copyright (c) 2022-2024 Marat Fayzullin <luarvique@gmail.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -58,6 +58,8 @@ using namespace Csdr;
 #define STATE_LINE0     (0)
 
 // VIS IDs
+#define ID_ROBOT12      (0)
+#define ID_ROBOT24      (4)
 #define ID_ROBOT36      (8)
 #define ID_ROBOT72      (12)
 #define ID_MARTIN4      (32)
@@ -75,6 +77,7 @@ using namespace Csdr;
 #define ID_AVT90        (68)
 #define ID_SCOTTIEDX    (76)
 #define ID_PD50         (93)
+#define ID_PD290        (94)
 #define ID_PD120        (95)
 #define ID_PD180        (96)
 #define ID_PD240        (97)
@@ -330,7 +333,8 @@ void SstvDecoder<T>::printBmpHeader(const SSTVMode *mode)
         bmp.fileSize[1]   = (fileSize >> 8) & 0xFF;
         bmp.fileSize[2]   = (fileSize >> 16) & 0xFF;
         bmp.fileSize[3]   = (fileSize >> 24) & 0xFF;
-        bmp.reserved[0]   = mode->ID;
+        bmp.reserved[0]   = mode->ID; // SSTV mode
+        bmp.reserved[1]   = 0x73;     // Identifying SSTV image
         bmp.dataOffset[0] = sizeof(bmp);
 
         bmp.dibSize[0]    = 40;
@@ -553,7 +557,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
         double pxTime, pxWindow;
         fftwf_plan fftPlan;
 
-        if((ch>0) && ((mode->ID==ID_ROBOT36) || (mode->ID==ID_ROBOT72)))
+        if((ch>0) && ((mode->ID==ID_ROBOT36) || (mode->ID==ID_ROBOT72) || (mode->ID==ID_ROBOT12) || (mode->ID==ID_ROBOT24)))
         {
             // Robot modes have half-length second/third channels
             pxTime   = mode->HALF_PIXEL_TIME;
@@ -604,12 +608,14 @@ unsigned int SstvDecoder<T>::decodeLine(const SSTVMode *mode, unsigned int line,
             case ID_PD160:
             case ID_PD180:
             case ID_PD240:
+            case ID_PD290:
                 // PD90, PD120, ...: Interleaved YUV color
                 convertPD(mode, line, outPtr);
                 break;
 
+            case ID_ROBOT12:
             case ID_ROBOT36:
-                // R36: This is the only case where two channels are valid
+                // R12, R36: This is the only case where two channels are valid
                 convertR36(mode, line, outPtr);
                 break;
 
@@ -998,7 +1004,7 @@ class Robot72: public Robot36
       SEP_PULSE  = 0.0045;
       SEP_PORCH  = 0.0015;
       CHAN_COUNT = 3;
-      WINDOW_FACTOR  = 4.88;
+      WINDOW_FACTOR = 4.88;
 
       ComputeTimings();
     }
@@ -1010,6 +1016,38 @@ class Robot72: public Robot36
       CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
       CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME / 2.0 + SEP_PORCH;
       LINE_TIME       = CHAN_OFFSETS[2] + SCAN_TIME / 2.0;
+    }
+};
+
+class Robot12: public Robot36
+{
+  public:
+    Robot12()
+    {
+      NAME       = "Robot 12";
+      ID         = ID_ROBOT12;
+      LINE_WIDTH = 160;
+      LINE_COUNT = 120;
+      SCAN_TIME  = 0.0600;
+      WINDOW_FACTOR = 2.81;
+
+      ComputeTimings();
+    }
+};
+
+class Robot24: public Robot72
+{
+  public:
+    Robot24()
+    {
+      NAME       = "Robot 24";
+      ID         = ID_ROBOT24;
+      LINE_WIDTH = 160;
+      LINE_COUNT = 120;
+      SCAN_TIME  = 0.0880;
+      WINDOW_FACTOR = 3.83;
+
+      ComputeTimings();
     }
 };
 
@@ -1103,6 +1141,22 @@ class PD240: public PD120
       ID        = ID_PD240;
       SCAN_TIME = 0.24448;
       WINDOW_FACTOR = 1.40;
+
+      ComputeTimings();
+    }
+};
+
+class PD290: public PD50
+{
+  public:
+    PD290()
+    {
+      NAME       = "PD-290";
+      ID         = ID_PD290;
+      LINE_WIDTH = 800;
+      LINE_COUNT = 616;
+      SCAN_TIME  = 0.2288;
+      WINDOW_FACTOR = 3.74;
 
       ComputeTimings();
     }
@@ -1202,6 +1256,8 @@ class SC2_180: public SC2_60
 //
 // SSTV modes with parameters
 //
+static Robot12   MODE_Robot12;
+static Robot24   MODE_Robot24;
 static Robot36   MODE_Robot36;
 static Robot72   MODE_Robot72;
 static Martin1   MODE_Martin1;
@@ -1219,6 +1275,7 @@ static PD120     MODE_PD120;
 static PD160     MODE_PD160;
 static PD180     MODE_PD180;
 static PD240     MODE_PD240;
+static PD290     MODE_PD290;
 static AVT90     MODE_AVT90;
 static SC2_30    MODE_SC2_30;
 static SC2_60    MODE_SC2_60;
@@ -1255,6 +1312,8 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
     // Get mode
     switch(mode)
     {
+        case ID_ROBOT12:   return(&MODE_Robot12);
+        case ID_ROBOT24:   return(&MODE_Robot24);
         case ID_ROBOT36:   return(&MODE_Robot36);
         case ID_ROBOT72:   return(&MODE_Robot72);
         case ID_MARTIN4:   return(&MODE_Martin4);
@@ -1272,17 +1331,16 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
         case ID_AVT90:     return(&MODE_AVT90);
         case ID_SCOTTIEDX: return(&MODE_ScottieDX);
         case ID_PD50:      return(&MODE_PD50);
+        case ID_PD290:     return(&MODE_PD290);
         case ID_PD120:     return(&MODE_PD120);
         case ID_PD180:     return(&MODE_PD180);
         case ID_PD240:     return(&MODE_PD240);
         case ID_PD160:     return(&MODE_PD160);
         case ID_PD90:      return(&MODE_PD90);
 
-        case 0:  // Robot 12
         case 1:
         case 2:
         case 3:  // Robot BW8
-        case 4:  // Robot 24
         case 5:
         case 6:
         case 7:  // Robot BW12

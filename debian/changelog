@@ -1,10 +1,12 @@
 csdr (0.18.25) bullseye jammy; urgency=low
 
+  * Now marking SSTV BMPs with 0x73 at offset 7.
   * Fixed command line CSDR hanging in SSTV decoder.
-  * Added PD50, PD90, PD120, PD160, PD180, PD240 SSTV modes.
+  * Added PD50, PD90, PD120, PD160, PD180, PD240, PD290 SSTV modes.
   * Added Wraase SC2-30, SC2-60, SC2-120 SSTV modes.
-  * Added Scottie 3 and Scottie 4 SSTV modes.
-  * Added Martin 3 and Martin 4 SSTV modes.
+  * Added Scottie 3 and Scottie 4 SSTV modes (please test).
+  * Added Martin 3 and Martin 4 SSTV modes (please test).
+  * Added Robot 12 and Robot 24 SSTV modes (please test).
   * Added AVT-90 SSTV mode.
   * Refactored SSTV code.
 
