@@ -1,3 +1,9 @@
+csdr (0.18.26) bullseye jammy; urgency=low
+
+  * Fixed pixel windows for PD120 and other PD modes.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Tue, 15 Oct 2024 16:12:00 +0000
+
 csdr (0.18.25) bullseye jammy; urgency=low
 
   * Now marking SSTV BMPs with 0x73 at offset 7.
