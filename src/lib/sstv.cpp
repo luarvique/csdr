@@ -1091,7 +1091,7 @@ class PD120: public PD50
       LINE_WIDTH = 640;
       LINE_COUNT = 496;
       SCAN_TIME  = 0.1216;
-      WINDOW_FACTOR = 2.82;
+      WINDOW_FACTOR = 5.63;
 
       ComputeTimings();
     }
@@ -1107,7 +1107,7 @@ class PD160: public PD50
       LINE_WIDTH = 512;
       LINE_COUNT = 400;
       SCAN_TIME  = 0.195854;
-      WINDOW_FACTOR = 1.75;
+      WINDOW_FACTOR = 2.79;
 
       ComputeTimings();
     }
@@ -1121,7 +1121,7 @@ class PD180: public PD120
       NAME      = "PD-180";
       ID        = ID_PD180;
       SCAN_TIME = 0.18304;
-      WINDOW_FACTOR = 1.87;
+      WINDOW_FACTOR = 3.74;
 
       ComputeTimings();
     }
@@ -1135,7 +1135,7 @@ class PD240: public PD120
       NAME      = "PD-240";
       ID        = ID_PD240;
       SCAN_TIME = 0.24448;
-      WINDOW_FACTOR = 1.40;
+      WINDOW_FACTOR = 2.80;
 
       ComputeTimings();
     }
