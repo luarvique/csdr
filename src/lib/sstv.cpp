@@ -121,7 +121,8 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
     modes[VIS_PD180]     = new PD180();
     modes[VIS_PD240]     = new PD240();
     modes[VIS_PD290]     = new PD290();
-    modes[VIS_AVT90]     = new AVT90();
+// @@@ AVT90 mode is not working very well
+//    modes[VIS_AVT90]     = new AVT90();
     modes[VIS_SC2_30]    = new SC2_30();
     modes[VIS_SC2_60]    = new SC2_60();
     modes[VIS_SC2_120]   = new SC2_120();
@@ -389,18 +390,6 @@ void SstvDecoder<T>::print(const char *format, ...)
 template <typename T>
 void SstvDecoder<T>::printString(const char *buf)
 {
-#if 0
-    // @@@ Enable to dump log into a file
-    {
-        FILE *F = fopen("/tmp/sstv-decoder.log", "a");
-        if(F)
-        {
-            fprintf(F, "%08X: %s\n", (unsigned int)((unsigned long)this),buf);
-            fclose(F);
-        }
-    }
-#endif
-
     // If we are in debug mode, and not outputting an image, print
     if(dbgTime && (curState<0)) writeData(buf, strlen(buf));
 }
