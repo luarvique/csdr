@@ -129,7 +129,7 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
 
     // Pre-create FFT plans for each known SSTV mode
     for(int j=0 ; j<128 ; ++j)
-        if(modes[j]) modes[j]->CreatePlans(sampleRate, fftOut, fftIn);
+        if(modes[j]) modes[j]->createPlans(sampleRate, fftOut, fftIn);
 }
 
 template <typename T>
@@ -783,7 +783,7 @@ bool SstvDecoder<T>::writeData(const void *buf, unsigned int size)
     return(true);
 }
 
-void SstvMode::DestroyPlans()
+void SstvMode::destroyPlans()
 {
     // Destroy current plans if any
     if(fftSync)  { fftwf_destroy_plan(fftSync);fftSync=0; }
@@ -796,7 +796,7 @@ void SstvMode::DestroyPlans()
     fftIn      = 0;
 }
 
-void SstvMode::CreatePlans(unsigned int rate, fftwf_complex *out, float *in)
+void SstvMode::createPlans(unsigned int rate, fftwf_complex *out, float *in)
 {
     // Do not create plans twice
     if((sampleRate==rate) && (fftIn==in) && (fftOut==out)) return;

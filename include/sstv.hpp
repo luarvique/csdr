@@ -101,7 +101,7 @@ namespace Csdr {
             double HALF_PIXEL_TIME;
             double CHAN_OFFSETS[8];
 
-            // FFT plans are created with CreatePlans()
+            // FFT plans are created with createPlans()
             unsigned int syncSize;   // Sync window size
             unsigned int pixelSize;  // Pixel window size
             unsigned int halfpSize;  // Half-pixel window size
@@ -113,12 +113,12 @@ namespace Csdr {
             float *fftIn            = 0;
 
             // Destructor
-            ~SstvMode() { DestroyPlans(); }
+            ~SstvMode() { destroyPlans(); }
 
-            void CreatePlans(unsigned int rate, fftwf_complex *out, float *in);
-            void DestroyPlans();
+            void createPlans(unsigned int rate, fftwf_complex *out, float *in);
+            void destroyPlans();
 
-            void ComputeTimings() {
+            void computeTimings() {
                 CHAN_TIME  = SEP_PULSE + SCAN_TIME;
                 LINE_TIME  = SYNC_PULSE + SYNC_PORCH + CHAN_COUNT*CHAN_TIME;
                 PIXEL_TIME = SCAN_TIME / LINE_WIDTH;
@@ -144,7 +144,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.000572;
                 WINDOW_FACTOR = 2.34;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -160,7 +160,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.000572;
                 WINDOW_FACTOR = 4.68;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -171,7 +171,7 @@ namespace Csdr {
                 ID         = VIS_MARTIN3;
                 LINE_COUNT = 128;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -182,7 +182,7 @@ namespace Csdr {
                 ID         = VIS_MARTIN4;
                 LINE_COUNT = 128;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -202,11 +202,11 @@ namespace Csdr {
                 WINDOW_FACTOR  = 2.48;
                 HAS_START_SYNC = true;
 
-                ComputeTimings();
+                computeTimings();
             }
 
-            void ComputeTimings() {
-                SstvMode::ComputeTimings();
+            void computeTimings() {
+                SstvMode::computeTimings();
                 // Sync is in the middle
                 CHAN_OFFSETS[0] = SEP_PULSE;
                 CHAN_OFFSETS[1] = SEP_PULSE + CHAN_TIME;
@@ -227,7 +227,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.001500;
                 WINDOW_FACTOR = 3.82;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -238,7 +238,7 @@ namespace Csdr {
                 ID         = VIS_SCOTTIE3;
                 LINE_COUNT = 128;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -249,7 +249,7 @@ namespace Csdr {
                 ID         = VIS_SCOTTIE4;
                 LINE_COUNT = 128;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -265,7 +265,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.0015;
                 WINDOW_FACTOR = 0.98;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -285,11 +285,11 @@ namespace Csdr {
                 CHAN_COUNT = 2;
                 WINDOW_FACTOR  = 7.70;
 
-                ComputeTimings();
+                computeTimings();
             }
 
-            void ComputeTimings() {
-                SstvMode::ComputeTimings();
+            void computeTimings() {
+                SstvMode::computeTimings();
                 // Only two channels, channel #1 is half width
                 CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
                 CHAN_OFFSETS[2] = CHAN_OFFSETS[1];
@@ -306,11 +306,11 @@ namespace Csdr {
                 CHAN_COUNT = 3;
                 WINDOW_FACTOR = 4.88;
 
-                ComputeTimings();
+                computeTimings();
             }
 
-            void ComputeTimings() {
-                SstvMode::ComputeTimings();
+            void computeTimings() {
+                SstvMode::computeTimings();
                 // Channels #1 and #2 are half width
                 CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME + SEP_PORCH;
                 CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME / 2.0 + SEP_PORCH;
@@ -328,7 +328,7 @@ namespace Csdr {
                 SCAN_TIME  = 0.0600;
                 WINDOW_FACTOR = 2.81;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -342,7 +342,7 @@ namespace Csdr {
                 SCAN_TIME  = 0.0880;
                 WINDOW_FACTOR = 3.83;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -361,7 +361,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.00000;
                 WINDOW_FACTOR = 3.74;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -373,7 +373,7 @@ namespace Csdr {
                 SCAN_TIME = 0.17024;
                 WINDOW_FACTOR = 2.01;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -387,7 +387,7 @@ namespace Csdr {
                 SCAN_TIME  = 0.1216;
                 WINDOW_FACTOR = 5.63;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -401,7 +401,7 @@ namespace Csdr {
                 SCAN_TIME  = 0.195854;
                 WINDOW_FACTOR = 2.79;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -413,7 +413,7 @@ namespace Csdr {
                 SCAN_TIME = 0.18304;
                 WINDOW_FACTOR = 3.74;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -425,7 +425,7 @@ namespace Csdr {
                 SCAN_TIME = 0.24448;
                 WINDOW_FACTOR = 2.80;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -439,7 +439,7 @@ namespace Csdr {
                 SCAN_TIME  = 0.2288;
                 WINDOW_FACTOR = 3.74;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -457,7 +457,7 @@ namespace Csdr {
                 SEP_PULSE  = 0.000;
                 WINDOW_FACTOR = 2.74;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -475,11 +475,11 @@ namespace Csdr {
                 SEP_PULSE  = 0.000;
                 WINDOW_FACTOR = 5.91;
 
-                ComputeTimings();
+                computeTimings();
             }
 
-            void ComputeTimings() {
-                SstvMode::ComputeTimings();
+            void computeTimings() {
+                SstvMode::computeTimings();
                 // Channels #0 (RED) and #2 (BLUE) are half width
                 CHAN_OFFSETS[1] = CHAN_OFFSETS[0] + CHAN_TIME / 2.0;
                 CHAN_OFFSETS[2] = CHAN_OFFSETS[1] + CHAN_TIME;
@@ -494,7 +494,7 @@ namespace Csdr {
                 ID         = VIS_SC2_30;
                 LINE_COUNT = 128;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -506,7 +506,7 @@ namespace Csdr {
                 SCAN_TIME = 0.235;
                 WINDOW_FACTOR = 2.93;
 
-                ComputeTimings();
+                computeTimings();
             }
     };
 
@@ -519,7 +519,7 @@ namespace Csdr {
                 WINDOW_FACTOR = 1.46;
 
                 // All channels are same length
-                SstvMode::ComputeTimings();
+                SstvMode::computeTimings();
             }
     };
 
