@@ -4,7 +4,7 @@ csdr (0.18.27) bullseye jammy; urgency=low
   * Eliminated FFTW3 race condition in SSTV decoder.
   * Disabled AVT-90 SSTV mode due to quality concerns.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Min, 20 Jan 2025 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 20 Jan 2025 16:12:00 +0000
 
 csdr (0.18.26) bullseye jammy; urgency=low
 
