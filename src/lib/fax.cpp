@@ -83,9 +83,10 @@ static int median(int *x, int n)
 }
 
 template <typename T>
-FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned int options, unsigned int dbgTime)
+FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned int maxLines, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
   lpm(lpm),
+  maxLines(maxLines),
   am(!!(options & OPT_AM)),
   post(!!(options & OPT_POST)),
   colors(options & OPT_COLOR? 3:1),
@@ -232,7 +233,6 @@ void FaxDecoder<T>::process() {
 
                 // NEXT: Phasing
                 ioc       = -curType;
-                maxLines  = curType==TYPE_IOC576? HEIGHT_IOC576 : HEIGHT_IOC288;
                 lineWidth = (int)(ioc * M_PI + 3.5) & ~3;
                 curState  = STATE_SYNC;
                 curLine   = 0;
@@ -314,12 +314,12 @@ void FaxDecoder<T>::process() {
                     // Mark the last time sync has been received
                     lastLineT = msecs();
                 }
-                // ...else, if no sync for 60 seconds...
-                else if(msecs() > lastLineT + 60 * 60000 / lpm)
+                // ...else, if no sync for 100 lines...
+                else if(msecs() > lastLineT + 100 * 60000 / lpm)
                 {
-//                    finishPage();
-//                    skipInput(curSize);
-//                    break;
+                    finishPage();
+                    skipInput(curSize);
+                    break;
                 }
             }
 

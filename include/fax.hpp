@@ -44,11 +44,20 @@ namespace Csdr {
                 OPT_MONO   = 0x0000,
                 OPT_COLOR  = 0x0004,
                 OPT_SYNC   = 0x0008,
+
+                HEIGHT_IOC576  = 1400,
+                HEIGHT_IOC288  = 700,
+//                HEIGHT_IOC576  = 1200,
+//                HEIGHT_IOC288  = 600,
+
+                WIDTH_IOC576   = 1812,
+                WIDTH_IOC288   = 908,
             };
 
             FaxDecoder(
                 unsigned int sampleRate = 44100,
                 unsigned int lpm        = 120,
+                unsigned int maxLines   = HEIGHT_IOC576,
                 unsigned int options    = 0,
                 unsigned int dbgTime    = 0
             );
@@ -71,15 +80,6 @@ namespace Csdr {
                 FREQ_STOP      = 450,
                 FREQ_CARRIER   = 1900,
                 FREQ_DEVIATION = 400,
-
-                HEIGHT_IOC576  = 1400,
-                HEIGHT_IOC288  = 700,
-
-//                HEIGHT_IOC576  = 1200,
-//                HEIGHT_IOC288  = 600,
-
-                WIDTH_IOC576   = 1812,
-                WIDTH_IOC288   = 908,
             };
 
             class FirFilter

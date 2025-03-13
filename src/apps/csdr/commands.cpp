@@ -677,6 +677,7 @@ SstvDecoderCommand::SstvDecoderCommand(): Command("sstvdecode", "SSTV decoder") 
 FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
     add_option("sample_rate", sampleRate, "Sample rate")->required();
     add_option("lpm", lpm, "Lines per minute");
+    add_option("max_lines", maxLines, "Maximum number of lines");
     add_option("am", am, "Use AM modulation");
     add_option("color", color, "Color fax");
     add_option("sync", sync, "Sync scanlines");
@@ -687,7 +688,7 @@ FaxDecoderCommand::FaxDecoderCommand(): Command("faxdecode", "FAX decoder") {
         (color? FaxDecoder<float>::OPT_COLOR : 0);
 
     callback( [this, options] () {
-        runModule(new FaxDecoder<float>(sampleRate, lpm, options));
+        runModule(new FaxDecoder<float>(sampleRate, lpm, maxLines, options));
     });
 }
 

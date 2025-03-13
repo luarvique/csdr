@@ -319,6 +319,7 @@ namespace Csdr {
         private:
             unsigned int sampleRate;
             unsigned int lpm = 120;
+            unsigned int maxLines = 1400;
             bool color = false;
             bool sync = false;
             bool am = false;
