@@ -648,11 +648,21 @@ void FaxDecoder<T>::printBmpLine()
 template <typename T>
 unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
 {
+    static const unsigned char endMark[] =
+    {
+        // E N D - 0x45 0x4E 0x44 - 0100 0101 0100 1110 0100 0100
+        0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+        0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0xFF
+    };
+
     unsigned int size = lineWidth * colors;
     unsigned int todo = this->writer->writeable() / size;
     char buf[size];
 
-    memset(buf, 0xFF, size);
+    // Insert end-mark at the start of each empty line
+    memcpy(buf, endMark, sizeof(endMark));
+    memset(buf + sizeof(endMark), 0xFF, size - sizeof(endMark));
 
     // Compute the number of lines we can write
     todo = lines<todo? lines : todo;
