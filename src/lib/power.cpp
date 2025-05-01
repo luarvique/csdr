@@ -24,18 +24,24 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Csdr;
 
-Power::Power(unsigned int decimation, std::function<void(float)> callback): decimation(decimation), callback(std::move(callback)) {}
+template <typename T>
+Power<T>::Power(unsigned int decimation, std::function<void(float)> callback):
+    decimation(decimation),
+    callback(std::move(callback))
+{}
 
-bool Power::canProcess() {
-    std::lock_guard<std::mutex> lock(processMutex);
-    size_t length = getLength();
-    return (reader->available() > length && writer->writeable() > length);
+template <typename T>
+bool Power<T>::canProcess() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+    size_t length = this->getLength();
+    return (this->reader->available() > length && this->writer->writeable() > length);
 }
 
-void Power::process() {
-    std::lock_guard<std::mutex> lock(processMutex);
-    complex<float>* input = reader->getReadPointer();
-    size_t length = getLength();
+template <typename T>
+void Power<T>::process() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+    T* input = this->reader->getReadPointer();
+    size_t length = this->getLength();
 
     float acc = 0;
     for (size_t i = 0; i < length; i += decimation){
@@ -46,35 +52,46 @@ void Power::process() {
     // pass data
     forwardData(input, power);
 
-    reader->advance(length);
+    this->reader->advance(length);
 }
 
-size_t Power::getLength() {
+template <typename T>
+size_t Power<T>::getLength() {
     return 1024;
 }
 
-void Power::forwardData(complex<float>* input, float power) {
-    complex<float>* output = writer->getWritePointer();
-    size_t length = getLength();
-    std::memcpy(output, input, length * sizeof(complex<float>));
-    writer->advance(length);
+template <typename T>
+void Power<T>::forwardData(T* input, float power) {
+    T* output = this->writer->getWritePointer();
+    size_t length = this->getLength();
+    std::memcpy(output, input, length * sizeof(T));
+    this->writer->advance(length);
 }
 
-void Squelch::setSquelch(float squelchLevel) {
+template <typename T>
+void Squelch<T>::setSquelch(float squelchLevel) {
     this->squelchLevel = squelchLevel;
 }
 
-void Squelch::forwardData(complex<float> *input, float power) {
+template <typename T>
+void Squelch<T>::forwardData(T *input, float power) {
     if (squelchLevel == 0 || power >= squelchLevel) {
-        Power::forwardData(input, power);
+        this->forwardData(input, power);
         flushCounter = 0;
     } else if (flushCounter < 5) {
         // produce some 0s to flush any subsequent modules if they have any overhead (e.g. FIR filter delays)
-        size_t length = getLength();
-        complex<float>* output = writer->getWritePointer();
-        std::memset(output, 0, sizeof(complex<float>) * length);
-        writer->advance(length);
+        size_t length = this->getLength();
+        T* output = this->writer->getWritePointer();
+        std::memset(output, 0, sizeof(T) * length);
+        this->writer->advance(length);
         // increment inside because an unsigned char would overflow soon...
         flushCounter++;
     }
+}
+
+namespace Csdr {
+    template class Power<float>;
+    template class Power<complex<float>>;
+    template class Squelch<float>;
+    template class Squelch<complex<float>>;
 }

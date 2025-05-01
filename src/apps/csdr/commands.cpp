@@ -450,7 +450,7 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
         } else {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
-        runModule(new Power(decimation, [this, &reportCounter, outFifo] (float power) {
+        runModule(new Power<complex<float>>(decimation, [this, &reportCounter, outFifo] (float power) {
             if (reportCounter-- <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
@@ -475,7 +475,7 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
         } else {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
-        squelch = new Squelch(decimation, [this, &reportCounter, outFifo] (float power) {
+        squelch = new Squelch<complex<float>>(decimation, [this, &reportCounter, outFifo] (float power) {
             if (reportCounter-- <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);

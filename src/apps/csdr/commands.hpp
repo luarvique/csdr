@@ -197,7 +197,7 @@ namespace Csdr {
         protected:
             void processFifoData(std::string data) override;
         private:
-            Squelch* squelch;
+            Squelch<complex<float>>* squelch;
             std::string outFifoName;
             unsigned int decimation = 1;
             unsigned int reportInterval = 1;
