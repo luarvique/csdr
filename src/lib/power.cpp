@@ -76,7 +76,7 @@ void Squelch<T>::setSquelch(float squelchLevel) {
 template <typename T>
 void Squelch<T>::forwardData(T *input, float power) {
     if (squelchLevel == 0 || power >= squelchLevel) {
-        this->forwardData(input, power);
+        Power<T>::forwardData(input, power);
         flushCounter = 0;
     } else if (flushCounter < 5) {
         // produce some 0s to flush any subsequent modules if they have any overhead (e.g. FIR filter delays)
