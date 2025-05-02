@@ -76,6 +76,12 @@ void Power<T>::forwardData(T* input, float power) {
 }
 
 template <typename T>
+Squelch<T>::Squelch(size_t length, unsigned int decimation, size_t flushLength, std::function<void(float)> callback):
+    Power<T>(length, decimation, callback),
+    flushLength(flushLength)
+{}
+
+template <typename T>
 void Squelch<T>::setSquelch(float squelchLevel) {
     this->squelchLevel = squelchLevel;
 }
@@ -85,14 +91,13 @@ void Squelch<T>::forwardData(T *input, float power) {
     if (squelchLevel == 0.0f || power >= squelchLevel) {
         Power<T>::forwardData(input, power);
         flushCounter = 0;
-    } else if (flushCounter < 5) {
+    } else if (flushCounter < flushLength) {
         // produce some 0s to flush any subsequent modules if they have any overhead (e.g. FIR filter delays)
         T* output = this->writer->getWritePointer();
-        size_t length = this->getLength();
+        size_t length = std::min(this->getLength(), flushLength - flushCounter);
         std::memset(output, 0, sizeof(T) * length);
         this->writer->advance(length);
-        // increment inside because an unsigned char would overflow soon...
-        flushCounter++;
+        flushCounter += length;
     }
 }
 

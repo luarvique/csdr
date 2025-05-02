@@ -467,6 +467,7 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
     add_option("-o,--outfifo", outFifoName, "Control fifo")->required();
     add_option("length", length, "Number of samples to measure power over", true);
     add_option("decimation", decimation, "Decimate data when calculating power", true);
+    add_option("flushLength", flushLength, "Number of samples to flush once squelch closes", true);
     add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
         unsigned int reportCounter = 0;
@@ -477,7 +478,7 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
         } else {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
-        squelch = new Squelch<complex<float>>(length, decimation, [this, &reportCounter, outFifo] (float power) {
+        squelch = new Squelch<complex<float>>(length, decimation, flushLength, [this, &reportCounter, outFifo] (float power) {
             if (reportCounter-- <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
