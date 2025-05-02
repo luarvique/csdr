@@ -25,7 +25,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Csdr;
 
 template <typename T>
-Power<T>::Power(unsigned int decimation, std::function<void(float)> callback):
+Power<T>::Power(size_t length, unsigned int decimation, std::function<void(float)> callback):
+    length(length),
     decimation(decimation),
     callback(std::move(callback))
 {}
@@ -43,21 +44,27 @@ void Power<T>::process() {
     T* input = this->reader->getReadPointer();
     size_t length = this->getLength();
 
-    float acc = 0;
-    for (size_t i = 0; i < length; i += decimation){
-        acc += std::norm(input[i]);
+    float power = 0.0f;
+    for (size_t i = 0; i < length; i += decimation) {
+        power += std::norm(input[i]);
     }
-    float power = acc / ceilf((float) length / decimation);
+
+    // compute average power
+    power /= ceilf((float) length / decimation);
+
+    // report power
     callback(power);
+
     // pass data
     forwardData(input, power);
 
+    // advance input
     this->reader->advance(length);
 }
 
 template <typename T>
 size_t Power<T>::getLength() {
-    return 1024;
+    return length;
 }
 
 template <typename T>
@@ -75,13 +82,13 @@ void Squelch<T>::setSquelch(float squelchLevel) {
 
 template <typename T>
 void Squelch<T>::forwardData(T *input, float power) {
-    if (squelchLevel == 0 || power >= squelchLevel) {
+    if (squelchLevel == 0.0f || power >= squelchLevel) {
         Power<T>::forwardData(input, power);
         flushCounter = 0;
     } else if (flushCounter < 5) {
         // produce some 0s to flush any subsequent modules if they have any overhead (e.g. FIR filter delays)
-        size_t length = this->getLength();
         T* output = this->writer->getWritePointer();
+        size_t length = this->getLength();
         std::memset(output, 0, sizeof(T) * length);
         this->writer->advance(length);
         // increment inside because an unsigned char would overflow soon...

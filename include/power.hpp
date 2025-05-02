@@ -28,7 +28,7 @@ namespace Csdr {
     template <typename T>
     class Power: public Module<T, T> {
         public:
-            Power(unsigned int decimation, std::function<void(float)> callback);
+            Power(size_t length, unsigned int decimation, std::function<void(float)> callback);
             size_t getLength();
             bool canProcess() override;
             void process() override;
@@ -36,6 +36,7 @@ namespace Csdr {
             // to bo overridden by the squelch implementation
             virtual void forwardData(T* input, float power);
         private:
+            size_t length;
             unsigned int decimation;
             std::function<void(float)> callback;
     };
@@ -43,7 +44,7 @@ namespace Csdr {
     template <typename T>
     class Squelch: public Power<T> {
         public:
-            Squelch(unsigned int decimation, std::function<void(float)> callback): Power<T>(decimation, callback) {}
+            Squelch(size_t length, unsigned int decimation, std::function<void(float)> callback): Power<T>(length, decimation, callback) {}
             void setSquelch(float squelchLevel);
         protected:
             void forwardData(T* input, float power) override;

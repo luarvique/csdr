@@ -187,6 +187,7 @@ namespace Csdr {
             PowerCommand();
         private:
             std::string outFifoName;
+            unsigned int length = 1024;
             unsigned int decimation = 1;
             unsigned int reportInterval = 1;
     };
@@ -199,6 +200,7 @@ namespace Csdr {
         private:
             Squelch<complex<float>>* squelch;
             std::string outFifoName;
+            unsigned int length = 1024;
             unsigned int decimation = 1;
             unsigned int reportInterval = 1;
     };
