@@ -443,7 +443,8 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
     add_option("decimation", decimation, "Decimate data when calculating power", true);
     add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        unsigned int reportCounter = 0;
+        reportInterval = std::max(reportInterval, 1)
+        int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {
             std::cerr << "error opening fifo: " << strerror(errno) << "\n";
@@ -452,7 +453,7 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
         runModule(new Power<complex<float>>(length, decimation, [this, &reportCounter, outFifo] (float power) {
-            if (reportCounter-- <= 0) {
+            if (--reportCounter <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
                 reportCounter = reportInterval;
@@ -470,7 +471,8 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
     add_option("flushLength", flushLength, "Number of samples to flush once squelch closes", true);
     add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        unsigned int reportCounter = 0;
+        reportInterval = std::max(reportInterval, 1)
+        int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {
             std::cerr << "error opening fifo: " << strerror(errno) << "\n";
@@ -479,7 +481,7 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
         squelch = new Squelch<complex<float>>(length, decimation, flushLength, [this, &reportCounter, outFifo] (float power) {
-            if (reportCounter-- <= 0) {
+            if (--reportCounter <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
                 reportCounter = reportInterval;
