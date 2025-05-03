@@ -26,8 +26,8 @@ using namespace Csdr;
 
 template <typename T>
 Power<T>::Power(size_t length, unsigned int decimation, std::function<void(float)> callback):
-    length(length),
-    decimation(decimation),
+    length(std::min(length, 1)),
+    decimation(std::min(decimation, 1)),
     callback(std::move(callback))
 {}
 
@@ -53,7 +53,7 @@ void Power<T>::process() {
     power /= ceilf((float) length / decimation);
 
     // report power
-    callback(power);
+    if (callback) callback(power);
 
     // pass data
     forwardData(input, power);
