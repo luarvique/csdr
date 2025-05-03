@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include <functional>
 #include "module.hpp"
 
 namespace Csdr {
@@ -37,12 +38,19 @@ namespace Csdr {
     template <typename T>
     class SmartSquelch: public Module<T, T> {
         public:
-            SmartSquelch(size_t length, size_t flushLength = 0);
+            SmartSquelch(size_t length, size_t flushLength = 0, std::function<void(float)> callback = 0);
             bool canProcess() override;
             void process() override;
 
+            void setSquelch(float squelchLevel);
+
         private:
+            std::function<void(float)> callback;
+            float squelchLevel;
             size_t length;
             size_t flushLength;
+            size_t flushCount;
+            double coeff1;
+            double coeff2;
     };
 }

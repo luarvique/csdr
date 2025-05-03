@@ -35,19 +35,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using namespace Csdr;
 
 template <typename T>
-SmartSquelch<T>::SmartSquelch(size_t length, size_t flushLength)
+SmartSquelch<T>::SmartSquelch(size_t length, size_t flushLength, std::function<void(float)> callback)
 : length(length),
-  flushLength(flushLength)
+  flushLength(flushLength),
+  callback(std::move(callback))
 {
-    unsigned int i;
-
-    buckets = 4;
+    // Not flushing anything yet
+    flushCount = 0;
 
     // Goertzel algorithm coefficients
-    double v1 = round((double)buckets * targetFreq / sampleRate);
-    double v2 = round((double)buckets * (targetFreq + targetWidth) / sampleRate);
-    coeff1 = 2.0 * cos(2.0 * M_PI * v1 / buckets);
-    coeff2 = 2.0 * cos(2.0 * M_PI * v2 / buckets);
+    coeff1 = 2.0 * cos(2.0 * M_PI * 0.0); // bucket 0/2
+    coeff2 = 2.0 * cos(2.0 * M_PI * 0.5); // bucket 1/2
+}
+
+template <typename T>
+void SmartSquelch<T>::setSquelch(float squelchLevel) {
+    this->squelchLevel = squelchLevel;
 }
 
 template <typename T>
@@ -59,21 +62,50 @@ bool SmartSquelch<T>::canProcess() {
 template <typename T>
 void SmartSquelch<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
+    const T *in = this->reader->getReadPointer();
+    T *out = this->writer->getWritePointer();
 
-    // Process input data
-    for(; this->reader->available()>=buckets ; this->reader->advance(step)) {
-        // Process data
-        processInternal(this->reader->getReadPointer(), buckets);
+    double q10, q11, q12;
+    double q20, q21, q22;
+    float power = 0.0f;
 
-        // Update time
-        curSamples += step;
-        if(curSamples>=sampleRate)
-        {
-            unsigned int secs = curSamples/sampleRate;
-            curSeconds += secs;
-            curSamples -= secs*sampleRate;
-        }
+    // Compute power and bucket values
+    for (size_t j=0, q11=q12=q21=q22=0.0 ; j < length ; ++j) {
+        power += std::norm(in[j]);
+
+        q10 = q11 * coeff1 - q12 + std::norm(in[j]);
+        q12 = q11;
+        q11 = q10;
+        q20 = q21 * coeff2 - q22 + std::norm(in[j]);
+        q22 = q21;
+        q21 = q20;
     }
+
+    // Report average power
+    if (callback) callback(power / length);
+
+    // We only need the real part
+    double mag1 = q11*q11 + q12*q12 - q11*q12*coeff1;
+    double mag2 = q21*q21 + q22*q22 - q21*q22*coeff2;
+
+    // Open squelch if one bucket is much higher than the other
+    bool squelchOpen = (mag1 > 4.0*mag2) || (mag2 > 4.0*mag1);
+
+    // If squelch is open...
+    if (squelchOpen) {
+        memcpy(out, in, length * sizeof(T));
+        this->writer->advance(length);
+        flushCount = 0;
+    // Squelch closed, flushing some zeros...
+    } else if (flushCount < flushLength) {
+        size_t l = std::min(length, flushLength - flushCount);
+        memset(out, 0, l * sizeof(T));
+        this->writer->advance(l);
+        flushCount += l;
+    }
+
+    // Done with input
+    this->reader->advance(length);
 }
 
 namespace Csdr {
