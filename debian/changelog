@@ -1,3 +1,11 @@
+csdr (0.18.30) bullseye jammy; urgency=low
+
+  * Improved Power and Squelch modules.
+  * Now supporting non-complex Squelch input.
+  * Removed Fax support for complex input.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Tue, 6 May 2025 16:12:00 +0000
+
 csdr (0.18.29) bullseye jammy; urgency=low
 
   * Added end-of-page mark to the fax pages.
