@@ -187,6 +187,7 @@ namespace Csdr {
             PowerCommand();
         private:
             std::string outFifoName;
+            unsigned int length = 1024;
             unsigned int decimation = 1;
             unsigned int reportInterval = 1;
     };
@@ -197,8 +198,10 @@ namespace Csdr {
         protected:
             void processFifoData(std::string data) override;
         private:
-            Squelch* squelch;
+            Squelch<complex<float>>* squelch;
             std::string outFifoName;
+            unsigned int length = 1024;
+            unsigned int flushLength = 5 * 1024;
             unsigned int decimation = 1;
             unsigned int reportInterval = 1;
     };

@@ -25,29 +25,32 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    class Power: public Module<complex<float>, complex<float>> {
+    template <typename T>
+    class Power: public Module<T, T> {
         public:
-            Power(unsigned int decimation, std::function<void(float)> callback);
+            Power(size_t length, unsigned int decimation = 1, std::function<void(float)> callback = 0);
             size_t getLength();
             bool canProcess() override;
             void process() override;
         protected:
             // to bo overridden by the squelch implementation
-            virtual void forwardData(complex<float>* input, float power);
+            virtual void forwardData(T* input, float power);
         private:
+            size_t length;
             unsigned int decimation;
             std::function<void(float)> callback;
     };
 
-    class Squelch: public Power {
+    template <typename T>
+    class Squelch: public Power<T> {
         public:
-            Squelch(unsigned int decimation, std::function<void(float)> callback): Power(decimation, callback) {}
+            Squelch(size_t length, unsigned int decimation = 1, size_t flushLength = 0, std::function<void(float)> callback = 0);
             void setSquelch(float squelchLevel);
         protected:
-            void forwardData(complex<float>* input, float power) override;
+            void forwardData(T* input, float power) override;
         private:
+            size_t flushLength;
             float squelchLevel = 0.0f;
-            unsigned char flushCounter = 0;
+            size_t flushCounter = 0;
     };
-
 }

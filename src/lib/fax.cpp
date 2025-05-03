@@ -738,6 +738,5 @@ inline double FaxDecoder<float>::sample2double(float input)
 }
 
 namespace Csdr {
-    template class FaxDecoder<complex<float>>;
     template class FaxDecoder<float>;
 }

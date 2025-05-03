@@ -439,10 +439,11 @@ LimitCommand::LimitCommand(): Command("limit", "Limit stream values to maximum a
 
 PowerCommand::PowerCommand(): Command("power", "Measure power") {
     add_option("-o,--outfifo", outFifoName, "Control fifo")->required();
-    add_option("decimation", decimation, "Decimate data when calcuting power", true);
-    add_option("report_every", reportInterval, "Report interval", true);
+    add_option("length", length, "Number of samples to measure power over", true);
+    add_option("decimation", decimation, "Decimate data when calculating power", true);
+    add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        unsigned int reportCounter = 0;
+        int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {
             std::cerr << "error opening fifo: " << strerror(errno) << "\n";
@@ -450,8 +451,8 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
         } else {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
-        runModule(new Power(decimation, [this, &reportCounter, outFifo] (float power) {
-            if (reportCounter-- <= 0) {
+        runModule(new Power<complex<float>>(length, decimation, [this, &reportCounter, outFifo] (float power) {
+            if (--reportCounter <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
                 reportCounter = reportInterval;
@@ -464,10 +465,12 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
 SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply squelch") {
     addFifoOption()->required();
     add_option("-o,--outfifo", outFifoName, "Control fifo")->required();
-    add_option("decimation", decimation, "Decimate data when calcuting power", true);
-    add_option("report_every", reportInterval, "Report interval", true);
+    add_option("length", length, "Number of samples to measure power over", true);
+    add_option("decimation", decimation, "Decimate data when calculating power", true);
+    add_option("flushLength", flushLength, "Number of samples to flush once squelch closes", true);
+    add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        unsigned int reportCounter = 0;
+        int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {
             std::cerr << "error opening fifo: " << strerror(errno) << "\n";
@@ -475,8 +478,8 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
         } else {
             fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
         }
-        squelch = new Squelch(decimation, [this, &reportCounter, outFifo] (float power) {
-            if (reportCounter-- <= 0) {
+        squelch = new Squelch<complex<float>>(length, decimation, flushLength, [this, &reportCounter, outFifo] (float power) {
+            if (--reportCounter <= 0) {
                 fprintf(outFifo, "%g\n", power);
                 fflush(outFifo);
                 reportCounter = reportInterval;
