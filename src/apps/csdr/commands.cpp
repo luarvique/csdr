@@ -443,7 +443,6 @@ PowerCommand::PowerCommand(): Command("power", "Measure power") {
     add_option("decimation", decimation, "Decimate data when calculating power", true);
     add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        reportInterval = std::max(reportInterval, 1)
         int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {
@@ -471,7 +470,6 @@ SquelchCommand::SquelchCommand(): Command("squelch", "Measure power and apply sq
     add_option("flushLength", flushLength, "Number of samples to flush once squelch closes", true);
     add_option("report_every", reportInterval, "Reporting interval", true);
     callback( [this] () {
-        reportInterval = std::max(reportInterval, 1)
         int reportCounter = reportInterval;
         FILE* outFifo = fopen(outFifoName.c_str(), "w");
         if (outFifo == nullptr) {

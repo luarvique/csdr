@@ -26,8 +26,8 @@ using namespace Csdr;
 
 template <typename T>
 Power<T>::Power(size_t length, unsigned int decimation, std::function<void(float)> callback):
-    length(std::max(length, 1)),
-    decimation(std::max(decimation, 1)),
+    length(std::max(length, (size_t)1)),
+    decimation(std::max(decimation, (unsigned int)1)),
     callback(std::move(callback))
 {}
 
