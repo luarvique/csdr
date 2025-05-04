@@ -50,7 +50,7 @@ namespace Csdr {
             size_t length;
             size_t flushLength;
             size_t flushCount;
-            double coeff1;
-            double coeff2;
+            float coeff1;
+            float coeff2;
     };
 }

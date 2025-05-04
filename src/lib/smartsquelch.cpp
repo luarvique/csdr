@@ -31,6 +31,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "smartsquelch.hpp"
 #include <cmath>
 #include <cstring>
+#include <cstdio>
+#include <cmath>
 
 using namespace Csdr;
 
@@ -44,8 +46,8 @@ SmartSquelch<T>::SmartSquelch(size_t length, size_t flushLength, std::function<v
     flushCount = 0;
 
     // Goertzel algorithm coefficients
-    coeff1 = 2.0 * cos(2.0 * M_PI * 0.0); // bucket 0/2
-    coeff2 = 2.0 * cos(2.0 * M_PI * 0.5); // bucket 1/2
+    coeff1 = 2.0 * cos(2.0 * M_PI * 0.5);  // bucket 3/5
+    coeff2 = 2.0 * cos(2.0 * M_PI * 0.75); // bucket 4/5
 }
 
 template <typename T>
@@ -62,21 +64,24 @@ bool SmartSquelch<T>::canProcess() {
 template <typename T>
 void SmartSquelch<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
+static int hangCount = 0;
+
     const T *in = this->reader->getReadPointer();
     T *out = this->writer->getWritePointer();
 
-    double q10, q11, q12;
-    double q20, q21, q22;
-    float power = 0.0f;
+    float q10, q11 = 0.0, q12 = 0.0;
+    float q20, q21 = 0.0, q22 = 0.0;
+    float power = 0.0;
 
     // Compute power and bucket values
-    for (size_t j=0, q11=q12=q21=q22=0.0 ; j < length ; ++j) {
+    for (size_t j=0 ; j < length ; ++j) {
         power += std::norm(in[j]);
 
-        q10 = q11 * coeff1 - q12 + std::norm(in[j]);
+        q10 = std::norm(in[j]) + q11 * coeff1 - q12;
         q12 = q11;
         q11 = q10;
-        q20 = q21 * coeff2 - q22 + std::norm(in[j]);
+
+        q20 = std::norm(in[j]) + q21 * coeff2 - q22;
         q22 = q21;
         q21 = q20;
     }
@@ -85,11 +90,26 @@ void SmartSquelch<T>::process() {
     if (callback) callback(power / length);
 
     // We only need the real part
-    double mag1 = q11*q11 + q12*q12 - q11*q12*coeff1;
-    double mag2 = q21*q21 + q22*q22 - q21*q22*coeff2;
+    float mag1 = q11*q11 + q12*q12 - q11*q12*coeff1;
+    float mag2 = q21*q21 + q22*q22 - q21*q22*coeff2;
 
     // Open squelch if one bucket is much higher than the other
-    bool squelchOpen = (mag1 > 4.0*mag2) || (mag2 > 4.0*mag1);
+    bool squelchOpen = (mag1 > 1000.0*mag2) || (mag2 > 1000.0*mag1);
+
+//fprintf(stderr, "power = %f, %f vs %f => %f => %s\n",
+//  log10(power/length),
+//  log10(mag1), log10(mag2),
+//  mag1/mag2,
+//  squelchOpen? "ON":"OFF"
+//);
+
+    // Hang with open squelch for a while to prevent dropouts
+    if(squelchOpen) hangCount = 0;
+    else if(hangCount < length * 20)
+    {
+      hangCount += length;
+      squelchOpen = true;
+    }
 
     // If squelch is open...
     if (squelchOpen) {
