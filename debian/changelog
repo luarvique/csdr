@@ -1,6 +1,8 @@
 csdr (0.18.30) bullseye jammy; urgency=low
 
   * Improved Power and Squelch modules.
+  * Added configurable processed chunk length.
+  * Added configurable hang and flush lengths.
   * Now supporting non-complex Squelch input.
   * Removed Fax support for complex input.
 

@@ -44,13 +44,15 @@ namespace Csdr {
     template <typename T>
     class Squelch: public Power<T> {
         public:
-            Squelch(size_t length, unsigned int decimation = 1, size_t flushLength = 0, std::function<void(float)> callback = 0);
+            Squelch(size_t length, unsigned int decimation = 1, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
             void setSquelch(float squelchLevel);
         protected:
             void forwardData(T* input, float power) override;
         private:
+            size_t hangLength;
             size_t flushLength;
             float squelchLevel = 0.0f;
+            size_t hangCounter = 0;
             size_t flushCounter = 0;
     };
 }

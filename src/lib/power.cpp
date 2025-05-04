@@ -76,9 +76,10 @@ void Power<T>::forwardData(T* input, float power) {
 }
 
 template <typename T>
-Squelch<T>::Squelch(size_t length, unsigned int decimation, size_t flushLength, std::function<void(float)> callback):
+Squelch<T>::Squelch(size_t length, unsigned int decimation, size_t hangLength, size_t flushLength, std::function<void(float)> callback):
     Power<T>(length, decimation, callback),
-    flushLength(flushLength)
+    flushLength(flushLength),
+    hangLength(hangLength)
 {}
 
 template <typename T>
@@ -90,9 +91,14 @@ template <typename T>
 void Squelch<T>::forwardData(T *input, float power) {
     if (squelchLevel == 0.0f || power >= squelchLevel) {
         Power<T>::forwardData(input, power);
-        flushCounter = 0;
+        flushCounter = hangCounter = 0;
+    } else if (hangCounter < hangLength) {
+        // keep forwarding for a while in case signal comes back
+        Power<T>::forwardData(input, power);
+        hangCounter += this->getLength();
     } else if (flushCounter < flushLength) {
-        // produce some 0s to flush any subsequent modules if they have any overhead (e.g. FIR filter delays)
+        // produce some 0s to flush any subsequent modules
+        // if they have any overhead (e.g. FIR filter delays)
         T* output = this->writer->getWritePointer();
         size_t length = std::min(this->getLength(), flushLength - flushCounter);
         std::memset(output, 0, sizeof(T) * length);
