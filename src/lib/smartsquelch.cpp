@@ -74,9 +74,10 @@ void SmartSquelch<T>::process() {
     float q30, q31 = 0.0, q32 = 0.0;
     float power = 0.0;
 
-    float coeff1 = 2.0 * cos(2.0 * M_PI * 0.08);
-    float coeff2 = 2.0 * cos(2.0 * M_PI * 0.14);
-    float coeff3 = 2.0 * cos(2.0 * M_PI * 0.20);
+    // 1/2 of max frequency, 1/4 of sample rate
+    float coeff1 = 2.0 * cos(2.0 * M_PI * 0.020);
+    float coeff2 = 2.0 * cos(2.0 * M_PI * 0.125);
+    float coeff3 = 2.0 * cos(2.0 * M_PI * 0.230);
 
     // Compute power and bucket values
     for (size_t j=0 ; j < length ; ++j) {
@@ -95,28 +96,18 @@ void SmartSquelch<T>::process() {
         q31 = q30;
     }
 
-    // Report average power
-    if (callback) callback(power / length);
-
     // We only need the real part
     float mag1 = q11*q11 + q12*q12 - q11*q12*coeff1;
     float mag2 = q21*q21 + q22*q22 - q21*q22*coeff2;
     float mag3 = q31*q31 + q32*q32 - q31*q32*coeff3;
 
-    bool squelchOpen =
-        (mag1 > 20.0 * (mag2 + mag3)) ||
-        (mag2 > 20.0 * (mag1 + mag3)) ||
-        (mag3 > 20.0 * (mag1 + mag2));
+    // Highest bucket value over average
+    mag1 = std::max(std::max(mag1, mag2), mag3) - (mag1 + mag2 + mag3) / 3.0;
 
-    // Open squelch if one bucket is much higher than the other
-    //bool squelchOpen = (mag1 > 100000.0*mag2) || (mag2 > 100000.0*mag1);
+    // Report power
+    if (callback) callback(mag1);
 
-//fprintf(stderr, "power = %f, %f vs %f => %f => %s\n",
-//  log10(power/length),
-//  log10(mag1), log10(mag2),
-//  mag1/mag2,
-//  squelchOpen? "ON":"OFF"
-//);
+    bool squelchOpen = (squelchLevel == 0.0) || (mag1 >= squelchLevel);
 
     // Hang with open squelch for a while to prevent dropouts
     if(squelchOpen) hangCount = 0;
