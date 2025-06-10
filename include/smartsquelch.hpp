@@ -38,7 +38,7 @@ namespace Csdr {
     template <typename T>
     class SmartSquelch: public Module<T, T> {
         public:
-            SmartSquelch(size_t length, size_t flushLength = 0, std::function<void(float)> callback = 0);
+            SmartSquelch(size_t length, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
             bool canProcess() override;
             void process() override;
 
@@ -48,6 +48,8 @@ namespace Csdr {
             std::function<void(float)> callback;
             float squelchLevel;
             size_t length;
+            size_t hangLength;
+            size_t hangCount;
             size_t flushLength;
             size_t flushCount;
             float coeff1;
