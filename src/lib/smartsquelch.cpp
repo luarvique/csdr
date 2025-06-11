@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "smartsquelch.hpp"
+#include <cstring>
 #include <cmath>
 
 using namespace Csdr;
