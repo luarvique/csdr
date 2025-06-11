@@ -48,12 +48,13 @@ namespace Csdr {
 
         private:
             std::function<void(float)> callback;
-            float squelchLevel;
             size_t length;
             size_t hangLength;
-            size_t hangCount;
             size_t flushLength;
-            size_t flushCount;
+
+            float squelchLevel = 0.0f;
+            size_t hangCounter = 0;
+            size_t flushCounter = 0;
 
             fftwf_complex* fftInput;
             fftwf_complex* fftOutput;

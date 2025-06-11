@@ -45,9 +45,7 @@ SmartSquelch<T>::SmartSquelch(size_t length, size_t hangLength, size_t flushLeng
 : length(length),
   hangLength(hangLength),
   flushLength(flushLength),
-  callback(std::move(callback)),
-  hangCount(0),
-  flushCount(0)
+  callback(std::move(callback))
 {
     fftInput  = fftwf_alloc_complex(length);
     fftOutput = fftwf_alloc_complex(length);
@@ -96,32 +94,33 @@ void SmartSquelch<T>::process() {
 
     // Compute average and peak power
     avg  /= length;
-    peak -= avg;
+    peak /= avg;
 
-    // Report power
+    // Report peak power over average
     if (callback) callback(peak);
 
+    // Squelch opens when peak exceeds average by given level
     bool squelchOpen = (squelchLevel == 0.0) || (peak >= squelchLevel);
 
     // Hang with open squelch for a while to prevent dropouts
-    if(squelchOpen) hangCount = 0;
-    else if(hangCount < hangLength)
-    {
-      hangCount += length;
-      squelchOpen = true;
+    if(squelchOpen) {
+        hangCounter = 0;
+    } else if(hangCounter < hangLength) {
+        hangCounter += length;
+        squelchOpen = true;
     }
 
     // If squelch is open...
     if (squelchOpen) {
         memcpy(out, in, length * sizeof(T));
         this->writer->advance(length);
-        flushCount = 0;
+        flushCounter = 0;
     // Squelch closed, flushing some zeros...
-    } else if (flushCount < flushLength) {
-        size_t l = std::min(length, flushLength - flushCount);
+    } else if (flushCounter < flushLength) {
+        size_t l = std::min(length, flushLength - flushCounter);
         memset(out, 0, l * sizeof(T));
         this->writer->advance(l);
-        flushCount += l;
+        flushCounter += l;
     }
 
     // Done with input
