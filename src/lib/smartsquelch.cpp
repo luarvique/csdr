@@ -30,25 +30,34 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "smartsquelch.hpp"
 #include <cmath>
-#include <cstring>
-#include <cstdio>
-#include <cmath>
 
 using namespace Csdr;
+
+#if defined __arm__ || __aarch64__
+#define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_ESTIMATE)
+#else
+#define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
+#endif
 
 template <typename T>
 SmartSquelch<T>::SmartSquelch(size_t length, size_t hangLength, size_t flushLength, std::function<void(float)> callback)
 : length(length),
   hangLength(hangLength),
   flushLength(flushLength),
-  callback(std::move(callback))
+  callback(std::move(callback)),
+  hangCount(0),
+  flushCount(0)
 {
-    // Not flushing anything yet
-    flushCount = hangCount = 0;
+    fftInput  = fftwf_alloc_complex(length);
+    fftOutput = fftwf_alloc_complex(length);
+    fftPlan   = fftwf_plan_dft_1d(length, fftInput, fftOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+}
 
-    // Goertzel algorithm coefficients
-    coeff1 = 2.0 * cos(2.0 * M_PI * 0.1); // bucket 3/5
-    coeff2 = 2.0 * cos(2.0 * M_PI * 0.4); // bucket 4/5
+template<typename T>
+SmartSquelch<T>::~SmartSquelch() {
+    fftwf_destroy_plan(fftPlan);
+    fftwf_free(fftInput);
+    fftwf_free(fftOutput);
 }
 
 template <typename T>
@@ -68,46 +77,30 @@ void SmartSquelch<T>::process() {
 
     const T *in = this->reader->getReadPointer();
     T *out = this->writer->getWritePointer();
+    float avg, peak;
+    size_t j;
 
-    float q10, q11 = 0.0, q12 = 0.0;
-    float q20, q21 = 0.0, q22 = 0.0;
-    float q30, q31 = 0.0, q32 = 0.0;
-    float power = 0.0;
+    // Copy data into the input buffer, computing power
+    auto* data = (complex<float>*) fftInput;
+    for (j=0 ; j < length ; ++j) data[j] = in[j];
 
-    // 1/2 of max frequency, 1/4 of sample rate
-    float coeff1 = 2.0 * cos(2.0 * M_PI * 0.020);
-    float coeff2 = 2.0 * cos(2.0 * M_PI * 0.125);
-    float coeff3 = 2.0 * cos(2.0 * M_PI * 0.230);
+    // Calculate FFT on input buffer
+    fftwf_execute(fftPlan);
 
-    // Compute power and bucket values
-    for (size_t j=0 ; j < length ; ++j) {
-        power += std::norm(in[j]);
-
-        q10 = std::norm(in[j]) + q11 * coeff1 - q12;
-        q12 = q11;
-        q11 = q10;
-
-        q20 = std::norm(in[j]) + q21 * coeff2 - q22;
-        q22 = q21;
-        q21 = q20;
-
-        q30 = std::norm(in[j]) + q31 * coeff3 - q32;
-        q32 = q31;
-        q31 = q30;
+    for (avg=peak=0.0, j=0 ; j < length ; ++j) {
+        float v = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
+        avg += v;
+        peak = std::max(v, peak);
     }
 
-    // We only need the real part
-    float mag1 = q11*q11 + q12*q12 - q11*q12*coeff1;
-    float mag2 = q21*q21 + q22*q22 - q21*q22*coeff2;
-    float mag3 = q31*q31 + q32*q32 - q31*q32*coeff3;
-
-    // Highest bucket value over average
-    mag1 = std::max(std::max(mag1, mag2), mag3) - (mag1 + mag2 + mag3) / 3.0;
+    // Compute average and peak power
+    avg  /= length;
+    peak -= avg;
 
     // Report power
-    if (callback) callback(mag1);
+    if (callback) callback(peak);
 
-    bool squelchOpen = (squelchLevel == 0.0) || (mag1 >= squelchLevel);
+    bool squelchOpen = (squelchLevel == 0.0) || (peak >= squelchLevel);
 
     // Hang with open squelch for a while to prevent dropouts
     if(squelchOpen) hangCount = 0;

@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <functional>
 #include "module.hpp"
+#include <fftw3.h>
 
 namespace Csdr {
 
@@ -39,6 +40,7 @@ namespace Csdr {
     class SmartSquelch: public Module<T, T> {
         public:
             SmartSquelch(size_t length, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
+            ~SmartSquelch() override;
             bool canProcess() override;
             void process() override;
 
@@ -52,7 +54,9 @@ namespace Csdr {
             size_t hangCount;
             size_t flushLength;
             size_t flushCount;
-            float coeff1;
-            float coeff2;
+
+            fftwf_complex* fftInput;
+            fftwf_complex* fftOutput;
+            fftwf_plan fftPlan;
     };
 }
