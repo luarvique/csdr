@@ -129,6 +129,8 @@ void SnrSquelch<T>::setSquelch(float squelchLevel) {
 
 template <typename T>
 void SnrSquelch<T>::forwardData(T *input, float snr) {
+printf("@@@ SNR = %f, SQL = %f\n", snr, squelchLevel);
+fflush(stdout);
     if (squelchLevel == 0.0f || snr >= squelchLevel) {
         Snr<T>::forwardData(input, snr);
         flushCounter = hangCounter = 0;

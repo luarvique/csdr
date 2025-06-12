@@ -69,7 +69,6 @@ add_library(csdr++ SHARED
     dsc.cpp
     ccir493.cpp
     navtex.cpp
-    smartsquelch.cpp
     snr.cpp
 )
 
