@@ -69,6 +69,8 @@ add_library(csdr++ SHARED
     dsc.cpp
     ccir493.cpp
     navtex.cpp
+    smartsquelch.cpp
+    snr.cpp
 )
 
 set_target_properties(csdr++ PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")

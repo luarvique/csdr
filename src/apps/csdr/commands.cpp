@@ -495,6 +495,64 @@ void SquelchCommand::processFifoData(std::string data) {
     squelch->setSquelch(std::stof(data));
 }
 
+SnrCommand::SnrCommand(): Command("snr", "Measure signal-to-noise ratio") {
+    add_option("-o,--outfifo", outFifoName, "Control fifo")->required();
+    add_option("length", length, "Number of samples to measure SNR over", true);
+    add_option("fft_size", fftSize, "Size of the FFT being used", true);
+    add_option("report_every", reportInterval, "Reporting interval", true);
+    callback( [this] () {
+        int reportCounter = reportInterval;
+        FILE* outFifo = fopen(outFifoName.c_str(), "w");
+        if (outFifo == nullptr) {
+            std::cerr << "error opening fifo: " << strerror(errno) << "\n";
+            return;
+        } else {
+            fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
+        }
+        runModule(new Snr<complex<float>>(length, fftSize, [this, &reportCounter, outFifo] (float snr) {
+            if (--reportCounter <= 0) {
+                fprintf(outFifo, "%g\n", snr);
+                fflush(outFifo);
+                reportCounter = reportInterval;
+            }
+        }));
+        fclose(outFifo);
+    });
+}
+
+SnrSquelchCommand::SnrSquelchCommand(): Command("snrsquelch", "Measure signal-to-nouse ratio and apply squelch") {
+    addFifoOption()->required();
+    add_option("-o,--outfifo", outFifoName, "Control fifo")->required();
+    add_option("length", length, "Number of samples to measure power over", true);
+    add_option("fft_size", fftSize, "Size of the FFT being used", true);
+    add_option("hangLength", hangLength, "Number of samples to keep once power falls below threshold", true);
+    add_option("flushLength", flushLength, "Number of samples to flush once squelch closes", true);
+    add_option("report_every", reportInterval, "Reporting interval", true);
+    callback( [this] () {
+        int reportCounter = reportInterval;
+        FILE* outFifo = fopen(outFifoName.c_str(), "w");
+        if (outFifo == nullptr) {
+            std::cerr << "error opening fifo: " << strerror(errno) << "\n";
+            return;
+        } else {
+            fcntl(fileno(outFifo), F_SETFL, O_NONBLOCK);
+        }
+        squelch = new SnrSquelch<complex<float>>(length, fftSize, hangLength, flushLength, [this, &reportCounter, outFifo] (float snr) {
+            if (--reportCounter <= 0) {
+                fprintf(outFifo, "%g\n", snr);
+                fflush(outFifo);
+                reportCounter = reportInterval;
+            }
+        });
+        runModule(squelch);
+        fclose(outFifo);
+    });
+}
+
+void SnrSquelchCommand::processFifoData(std::string data) {
+    squelch->setSquelch(std::stof(data));
+}
+
 DeemphasisCommand::DeemphasisCommand(): Command("deemphasis", "Deemphasis for FM applications") {
     auto wfmFlag = add_flag("-w,--wfm", "Wideband FM");
     auto nfmFlag = add_flag("-n,--nfm", "Narrowband FM");
