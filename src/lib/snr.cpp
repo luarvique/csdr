@@ -40,6 +40,11 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size) {
+    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+}
+
 template <typename T>
 Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
 : callback(std::move(callback))
@@ -76,7 +81,8 @@ void Snr<T>::process() {
 
     // Copy data into the input buffer
     auto* data = (complex<float>*) fftInput;
-    for (j=0 ; j < fftSize ; ++j) data[j] = input[j];
+    for (j=0 ; j < fftSize ; ++j)
+      data[j] = input[j] * hamming(j, fftSize);
 
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
@@ -129,8 +135,7 @@ void SnrSquelch<T>::setSquelch(float squelchLevel) {
 
 template <typename T>
 void SnrSquelch<T>::forwardData(T *input, float snr) {
-printf("@@@ SNR = %f, SQL = %f\n", snr, squelchLevel);
-fflush(stdout);
+//printf("@@@ SNR = %f, SQL = %f\n", snr, squelchLevel);fflush(stdout);
     if (squelchLevel == 0.0f || snr >= squelchLevel) {
         Snr<T>::forwardData(input, snr);
         flushCounter = hangCounter = 0;
