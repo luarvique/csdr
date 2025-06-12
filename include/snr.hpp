@@ -37,14 +37,37 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace Csdr {
 
     template <typename T>
-    class SmartSquelch: public Module<T, T> {
+    class Snr: public Module<T, T> {
         public:
-            SmartSquelch(size_t length, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
-            ~SmartSquelch() override;
+            Snr(size_t length, size_t fftSize = 256, std::function<void(float)> callback = 0);
+            ~Snr() override;
+
+            size_t getLength();
             bool canProcess() override;
             void process() override;
 
+        protected:
+            // to be overridden by the squelch implementation
+            virtual void forwardData(T* input, float snr);
+
+        private:
+            size_t length;
+            size_t fftSize;
+            std::function<void(float)> callback;
+
+            fftwf_complex* fftInput;
+            fftwf_complex* fftOutput;
+            fftwf_plan fftPlan;
+    };
+
+    template <typename T>
+    class SnrSquelch: public Snr<T> {
+        public:
+            SnrSquelch(size_t length, size_t fftSize = 256, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
             void setSquelch(float squelchLevel);
+
+        protected:
+            void forwardData(T* input, float snr) override;
 
         private:
             std::function<void(float)> callback;
@@ -55,9 +78,5 @@ namespace Csdr {
             float squelchLevel = 0.0f;
             size_t hangCounter = 0;
             size_t flushCounter = 0;
-
-            fftwf_complex* fftInput;
-            fftwf_complex* fftOutput;
-            fftwf_plan fftPlan;
     };
 }

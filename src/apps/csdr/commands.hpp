@@ -24,6 +24,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "shift.hpp"
 #include "power.hpp"
 #include "fir.hpp"
+#include "snr.hpp"
 
 namespace Csdr {
 
@@ -204,6 +205,31 @@ namespace Csdr {
             unsigned int hangLength = 0;
             unsigned int flushLength = 5 * 1024;
             unsigned int decimation = 1;
+            unsigned int reportInterval = 1;
+    };
+
+    class SnrCommand: public Command {
+        public:
+            SnrCommand();
+        private:
+            std::string outFifoName;
+            unsigned int length = 1024;
+            unsigned int fftSize = 256;
+            unsigned int reportInterval = 1;
+    };
+
+    class SnrSquelchCommand: public Command {
+        public:
+            SnrSquelchCommand();
+        protected:
+            void processFifoData(std::string data) override;
+        private:
+            SnrSquelch<complex<float>>* squelch;
+            std::string outFifoName;
+            unsigned int length = 1024;
+            unsigned int fftSize = 256;
+            unsigned int hangLength = 0;
+            unsigned int flushLength = 5 * 1024;
             unsigned int reportInterval = 1;
     };
 
