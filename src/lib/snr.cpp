@@ -76,7 +76,7 @@ void Snr<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     T *input = this->reader->getReadPointer();
-    float avg, snr;
+    float avg, snr, v0, v1, v2;
     size_t j;
 
     // Copy data into the input buffer
@@ -87,15 +87,16 @@ void Snr<T>::process() {
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
 
-    for (avg=snr=0.0, j=0 ; j < fftSize ; ++j) {
+    for (avg=v0=v1=v2=0.0, j=0 ; j < fftSize ; ++j) {
         float v = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
-        snr  = std::max(v, snr);
+        if (v >= v0) { v2=v1; v1=v0; v0=v; }
         avg += v;
     }
 
     // Compute average and peak power
-    avg /= fftSize;
-    snr /= avg;
+    snr = v0 + v1 + v2;
+    avg = (avg - snr) / (fftSize - 3);
+    snr = avg > 0.0? snr / 3.0 / avg : 0.0;
 
     // Report peak power over average
     if (callback) callback(snr);
