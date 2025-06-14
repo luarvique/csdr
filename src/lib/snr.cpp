@@ -94,7 +94,7 @@ void Snr<T>::process() {
     }
 
     // Compute average and peak power
-    avg /= fftSize;
+    avg = (avg - snr) / (fftSize - 1);
     snr /= avg;
 
     // Report peak power over average
