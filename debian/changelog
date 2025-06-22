@@ -1,3 +1,10 @@
+csdr (0.18.33) bullseye jammy; urgency=low
+
+  * Simplified NoiseFilter algorithm.
+  * Improved SNR computation.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Thu, 26 Jun 2025 16:12:00 +0000
+
 csdr (0.18.32) bullseye jammy; urgency=low
 
   * Added SNR computation using FFT.
