@@ -4,7 +4,7 @@ csdr (0.18.33) bullseye jammy; urgency=low
   * Made NoiseFilter latency configurable.
   * Improved SNR computation.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Thu, 26 Jun 2025 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 23 Jun 2025 16:12:00 +0000
 
 csdr (0.18.32) bullseye jammy; urgency=low
 
