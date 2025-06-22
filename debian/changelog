@@ -1,6 +1,6 @@
 csdr (0.18.33) bullseye jammy; urgency=low
 
-  * Simplified NoiseFilter algorithm.
+  * Improved NoiseFilter algorithm.
   * Made NoiseFilter latency configurable.
   * Improved SNR computation.
 
