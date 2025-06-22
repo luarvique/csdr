@@ -43,15 +43,12 @@ using namespace Csdr;
 template <typename T>
 NoiseFilter<T>::NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize):
     fftSize(fftSize),
-    dBthreshold(dBthreshold),
     forwardInput(fftwf_alloc_complex(fftSize)),
     forwardOutput(fftwf_alloc_complex(fftSize)),
     forwardPlan(fftwf_plan_dft_1d(fftSize, forwardInput, forwardOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS)),
     inverseInput(fftwf_alloc_complex(fftSize)),
     inverseOutput(fftwf_alloc_complex(fftSize)),
-    inversePlan(fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS)),
-    lastPower(0.0),
-    histPtr(0)
+    inversePlan(fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS))
 {
     // Come up with a reasonable overlap size
     ovrSize = fftSize>=64? (fftSize>>6) : 1;
@@ -66,17 +63,14 @@ NoiseFilter<T>::NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize):
     // We are really interested in half-a-window
     this->wndSize = wndSize>>1;
 
+    // Set initial threshold
+    setThreshold(dBthreshold);
+
     // Fill with zeros so that the padding works
-    for(size_t i = 0; i < fftSize; i++) 
+    for(size_t i = 0; i < fftSize; i++)
     {
         forwardInput[i][0] = 0.0f;
         forwardInput[i][1] = 0.0f;
-    }
-
-    // No history yet
-    for(size_t i = 0; i < MAX_HISTORY; i++)
-    {
-        histPower[i] = 0.0;
     }
 }
 
@@ -92,6 +86,11 @@ NoiseFilter<T>::~NoiseFilter()
     fftwf_free(overlapBuf);
 }
 
+template <typename T>
+void NoiseFilter<T>::setThreshold(int dBthreshold) {
+    this->threshold = pow(10.0, (double)dBthreshold/10.0);
+}
+
 template<typename T>
 size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 {
@@ -101,9 +100,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     auto* data = (complex<float>*) forwardInput;
     size_t dataSize = inputSize<size? inputSize : size;
     for(size_t i=0; i<dataSize; ++i)
-    {
-      data[i] = input[i];
-    }
+        data[i] = input[i];
 
     // Calculate FFT on input buffer
     fftwf_execute(forwardPlan);
@@ -118,32 +115,19 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Calculate signal's overall squared power
     double power = 0.0;
     for(size_t i=0; i<fftSize; ++i)
-    {
-        power += level[i] = in[i].i()*in[i].i() + in[i].q()*in[i].q();
-    }
-
-    // Keep track of the average signal power per FFT bucket
-    power /= fftSize;
-    lastPower += power - histPower[histPtr];
-    histPower[histPtr] = power;
-    histPtr = histPtr<MAX_HISTORY-1? histPtr+1 : 0;
-    power = lastPower/MAX_HISTORY;
+        power += level[i] = std::norm(in[i]);
 
     // Calculate the effective threshold to compare against
-    power *= pow(10.0, (double)dBthreshold / 10.0);
+    power = (power / fftSize) * threshold;
 
     // Compare signal's squared level against threshold
     for(size_t i=0; i<fftSize; ++i)
-    {
         gate[i] = level[i]>power? 1:0;
-    }
 
     // Compute initial gain for the first entry
     gain[0] = 0;
     for(size_t i=0; i<wndSize; ++i)
-    {
         gain[0] += gate[i] + gate[fftSize - i - 1];
-    }
 
     // Incrementally compute gains by moving window over gates
     int prev = fftSize - wndSize;
@@ -157,9 +141,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 
     // Filter out frequencies falling below threshold
     for(size_t i=0; i<fftSize; ++i)
-    {
         out[i] = in[i] * ((float)gain[i]/(wndSize*2));
-    }
 
     // Calculate inverse FFT on the filtered buffer
     fftwf_execute(inversePlan);
@@ -177,18 +159,14 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 
     // Normalize the rest
     for(size_t i=ovrSize; i<fftSize; ++i)
-    {
         result[i] /= fftSize;
-    }
 
     // Save overlap for the next time
     std::memcpy(overlap, result + inputSize, sizeof(complex<float>) * ovrSize);
 
     // Copy output but only partially fill FFT output
     for(size_t i=0; i<inputSize; ++i)
-    {
         output[i] = complex2sample(result[i]);
-    }
 
     // Done
     return inputSize;
