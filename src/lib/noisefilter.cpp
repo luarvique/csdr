@@ -41,14 +41,16 @@ using namespace Csdr;
 #endif
 
 template <typename T>
-NoiseFilter<T>::NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize):
+NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency):
     fftSize(fftSize),
     forwardInput(fftwf_alloc_complex(fftSize)),
     forwardOutput(fftwf_alloc_complex(fftSize)),
     forwardPlan(fftwf_plan_dft_1d(fftSize, forwardInput, forwardOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS)),
     inverseInput(fftwf_alloc_complex(fftSize)),
     inverseOutput(fftwf_alloc_complex(fftSize)),
-    inversePlan(fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS))
+    inversePlan(fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS)),
+    threshold(1.0),
+    avgPower(0.0)
 {
     // Come up with a reasonable overlap size
     ovrSize = fftSize>=64? (fftSize>>6) : 1;
@@ -63,8 +65,8 @@ NoiseFilter<T>::NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize):
     // We are really interested in half-a-window
     this->wndSize = wndSize>>1;
 
-    // Set initial threshold
-    setThreshold(dBthreshold);
+    // Make sure latency is positive
+    this->latency = latency>0? latency : 1;
 
     // Fill with zeros so that the padding works
     for(size_t i = 0; i < fftSize; i++)
@@ -87,7 +89,8 @@ NoiseFilter<T>::~NoiseFilter()
 }
 
 template <typename T>
-void NoiseFilter<T>::setThreshold(int dBthreshold) {
+void NoiseFilter<T>::setThreshold(int dBthreshold)
+{
     this->threshold = pow(10.0, (double)dBthreshold/10.0);
 }
 
@@ -117,8 +120,11 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     for(size_t i=0; i<fftSize; ++i)
         power += level[i] = std::norm(in[i]);
 
+    // Calculate the average power over multiple FFTs
+    avgPower += (power/fftSize - avgPower) / latency;
+
     // Calculate the effective threshold to compare against
-    power = (power / fftSize) * threshold;
+    power = avgPower * threshold;
 
     // Compare signal's squared level against threshold
     for(size_t i=0; i<fftSize; ++i)

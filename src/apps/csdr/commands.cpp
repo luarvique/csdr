@@ -758,10 +758,12 @@ ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise")
     addFifoOption();
     add_option("-f,--fft_size", fftSize, "Number of FFT bins");
     add_option("-w,--wnd_size", wndSize, "Filter window size");
+    add_option("-l,--latency", latency, "Latency");
     add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
     callback( [this] () {
-        auto filter = new AFNoiseFilter(dBthreshold, fftSize, wndSize);
+        auto filter = new AFNoiseFilter(fftSize, wndSize, latency);
         module = new FilterModule<float>(filter);
+        filter->setThreshold(dBthreshold);
         runModule(module);
     });
 }

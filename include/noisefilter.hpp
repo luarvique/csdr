@@ -29,7 +29,7 @@ namespace Csdr {
     template <typename T>
     class NoiseFilter: public Filter<T> {
         public:
-            NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize);
+            NoiseFilter(size_t fftSize = 4096, size_t wndSize = 32, unsigned int latency = 5);
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
@@ -42,6 +42,8 @@ namespace Csdr {
             size_t wndSize;   // Actually, half-a-window
             size_t ovrSize;   // Usually 1/32th of fftSize
             double threshold; // Filtering threshold
+            double avgPower;  // Average power
+            double latency;   // Latency measuring avgPower
 
         private:
             fftwf_complex* forwardInput;
@@ -58,7 +60,7 @@ namespace Csdr {
 
     class AFNoiseFilter: public NoiseFilter<float> {
         public:
-            AFNoiseFilter(int dBthreshold = 0, size_t fftSize = 4096, size_t wndSize = 32):
-                NoiseFilter<float>(dBthreshold, fftSize, wndSize) {}
+            AFNoiseFilter(size_t fftSize = 4096, size_t wndSize = 32, unsigned int latency = 5):
+                NoiseFilter<float>(fftSize, wndSize, latency) {}
     };
 }
