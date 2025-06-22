@@ -116,12 +116,20 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     double level[fftSize];
 
     // Calculate signal's overall squared power
+    double maxPower = 0.0;
     double power = 0.0;
     for(size_t i=0; i<fftSize; ++i)
-        power += level[i] = std::norm(in[i]);
+    {
+        double v = std::norm(in[i]);
+        maxPower = std::max(maxPower, v);
+        power += level[i] = v;
+    }
+
+    // Drop the highest bucket
+    power = (power - maxPower) / (fftSize - 1);
 
     // Calculate the average power over multiple FFTs
-    avgPower += (power/fftSize - avgPower) / latency;
+    avgPower += (power - avgPower) / latency;
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
