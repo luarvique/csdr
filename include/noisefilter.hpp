@@ -31,21 +31,19 @@ namespace Csdr {
         public:
             NoiseFilter(int dBthreshold, size_t fftSize, size_t wndSize);
             ~NoiseFilter() override;
+
             size_t apply(T* input, T* output, size_t size) override;
             size_t getMinProcessingSize() override { return fftSize-ovrSize; }
 
+            void setThreshold(int dBthreshold);
+
         protected:
-            size_t fftSize;
+            size_t fftSize;   // Size of the FFT
             size_t wndSize;   // Actually, half-a-window
             size_t ovrSize;   // Usually 1/32th of fftSize
-            int dBthreshold;  // Filtering threshold in dB
+            double threshold; // Filtering threshold
 
         private:
-            static const int MAX_HISTORY = 8;
-            double histPower[MAX_HISTORY];
-            double lastPower;
-            int histPtr;
-
             fftwf_complex* forwardInput;
             fftwf_complex* forwardOutput;
             fftwf_plan forwardPlan;
