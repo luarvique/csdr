@@ -91,7 +91,7 @@ NoiseFilter<T>::~NoiseFilter()
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
-    this->threshold = pow(10.0, (double)dBthreshold/10.0);
+    this->threshold = pow(10.0, (double)dBthreshold/20.0);
 }
 
 template<typename T>
@@ -156,7 +156,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Filter out frequencies falling below threshold
     // (using cubic root of the overall weight to filter outliers)
     for(size_t i=0; i<fftSize; ++i)
-        out[i] = gain[i]? in[i] * std::pow((float)gain[i]/(wndSize*2), 0.3f) : 0.0f;
+        out[i] = gain[i]? in[i] * fsqrt((float)gain[i]/(wndSize*2)) : 0.0f;
 
     // Calculate inverse FFT on the filtered buffer
     fftwf_execute(inversePlan);
