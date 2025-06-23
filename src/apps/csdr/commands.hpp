@@ -358,9 +358,9 @@ namespace Csdr {
     class ReduceNoiseCommand: public Command {
         public:
             ReduceNoiseCommand();
-            unsigned int fftSize = 4096;
-            unsigned int wndSize = 32;
-            unsigned int latency = 5;
+            unsigned int fftSize = 512;
+            unsigned int wndSize = 8;
+            unsigned int latency = 4;
             int dBthreshold = 0;
             FilterModule<float>* module;
     };
