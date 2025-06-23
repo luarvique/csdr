@@ -155,7 +155,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 
     // Filter out frequencies falling below threshold
     for(size_t i=0; i<fftSize; ++i)
-        out[i] = gain[i]? in[i] * fsqrt((float)gain[i]/(wndSize*2)) : 0.0f;
+        out[i] = gain[i]? in[i] * std::sqrt((float)gain[i]/(wndSize*2)) : 0.0f;
 
     // Calculate inverse FFT on the filtered buffer
     fftwf_execute(inversePlan);
