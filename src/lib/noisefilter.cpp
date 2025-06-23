@@ -154,7 +154,6 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     }
 
     // Filter out frequencies falling below threshold
-    // (using cubic root of the overall weight to filter outliers)
     for(size_t i=0; i<fftSize; ++i)
         out[i] = gain[i]? in[i] * fsqrt((float)gain[i]/(wndSize*2)) : 0.0f;
 
