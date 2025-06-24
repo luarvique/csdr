@@ -29,7 +29,7 @@ namespace Csdr {
     template <typename T>
     class NoiseFilter: public Filter<T> {
         public:
-            NoiseFilter(size_t fftSize = 512, size_t wndSize = 8, unsigned int latency = 4);
+            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int latency = 1);
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
@@ -60,7 +60,7 @@ namespace Csdr {
 
     class AFNoiseFilter: public NoiseFilter<float> {
         public:
-            AFNoiseFilter(size_t fftSize = 512, size_t wndSize = 8, unsigned int latency = 4):
+            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int latency = 1):
                 NoiseFilter<float>(fftSize, wndSize, latency) {}
     };
 }

@@ -45,7 +45,7 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency
 {
     // Keep FFT and overlap sizes reasonable
     this->fftSize = fftSize = fftSize>=32? fftSize : 32;
-    this->ovrSize = fftSize>=1024? (fftSize>>6) : 16;
+    this->ovrSize = fftSize>=64? (fftSize>>6) : 1;
 
     // Make sure window does not exceed half of the FFT size
     wndSize = wndSize>fftSize/2? fftSize/2 : wndSize;
