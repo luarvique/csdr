@@ -41,20 +41,11 @@ using namespace Csdr;
 #endif
 
 template <typename T>
-NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency):
-    fftSize(fftSize),
-    forwardInput(fftwf_alloc_complex(fftSize)),
-    forwardOutput(fftwf_alloc_complex(fftSize)),
-    forwardPlan(fftwf_plan_dft_1d(fftSize, forwardInput, forwardOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS)),
-    inverseInput(fftwf_alloc_complex(fftSize)),
-    inverseOutput(fftwf_alloc_complex(fftSize)),
-    inversePlan(fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS)),
-    threshold(1.0),
-    avgPower(0.0)
+NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency)
 {
-    // Come up with a reasonable overlap size
-    ovrSize = fftSize>=64? (fftSize>>6) : 1;
-    overlapBuf = fftwf_alloc_complex(ovrSize);
+    // Keep FFT and overlap sizes reasonable
+    this->fftSize = fftSize = fftSize>=32? fftSize : 32;
+    this->ovrSize = fftSize>=1024? (fftSize>>6) : 16;
 
     // Make sure window does not exceed half of the FFT size
     wndSize = wndSize>fftSize/2? fftSize/2 : wndSize;
@@ -65,8 +56,19 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency
     // We are really interested in half-a-window
     this->wndSize = wndSize>>1;
 
-    // Make sure latency is positive
-    this->latency = latency>0? latency : 1;
+    // Keep latency positive
+    this->latency   = latency>0? latency : 1;
+    this->threshold = 1.0;
+    this->avgPower  = 0.0;
+
+    // Allocate FFT buffers and plans
+    overlapBuf    = fftwf_alloc_complex(ovrSize);
+    forwardInput  = fftwf_alloc_complex(fftSize);
+    forwardOutput = fftwf_alloc_complex(fftSize);
+    forwardPlan   = fftwf_plan_dft_1d(fftSize, forwardInput, forwardOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+    inverseInput  = fftwf_alloc_complex(fftSize);
+    inverseOutput = fftwf_alloc_complex(fftSize);
+    inversePlan   = fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS);
 
     // Fill with zeros so that the padding works
     for(size_t i = 0; i < fftSize; i++)
