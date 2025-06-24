@@ -360,7 +360,7 @@ namespace Csdr {
             ReduceNoiseCommand();
             unsigned int fftSize = 1024;
             unsigned int wndSize = 16;
-            unsigned int latency = 1;
+            unsigned int latency = 3;
             int dBthreshold = 0;
             FilterModule<float>* module;
     };
