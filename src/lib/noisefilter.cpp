@@ -93,6 +93,7 @@ NoiseFilter<T>::~NoiseFilter()
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
+    // Using power decibels here (square of amplitude)
     this->threshold = pow(10.0, (double)dBthreshold/20.0);
 }
 
@@ -130,8 +131,11 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Drop the highest bucket
     power = (power - maxPower) / (fftSize - 1);
 
-    // Calculate the average power over multiple FFTs
-    avgPower += (power - avgPower) / latency;
+    // Track the average power over multiple FFTs
+    //avgPower += (power - avgPower) / latency;
+
+    // Track the peak average power over multiple FFTs
+    avgPower = power>avgPower? power : avgPower + (power - avgPower) / latency;
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
