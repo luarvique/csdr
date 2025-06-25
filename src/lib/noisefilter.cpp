@@ -135,7 +135,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     //avgPower += (power - avgPower) / latency;
 
     // Track the peak average power over multiple FFTs
-    avgPower = power>avgPower? power : avgPower + (power - avgPower) / latency;
+    avgPower += (power - avgPower) / (power>avgPower? 2.0 : latency);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
