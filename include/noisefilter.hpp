@@ -29,7 +29,7 @@ namespace Csdr {
     template <typename T>
     class NoiseFilter: public Filter<T> {
         public:
-            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int latency = 3);
+            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int decay = 10, unsigned int attack = 2);
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
@@ -40,10 +40,11 @@ namespace Csdr {
         protected:
             size_t fftSize;   // Size of the FFT
             size_t wndSize;   // Actually, half-a-window
-            size_t ovrSize;   // Usually 1/32th of fftSize
+            size_t ovrSize;   // Usually 1/64th of fftSize
             double threshold; // Filtering threshold
-            double avgPower;  // Average power
-            double latency;   // Latency measuring avgPower
+            double avgPower;  // Power over multiple FFTs
+            double attack;    // Attack rate measuring avgPower
+            double decay;     // Decay rate measuring avgPower
 
         private:
             fftwf_complex* forwardInput;
@@ -60,7 +61,7 @@ namespace Csdr {
 
     class AFNoiseFilter: public NoiseFilter<float> {
         public:
-            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int latency = 3):
-                NoiseFilter<float>(fftSize, wndSize, latency) {}
+            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int decay = 10, unsigned int attack = 2):
+                NoiseFilter<float>(fftSize, wndSize, decay, attack) {}
     };
 }

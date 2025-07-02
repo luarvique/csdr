@@ -41,7 +41,7 @@ using namespace Csdr;
 #endif
 
 template <typename T>
-NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency)
+NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, unsigned int attack)
 {
     // Keep FFT and overlap sizes reasonable
     this->fftSize = fftSize = fftSize>=32? fftSize : 32;
@@ -56,8 +56,9 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int latency
     // We are really interested in half-a-window
     this->wndSize = wndSize>>1;
 
-    // Keep latency positive
-    this->latency   = latency>0? latency : 1;
+    // Keep attack and decay positive
+    this->attack    = attack>0? attack : 1;
+    this->decay     = decay>0? decay : 1;
     this->threshold = 1.0;
     this->avgPower  = 0.0;
 
@@ -131,11 +132,8 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Drop the highest bucket
     power = (power - maxPower) / (fftSize - 1);
 
-    // Track the average power over multiple FFTs
-    //avgPower += (power - avgPower) / latency;
-
     // Track the peak average power over multiple FFTs
-    avgPower += (power - avgPower) / (power>avgPower? 2.0 : latency);
+    avgPower += (power - avgPower) / (power>avgPower? attack : decay);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
