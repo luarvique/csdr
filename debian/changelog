@@ -1,3 +1,10 @@
+csdr (0.18.34) bullseye jammy; urgency=low
+
+  * Further NoiseFilter improvements.
+  * Added attack/decay parameters.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 7 Jul 2025 16:12:00 +0000
+
 csdr (0.18.33) bullseye jammy; urgency=low
 
   * Improved NoiseFilter algorithm.
