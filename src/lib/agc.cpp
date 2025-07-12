@@ -172,7 +172,7 @@ complex<float> Agc<complex<float>>::scale(complex<float> in) {
 
 template <>
 float Agc<complex<float>>::maxMagnitude() {
-    return 2.0f;
+    return M_SQRT2;
 }
 
 template <typename T>
