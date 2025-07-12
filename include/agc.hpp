@@ -55,6 +55,7 @@ namespace Csdr {
             float abs(T in);
             bool isZero(T in);
             T scale(T in);
+            float maxMagnitude();
 
             // params
             // fast profile defaults

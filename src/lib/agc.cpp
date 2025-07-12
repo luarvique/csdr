@@ -39,6 +39,12 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 	float dt = 0.5;
 	float beta = 0.005;
 
+    //Determine magnitude
+    float max_gain = 0.0;
+    for (int i = 0; i < work_size; i++)
+        max_gain = std::max(max_gain, (float)std::norm(input[i]));
+    max_gain = max_gain > 0.0? maxMagnitude() / fsqrt(max_gain) : 1.0;
+
     for (int i = 0; i < work_size; i++) {
         //We skip samples containing 0, as the gain would be infinity for those to keep up with the reference.
         if (!isZero(input[i])) {
@@ -89,6 +95,7 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
         gain = this->xk;
 
         // clamp gain to max_gain and 0
+        if (gain > this->max_gain) gain = this->max_gain;
         if (gain > max_gain) gain = max_gain;
         if (gain < 0) gain = 0;
 
@@ -116,6 +123,11 @@ short Agc<short>::scale(short in) {
 }
 
 template <>
+float Agc<short>::maxMagnitude() {
+    return SHRT_MAX - 1;
+}
+
+template <>
 float Agc<float>::abs(float in) {
     return std::fabs(in);
 }
@@ -131,6 +143,11 @@ float Agc<float>::scale(float in) {
     if (val > 1.0f) return 1.0f;
     if (val < -1.0f) return -1.0f;
     return val;
+}
+
+template <>
+float Agc<float>::maxMagnitude() {
+    return 1.0f;
 }
 
 template <>
@@ -151,6 +168,11 @@ complex<float> Agc<complex<float>>::scale(complex<float> in) {
     if (val.i() < -1.0f) val.i(-1.0f);
     if (val.q() < -1.0f) val.q(-1.0f);
     return val;
+}
+
+template <>
+float Agc<complex<float>>::maxMagnitude() {
+    return 2.0f;
 }
 
 template <typename T>
