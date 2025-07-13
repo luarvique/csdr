@@ -32,7 +32,7 @@ using namespace Csdr;
 
 template <typename T>
 void Agc<T>::process(T* input, T* output, size_t work_size) {
-    float max_gain = 0.0;
+    float max_gain = this->max_gain;
     float input_abs;
     float error, dgain;
 
@@ -41,8 +41,10 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     float beta = 0.005;
 
     //Determine magnitude
+    max_gain = 0.0;
     for (int i = 0; i < work_size; i++)
         max_gain = std::max(max_gain, (float)std::norm(input[i]));
+    //Compute gain limit that avoids clipping
     max_gain = max_gain > 0.0? maxMagnitude() / fsqrt(max_gain) : 1.0;
     max_gain = std::min(max_gain, this->max_gain);
 
