@@ -34,6 +34,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace Csdr;
 
+#define MAX_SCALES (16)
+
 #if defined __arm__ || __aarch64__
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_ESTIMATE)
 #else
@@ -112,45 +114,73 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Calculate FFT on input buffer
     fftwf_execute(forwardPlan);
 
+    struct { double power; int count; } scales[MAX_SCALES];
+
     auto* in = (complex<float>*) forwardOutput;
     auto* out = (complex<float>*) inverseInput;
 
     unsigned char gate[fftSize];
     unsigned char gain[fftSize];
     double level[fftSize];
+    size_t i, j, k, n;
+    double power;
 
-    // Calculate signal's overall squared power
-    double maxPower = 0.0;
-    double power = 0.0;
-    for(size_t i=0; i<fftSize; ++i)
+    // Sort buckets into scales
+    memset(scales, 0, sizeof(scales));
+    for(i=0 ; i<fftSize ; ++i)
     {
         double v = std::norm(in[i]);
-        maxPower = std::max(maxPower, v);
-        power += level[i] = v;
+        int scale = floor(log(v) + MAX_SCALES/2);
+        scale = scale<0? 0 : scale>MAX_SCALES-1? MAX_SCALES-1 : scale;
+        scales[scale].power += v;
+        scales[scale].count++;
+        level[i] = v;
     }
 
-    // Drop the highest bucket
-    power = (power - maxPower) / (fftSize - 1);
+    // Find most populated scales and use them for median power
+    for(i=0, n=0, power=0.0 ; (i<MAX_SCALES-1) && (n<fftSize/2) ; ++i)
+    {
+        // Look for the next most populated scale
+        for(k=i, j=i+1 ; j<MAX_SCALES ; ++j)
+            if(scales[j].count>scales[k].count) k = j;
 
-    // Track the peak average power over multiple FFTs
+        // If found, swap with current one
+        if(k!=i)
+        {
+            double v = scales[k].power;
+            j = scales[k].count;
+            scales[k] = scales[i];
+            scales[i].power = v;
+            scales[i].count = j;
+        }
+
+        // Keep track of the total number of buckets
+        power += scales[i].power;
+        n += scales[i].count;
+    }
+
+    // Compute the median power
+    power /= n;
+
+    // Track the peak median power over multiple FFTs
     avgPower += (power - avgPower) / (power>avgPower? attack : decay);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
 
     // Compare signal's squared level against threshold
-    for(size_t i=0; i<fftSize; ++i)
+    for(i=0 ; i<fftSize ; ++i)
         gate[i] = level[i]>power? 1:0;
 
     // Compute initial gain for the first entry
     gain[0] = 0;
-    for(size_t i=0; i<wndSize; ++i)
+    for(i=0 ; i<wndSize ; ++i)
         gain[0] += gate[i] + gate[fftSize - i - 1];
 
     // Incrementally compute gains by moving window over gates
     int prev = fftSize - wndSize;
     int next = wndSize;
-    for(size_t i=1; i<fftSize; ++i)
+    for(i=1 ; i<fftSize ; ++i)
     {
         gain[i] = gain[i-1] + gate[next] - gate[prev];
         if(++prev>=fftSize) prev = 0;
@@ -158,7 +188,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     }
 
     // Filter out frequencies falling below threshold
-    for(size_t i=0; i<fftSize; ++i)
+    for(i=0 ; i<fftSize ; ++i)
         out[i] = gain[i]? in[i] * std::sqrt((float)gain[i]/(wndSize*2)) : 0.0f;
 
     // Calculate inverse FFT on the filtered buffer
@@ -169,21 +199,21 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     auto overlap = (complex<float>*) overlapBuf;
 
     // Blend with the overlap
-    for(size_t i=0; i<ovrSize; ++i)
+    for(i=0 ; i<ovrSize ; ++i)
     {
         float f = (float)i/ovrSize;
         result[i] = (result[i]/(float)fftSize)*f + overlap[i]*(1.0f-f);
     }
 
     // Normalize the rest
-    for(size_t i=ovrSize; i<fftSize; ++i)
+    for(i=ovrSize ; i<fftSize ; ++i)
         result[i] /= fftSize;
 
     // Save overlap for the next time
     std::memcpy(overlap, result + inputSize, sizeof(complex<float>) * ovrSize);
 
     // Copy output but only partially fill FFT output
-    for(size_t i=0; i<inputSize; ++i)
+    for(i=0 ; i<inputSize ; ++i)
         output[i] = complex2sample(result[i]);
 
     // Done
