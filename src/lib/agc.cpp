@@ -39,26 +39,28 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     float dt = 0.5;
     float beta = 0.005;
 
-    float env_gain = max_gain;
-    float env_step = 0.0;
-    int env_count = 0;
-
     for (int i = 0; i < work_size; i++) {
         // If we have reached a previously detected peak...
-        if (!env_count) {
-            // Find the next peak
-            env_step = (float)std::norm(input[i + 1]);
-            env_count = 1;
-            for (int j = 2; (j < work_size / 8) && (i + j < work_size) ; j++) {
-                float v = (float)std::norm(input[i + j]);
-                if (v > env_step) { env_step = v; env_count = j; }
+        if (!env_counter) {
+            // If too few samples available, keep same envelope
+            env_counter = work_size - i;
+            if (env_counter < 2) {
+                env_step = 0.0;
+            } else {
+                // Find the next peak
+                env_step = (float)std::norm(input[i + 1]);
+                env_counter = 1;
+                for (int j = 2; (j < env_window) && (i + j < work_size) ; j++) {
+                    float v = (float)std::norm(input[i + j]);
+                    if (v > env_step) { env_step = v; env_counter = j; }
+                }
+
+                // This is our next peak gain
+                env_step = env_step > 0.0? maxMagnitude() / fsqrt(env_step) : env_gain;
+
+                // Will be applying it in steps to create an envelope
+                env_step = (env_step - env_gain) / env_counter;
             }
-
-            // This is our next peak gain
-            env_step = env_step > 0.0? maxMagnitude() / fsqrt(env_step) : env_gain;
-
-            // Will be applying it in steps to create an envelope
-            env_step = (env_step - env_gain) / env_count;
         }
 
         //We skip samples containing 0, as the gain would be infinity for those to keep up with the reference.
@@ -115,7 +117,7 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 
         // Keep track of the max_gain envelope
         env_gain += env_step;
-        env_count--;
+        env_counter--;
 
         // actual sample scaling
         output[i] = scale(input[i]);

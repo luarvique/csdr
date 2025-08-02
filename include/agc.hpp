@@ -67,10 +67,14 @@ namespace Csdr {
             float gain_filter_alpha = 1.5;
             // state
             float gain = 1;
-            float last_peak = 0;
             unsigned long int hang_counter = 0;
             float xk = 0;
             float vk = 0;
+            // envelope
+            float env_gain = 65535;
+            float env_step = 0.0;
+            unsigned long int env_counter = 0;
+            unsigned long int env_window = 64;
     };
 
 }
