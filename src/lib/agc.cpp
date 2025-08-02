@@ -32,7 +32,6 @@ using namespace Csdr;
 
 template <typename T>
 void Agc<T>::process(T* input, T* output, size_t work_size) {
-    float max_gain = this->max_gain;
     float input_abs;
     float error, dgain;
 
@@ -40,15 +39,28 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     float dt = 0.5;
     float beta = 0.005;
 
-    //Determine magnitude
-    max_gain = 0.0;
-    for (int i = 0; i < work_size; i++)
-        max_gain = std::max(max_gain, (float)std::norm(input[i]));
-    //Compute gain limit that avoids clipping
-    max_gain = max_gain > 0.0? maxMagnitude() / fsqrt(max_gain) : 1.0;
-    max_gain = std::min(max_gain, this->max_gain);
+    float env_gain = max_gain;
+    float env_step = 0.0;
+    int env_count = 0;
 
     for (int i = 0; i < work_size; i++) {
+        // If we have reached a previously detected peak...
+        if (!env_count) {
+            // Find the next peak
+            env_step = (float)std::norm(input[i + 1]);
+            env_count = 1;
+            for (int j = 2; (j < work_size / 8) && (i + j < work_size) ; j++) {
+                float v = (float)std::norm(input[i + j]);
+                if (v > env_step) { env_step = v; env_count = j; }
+            }
+
+            // This is our next peak gain
+            env_step = env_step > 0.0? maxMagnitude() / fsqrt(env_step) : env_gain;
+
+            // Will be applying it in steps to create an envelope
+            env_step = (env_step - env_gain) / env_count;
+        }
+
         //We skip samples containing 0, as the gain would be infinity for those to keep up with the reference.
         if (!isZero(input[i])) {
             //The error is the difference between the required gain at the actual sample, and the previous gain value.
@@ -70,16 +82,15 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
                 dgain = 1 - attack_rate;
                 //Before starting to increase the gain next time, we will be waiting until hang_time for sure.
                 hang_counter = hang_time;
+            } else if (hang_counter > 0) {
+                //Before starting to increase the gain, we will be waiting until hang_time.
+                hang_counter--;
+                dgain = 1; //..until then, AGC is inactive and gain doesn't change.
             } else {
                 //DECREASE IN SIGNAL LEVEL
-                if (hang_counter > 0) {
-                    //Before starting to increase the gain, we will be waiting until hang_time.
-                    hang_counter--;
-                    dgain = 1; //..until then, AGC is inactive and gain doesn't change.
-                } else {
-                    dgain = 1 + decay_rate; //If the signal level decreases, we increase the gain quite slowly.
-                }
+                dgain = 1 + decay_rate; //If the signal level decreases, we increase the gain quite slowly.
             }
+
             gain = gain * dgain;
         }
 
@@ -97,9 +108,14 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 
         gain = this->xk;
 
-        // clamp gain to max_gain and 0
+        // Clamp gain to max_gain, envelope, and 0
         if (gain > max_gain) gain = max_gain;
+        if (gain > env_gain) gain = env_gain;
         if (gain < 0) gain = 0;
+
+        // Keep track of the max_gain envelope
+        env_gain += env_step;
+        env_count--;
 
         // actual sample scaling
         output[i] = scale(input[i]);
