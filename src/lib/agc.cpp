@@ -35,10 +35,6 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     float input_abs;
     float error, dgain;
 
-    float xk, vk, rk;
-    float dt = 0.5;
-    float beta = 0.005;
-
     for (int i = 0; i < work_size; i++) {
         // We skip samples containing 0, as the gain would be infinity
         // for those to keep up with the reference.
@@ -77,33 +73,24 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
                 hang_counter--;
                 // Until then, AGC is inactive and gain doesn't change.
                 dgain = 1.0;
-            } else {
+            } else if (error < 1.0) {
                 // DECREASE IN SIGNAL LEVEL
                 // If the signal level decreases, we increase the gain
                 // quite slowly.
                 dgain = 1.0 + decay_rate;
+            } else {
+                // NO CHANGE IN SIGNAL LEVEL
+                dgain = 1.0;
             }
 
+            // Apply low-pass filter to gain
+            //gain = gain * 0.9 + gain * dgain * 0.1;
             gain = gain * dgain;
+
+            // Clamp gain to max_gain and 0
+            if (gain > max_gain) gain = max_gain;
+            if (gain < 0) gain = 0;
         }
-
-        // Alpha beta filter
-        xk = this->xk + (this->vk * dt);
-        vk = this->vk;
-
-        rk = gain - xk;
-
-        xk += gain_filter_alpha * rk;
-        vk += (beta * rk) / dt;
-
-        this->xk = xk;
-        this->vk = vk;
-
-        gain = this->xk;
-
-        // Clamp gain to max_gain and 0
-        if (gain > max_gain) gain = max_gain;
-        if (gain < 0) gain = 0;
 
         // Actual sample scaling
         output[i] = scale(input[i]);
