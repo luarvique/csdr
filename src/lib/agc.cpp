@@ -32,8 +32,7 @@ using namespace Csdr;
 
 template <typename T>
 void Agc<T>::process(T* input, T* output, size_t work_size) {
-    float input_abs;
-    float error, dgain;
+    float input_abs, error, dgain;
 
     for (int i = 0; i < work_size; i++) {
         // We skip samples containing 0, as the gain would be infinity
@@ -83,13 +82,12 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
                 dgain = 1.0;
             }
 
-            // Apply low-pass filter to gain
-            //gain = gain * 0.9 + gain * dgain * 0.1;
+            // Modify gain
             gain = gain * dgain;
 
             // Clamp gain to max_gain and 0
             if (gain > max_gain) gain = max_gain;
-            if (gain < 0) gain = 0;
+            if (gain < 0.0) gain = 0.0;
         }
 
         // Actual sample scaling
