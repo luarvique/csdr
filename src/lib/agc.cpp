@@ -37,6 +37,7 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     size_t ahead_size = 50;
     size_t j, k;
 
+    // Find the initial max value for the window
     for (j = 0, max_abs = 0.0; (j < ahead_size) && (j < work_size) ; j++) {
         max_abs = std::max(max_abs, this->abs(input[j]));
     }
@@ -103,6 +104,8 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 
         // Move the window
         if (j < work_size) max_abs = std::max(max_abs, this->abs(input[j++]));
+
+        // Recompute max if the previous max has been chopped off
         if (max_abs <= this->abs(input[i])) {
             for (k = i + 1, max_abs = 0.0; k < j; k++) {
                 max_abs = std::max(max_abs, this->abs(input[k]));
