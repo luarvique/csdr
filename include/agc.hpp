@@ -62,11 +62,12 @@ namespace Csdr {
             float attack_rate = 0.1;
             float decay_rate = 0.001;
             float max_gain = 65535.0;
-            unsigned long int hang_time = 200;
-            float gain_filter_alpha = 1.5;
+            unsigned int hang_time = 200;
+            unsigned int ahead_time = 100;
             // state
             float gain = 1.0;
-            unsigned long int hang_counter = 0;
+            float max_abs = 0.0;
+            unsigned int hang_counter = 0;
     };
 
 }
