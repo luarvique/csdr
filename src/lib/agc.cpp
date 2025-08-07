@@ -33,15 +33,23 @@ using namespace Csdr;
 template <typename T>
 void Agc<T>::process(T* input, T* output, size_t work_size) {
     float input_abs, error, dgain;
+    float max_abs;
+    size_t ahead_size = 50;
+    size_t j, k;
 
-    for (int i = 0; i < work_size; i++) {
+    for (j = 0, max_abs = 0.0; (j < ahead_size) && (j < work_size) ; j++) {
+        max_abs = std::max(max_abs, this->abs(input[j]));
+    }
+
+    for (size_t i = 0; i < work_size; i++) {
         // We skip samples containing 0, as the gain would be infinity
         // for those to keep up with the reference.
         if (!isZero(input[i])) {
             // The error is the difference between the required gain at
             // the actual sample, and the previous gain value.
             // We actually use an envelope detector.
-            input_abs = this->abs(input[i]);
+            //input_abs = this->abs(input[i]);
+            input_abs = max_abs;
             error = (input_abs * gain) / reference;
 
             // An AGC is something nonlinear that's easier to implement in
@@ -92,6 +100,14 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 
         // Actual sample scaling
         output[i] = scale(input[i]);
+
+        // Move the window
+        if (j < work_size) max_abs = std::max(max_abs, this->abs(input[j++]));
+        if (max_abs <= this->abs(input[i])) {
+            for (k = i + 1, max_abs = 0.0; k < j; k++) {
+                max_abs = std::max(max_abs, this->abs(input[k]));
+            }
+        }
     }
 }
 
