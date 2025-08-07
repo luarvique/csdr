@@ -33,13 +33,12 @@ using namespace Csdr;
 template <typename T>
 void Agc<T>::process(T* input, T* output, size_t work_size) {
     float input_abs, error, dgain;
-    float max_abs;
-    size_t ahead_size = 50;
-    size_t j, k;
+    size_t j;
 
-    // Find the initial max value for the window
-    for (j = 0, max_abs = 0.0; (j < ahead_size) && (j < work_size) ; j++) {
-        max_abs = std::max(max_abs, this->abs(input[j]));
+    // Find the initial max value for the envelope
+    for (j = 0; (j < ahead_time) && (j < work_size) ; j++) {
+        input_abs = this->abs(input[j]);
+        max_abs = max_abs < input_abs? input_abs : max_abs * 0.99;
     }
 
     for (size_t i = 0; i < work_size; i++) {
@@ -102,15 +101,9 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
         // Actual sample scaling
         output[i] = scale(input[i]);
 
-        // Move the window
-        if (j < work_size) max_abs = std::max(max_abs, this->abs(input[j++]));
-
-        // Recompute max if the previous max has been chopped off
-        if (max_abs <= this->abs(input[i])) {
-            for (k = i + 1, max_abs = 0.0; k < j; k++) {
-                max_abs = std::max(max_abs, this->abs(input[k]));
-            }
-        }
+        // Move the envelope
+        input_abs = j < work_size? this->abs(input[j++]) : 0.0;
+        max_abs = max_abs < input_abs? input_abs : max_abs * 0.99;
     }
 }
 
