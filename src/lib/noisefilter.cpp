@@ -101,12 +101,9 @@ void NoiseFilter<T>::setThreshold(int dBthreshold)
 template<typename T>
 size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 {
-    size_t inputSize = fftSize - ovrSize;
-
-    // Copy input but only partially fill FFT input
+    // Copy input
     auto* data = (complex<float>*) forwardInput;
-    size_t dataSize = inputSize<size? inputSize : size;
-    for(size_t i=0; i<dataSize; ++i)
+    for(size_t i=0; i<fftSize; ++i)
         data[i] = input[i];
 
     // Calculate FFT on input buffer
@@ -179,12 +176,13 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     for(size_t i=ovrSize; i<fftSize; ++i)
         result[i] /= fftSize;
 
-    // Save overlap for the next time
-    std::memcpy(overlap, result + inputSize, sizeof(complex<float>) * ovrSize);
-
-    // Copy output but only partially fill FFT output
+    // Copy output
+    size_t inputSize = fftSize - ovrSize;
     for(size_t i=0; i<inputSize; ++i)
         output[i] = complex2sample(result[i]);
+
+    // Save overlap for the next time
+    std::memcpy(overlap, result + inputSize, sizeof(complex<float>) * ovrSize);
 
     // Done
     return inputSize;

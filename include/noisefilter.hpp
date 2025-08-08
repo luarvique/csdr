@@ -33,7 +33,7 @@ namespace Csdr {
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
-            size_t getMinProcessingSize() override { return fftSize-ovrSize; }
+            size_t getMinProcessingSize() override { return fftSize; }
 
             void setThreshold(int dBthreshold);
 
