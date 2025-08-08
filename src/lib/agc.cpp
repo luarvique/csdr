@@ -42,53 +42,48 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     }
 
     for (size_t i = 0; i < work_size; i++) {
-        // We skip samples containing 0, as the gain would be infinity
-        // for those to keep up with the reference.
-        if (!isZero(input[i])) {
-            // The error is the difference between the required gain at
-            // the actual sample, and the previous gain value.
-            // We actually use an envelope detector.
-            //input_abs = this->abs(input[i]);
-            input_abs = max_abs;
-            error = (input_abs * gain) / reference;
+        // The error is the difference between the required gain at
+        // the actual sample, and the previous gain value.
+        // We actually use an envelope detector.
+        //input_abs = this->abs(input[i]);
+        error = (max_abs * gain) / reference;
 
-            // An AGC is something nonlinear that's easier to implement in
-            // software:
-            // * If the amplitude decreases, we increase the gain by
-            //   minimizing the gain error by attack_rate.
-            // * We also have a decay_rate that comes into consideration
-            //   when the amplitude increases.
-            // * The higher these rates are, the faster is the response of
-            //   the AGC to amplitude changes.
-            // * However, attack_rate should be higher than the decay_rate
-            //   as we want to avoid clipping signals that had a sudden
-            //   increase in their amplitude.
-            // * It's also important to note that this algorithm has an
-            //   exponential gain ramp.
+        // An AGC is something nonlinear that's easier to implement in
+        // software:
+        // * If the amplitude decreases, we increase the gain by
+        //   minimizing the gain error by attack_rate.
+        // * We also have a decay_rate that comes into consideration
+        //   when the amplitude increases.
+        // * The higher these rates are, the faster is the response of
+        //   the AGC to amplitude changes.
+        // * However, attack_rate should be higher than the decay_rate
+        //   as we want to avoid clipping signals that had a sudden
+        //   increase in their amplitude.
+        // * It's also important to note that this algorithm has an
+        //   exponential gain ramp.
 
-            if (error > 1.0) {
-                // INCREASE IN SIGNAL LEVEL
-                // If the signal level increases, we decrease the gain
-                // quite fast.
-                dgain = 1.0 - attack_rate;
-                // Before starting to increase the gain next time, we
-                // will be waiting until hang_time for sure.
-                hang_counter = hang_time;
-            } else if (hang_counter > 0) {
-                // Before starting to increase the gain, we will be waiting
-                // until hang_time.
-                hang_counter--;
-                // Until then, AGC is inactive and gain doesn't change.
-                dgain = 1.0;
-            } else if (error < 1.0) {
-                // DECREASE IN SIGNAL LEVEL
-                // If the signal level decreases, we increase the gain
-                // quite slowly.
-                dgain = 1.0 + decay_rate;
-            } else {
-                // NO CHANGE IN SIGNAL LEVEL
-                dgain = 1.0;
-            }
+        if (error > 1.0) {
+            // INCREASE IN SIGNAL LEVEL
+            // If the signal level increases, we decrease the gain
+            // quite fast.
+            dgain = 1.0 - attack_rate;
+            // Before starting to increase the gain next time, we
+            // will be waiting until hang_time for sure.
+            hang_counter = hang_time;
+        } else if (hang_counter > 0) {
+            // Before starting to increase the gain, we will be waiting
+            // until hang_time.
+            hang_counter--;
+            // Until then, AGC is inactive and gain doesn't change.
+            dgain = 1.0;
+        } else if (error < 1.0) {
+            // DECREASE IN SIGNAL LEVEL
+            // If the signal level decreases, we increase the gain
+            // quite slowly.
+            dgain = 1.0 + decay_rate;
+        } else {
+            // NO CHANGE IN SIGNAL LEVEL
+            dgain = 1.0;
         }
 
         // Modify gain
