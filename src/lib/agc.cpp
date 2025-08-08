@@ -89,16 +89,16 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
                 // NO CHANGE IN SIGNAL LEVEL
                 dgain = 1.0;
             }
-
-            // Modify gain
-            gain = gain * dgain;
-
-            // Clamp gain to max_gain and 0
-            if (gain > max_gain) gain = max_gain;
-            if (gain < 0.0) gain = 0.0;
         }
 
-        // Actual sample scaling
+        // Modify gain
+        gain = gain * dgain;
+
+        // Clamp gain to the [0 ; max_gain] range
+        if (gain > max_gain) gain = max_gain;
+        if (gain < 0.0) gain = 0.0;
+
+        // Scale the sample
         output[i] = scale(input[i]);
 
         // Move the envelope
