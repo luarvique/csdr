@@ -40,7 +40,7 @@ namespace Csdr {
         protected:
             size_t fftSize;   // Size of the FFT
             size_t wndSize;   // Actually, half-a-window
-            size_t ovrSize;   // Usually 1/64th of fftSize
+            size_t ovrSize;   // Usually 1/8th of fftSize
             double threshold; // Filtering threshold
             double avgPower;  // Power over multiple FFTs
             double attack;    // Attack rate measuring avgPower
