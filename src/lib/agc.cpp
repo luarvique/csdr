@@ -35,10 +35,13 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
     float input_abs, error, dgain;
     size_t j;
 
+    // We decay the envelope to leave ~33% of the peak at the end
+    float env_decay = std::pow(0.33, 1.0 / ahead_time);
+
     // Find the initial max value for the envelope
     for (j = 0; (j < ahead_time) && (j < work_size) ; j++) {
         input_abs = this->abs(input[j]);
-        max_abs = max_abs < input_abs? input_abs : max_abs * 0.99;
+        max_abs = max_abs < input_abs? input_abs : max_abs * env_decay;
     }
 
     for (size_t i = 0; i < work_size; i++) {
@@ -98,7 +101,7 @@ void Agc<T>::process(T* input, T* output, size_t work_size) {
 
         // Move the envelope
         input_abs = j < work_size? this->abs(input[j++]) : 0.0;
-        max_abs = max_abs < input_abs? input_abs : max_abs * 0.99;
+        max_abs = max_abs < input_abs? input_abs : max_abs * env_decay;
     }
 }
 
