@@ -33,26 +33,32 @@ using namespace Csdr;
 template <typename T>
 bool Agc<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t avail = this->reader->available();
-    return (avail > ahead_time) && (this->writer->writeable() > avail - ahead_time);
+    return (this->reader->available() > ahead_time) &&
+           (this->writer->writeable() > 0);
 }
 
 template <typename T>
 void Agc<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
-    // Get our input and output streams
-    T *input = this->reader->getReadPointer();
-    T *output = this->writer->getWritePointer();
-    size_t work_size = this->reader->available();
+    // Must have something to process
+    if (this->reader->available() <= ahead_time) return;
+
+    // Determine the number of samples to work on
+    size_t work_size = std::min(
+        this->reader->available() - ahead_time,
+        this->writer->writeable()
+    );
 
     // Must have something to process
-    if (work_size <= ahead_time) return;
-    work_size -= ahead_time;
+    if (!work_size) return;
+
+    // These are our input and output streams
+    T *input = this->reader->getReadPointer();
+    T *output = this->writer->getWritePointer();
 
     // We decay the envelope to leave ~33% of the peak at the end
     float env_decay = std::pow(0.33, 1.0 / ahead_time);
-
     float input_abs, error, dgain;
 
     for (size_t i = 0; i < work_size; i++) {
