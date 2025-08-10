@@ -57,8 +57,6 @@ void Agc<T>::process() {
     T *input = this->reader->getReadPointer();
     T *output = this->writer->getWritePointer();
 
-    // We decay the envelope to leave ~33% of the peak at the end
-    float env_decay = std::pow(0.33, 1.0 / ahead_time);
     float input_abs, error, dgain;
 
     for (size_t i = 0; i < work_size; i++) {
