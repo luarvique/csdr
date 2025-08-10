@@ -51,7 +51,7 @@ void Agc<T>::process() {
     );
 
     // Must have something to process
-    if (!work_size) return;
+    if (work_size <= 0) return;
 
     // These are our input and output streams
     T *input = this->reader->getReadPointer();
