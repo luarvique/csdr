@@ -31,80 +31,111 @@ This file is part of libcsdr.
 using namespace Csdr;
 
 template <typename T>
-void Agc<T>::process(T* input, T* output, size_t work_size) {
-	float input_abs;
-	float error, dgain;
+bool Agc<T>::canProcess() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+    return (this->reader->available() > ahead_time) &&
+           (this->writer->writeable() > 0);
+}
 
-	float xk, vk, rk;
-	float dt = 0.5;
-	float beta = 0.005;
+template <typename T>
+void Agc<T>::process() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
 
-    for (int i = 0; i < work_size; i++) {
-        //We skip samples containing 0, as the gain would be infinity for those to keep up with the reference.
-        if (!isZero(input[i])) {
-            //The error is the difference between the required gain at the actual sample, and the previous gain value.
-            //We actually use an envelope detector.
-            input_abs = this->abs(input[i]);
-            error = (input_abs * gain) / reference;
+    // Must have something to process
+    if (this->reader->available() <= ahead_time) return;
 
-            //An AGC is something nonlinear that's easier to implement in software:
-            //if the amplitude decreases, we increase the gain by minimizing the gain error by attack_rate.
-            //We also have a decay_rate that comes into consideration when the amplitude increases.
-            //The higher these rates are, the faster is the response of the AGC to amplitude changes.
-            //However, attack_rate should be higher than the decay_rate as we want to avoid clipping signals.
-            //that had a sudden increase in their amplitude.
-            //It's also important to note that this algorithm has an exponential gain ramp.
+    // Determine the number of samples to work on
+    size_t work_size = std::min(
+        this->reader->available() - ahead_time,
+        this->writer->writeable()
+    );
 
-            if (error > 1) {
-                //INCREASE IN SIGNAL LEVEL
-                //If the signal level increases, we decrease the gain quite fast.
-                dgain = 1 - attack_rate;
-                //Before starting to increase the gain next time, we will be waiting until hang_time for sure.
-                hang_counter = hang_time;
-            } else {
-                //DECREASE IN SIGNAL LEVEL
-                if (hang_counter > 0) {
-                    //Before starting to increase the gain, we will be waiting until hang_time.
-                    hang_counter--;
-                    dgain = 1; //..until then, AGC is inactive and gain doesn't change.
-                } else {
-                    dgain = 1 + decay_rate; //If the signal level decreases, we increase the gain quite slowly.
-                }
-            }
-            gain = gain * dgain;
+    // Must have something to process
+    if (work_size <= 0) return;
+
+    // These are our input and output streams
+    T *input = this->reader->getReadPointer();
+    T *output = this->writer->getWritePointer();
+
+    // We decay the envelope to leave ~33% of the peak at the end
+    float env_decay = std::pow(0.33, 1.0 / ahead_time);
+    float input_abs, error, dgain;
+
+    for (size_t i = 0; i < work_size; i++) {
+        // The error is the difference between the required gain at
+        // the actual sample, and the previous gain value.
+        // We actually use an envelope detector.
+        //input_abs = this->abs(input[i]);
+        error = (max_abs * gain) / reference;
+
+        // An AGC is something nonlinear that's easier to implement in
+        // software:
+        // * If the amplitude decreases, we increase the gain by
+        //   minimizing the gain error by attack_rate.
+        // * We also have a decay_rate that comes into consideration
+        //   when the amplitude increases.
+        // * The higher these rates are, the faster is the response of
+        //   the AGC to amplitude changes.
+        // * However, attack_rate should be higher than the decay_rate
+        //   as we want to avoid clipping signals that had a sudden
+        //   increase in their amplitude.
+        // * It's also important to note that this algorithm has an
+        //   exponential gain ramp.
+
+        if (error > 1.0) {
+            // INCREASE IN SIGNAL LEVEL
+            // If the signal level increases, we decrease the gain
+            // quite fast.
+            dgain = 1.0 - attack_rate;
+            // Before starting to increase the gain next time, we
+            // will be waiting until hang_time for sure.
+            hang_counter = hang_time;
+        } else if (hang_counter > 0) {
+            // Before starting to increase the gain, we will be waiting
+            // until hang_time.
+            hang_counter--;
+            // Until then, AGC is inactive and gain doesn't change.
+            dgain = 1.0;
+        } else if (error < 1.0) {
+            // DECREASE IN SIGNAL LEVEL
+            // If the signal level decreases, we increase the gain
+            // quite slowly.
+            dgain = 1.0 + decay_rate;
+        } else {
+            // NO CHANGE IN SIGNAL LEVEL
+            dgain = 1.0;
         }
 
-        // alpha beta filter
-        xk = this->xk + (this->vk * dt);
-        vk = this->vk;
+        // Modify gain
+        gain = gain * dgain;
 
-        rk = gain - xk;
-
-        xk += gain_filter_alpha * rk;
-        vk += (beta * rk) / dt;
-
-        this->xk = xk;
-        this->vk = vk;
-
-        gain = this->xk;
-
-        // clamp gain to max_gain and 0
+        // Clamp gain to the [0 ; max_gain] range
         if (gain > max_gain) gain = max_gain;
-        if (gain < 0) gain = 0;
+        if (gain < 0.0) gain = 0.0;
 
-        // actual sample scaling
+        // Scale the sample
         output[i] = scale(input[i]);
+
+        // Compute the envelope
+        input_abs = this->abs(input[i + ahead_time]);
+        if (input_abs >= max_abs) {
+            max_abs = input_abs;
+        } else if (this->abs(input[i]) >= max_abs) {
+            max_abs = input_abs;
+            for (size_t j = i + 1; j < i + ahead_time ; j++) {
+                max_abs = std::max(max_abs, this->abs(input[j]));
+            }
+        }
     }
+
+    // Advance input and output streams
+    this->reader->advance(work_size);
+    this->writer->advance(work_size);
 }
 
 template <>
 float Agc<short>::abs(short in) {
     return std::fabs((float) in) / SHRT_MAX;
-}
-
-template <>
-bool Agc<short>::isZero(short in) {
-    return in == 0;
 }
 
 template <>
@@ -121,11 +152,6 @@ float Agc<float>::abs(float in) {
 }
 
 template <>
-bool Agc<float>::isZero(float in) {
-    return in == 0.0f;
-}
-
-template <>
 float Agc<float>::scale(float in) {
     float val = in * gain;
     if (val > 1.0f) return 1.0f;
@@ -136,11 +162,6 @@ float Agc<float>::scale(float in) {
 template <>
 float Agc<complex<float>>::abs(complex<float> in) {
     return std::abs(in);
-}
-
-template <>
-bool Agc<complex<float>>::isZero(complex<float> in) {
-    return in == complex<float>(0, 0);
 }
 
 template <>
