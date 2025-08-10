@@ -132,11 +132,6 @@ float Agc<short>::abs(short in) {
 }
 
 template <>
-bool Agc<short>::isZero(short in) {
-    return in == 0;
-}
-
-template <>
 short Agc<short>::scale(short in) {
     float val = gain * in;
     if (val >= SHRT_MAX) return SHRT_MAX;
@@ -150,11 +145,6 @@ float Agc<float>::abs(float in) {
 }
 
 template <>
-bool Agc<float>::isZero(float in) {
-    return in == 0.0f;
-}
-
-template <>
 float Agc<float>::scale(float in) {
     float val = in * gain;
     if (val > 1.0f) return 1.0f;
@@ -165,11 +155,6 @@ float Agc<float>::scale(float in) {
 template <>
 float Agc<complex<float>>::abs(complex<float> in) {
     return std::abs(in);
-}
-
-template <>
-bool Agc<complex<float>>::isZero(complex<float> in) {
-    return in == complex<float>(0, 0);
 }
 
 template <>

@@ -55,7 +55,6 @@ namespace Csdr {
 
         private:
             float abs(T in);
-            bool isZero(T in);
             T scale(T in);
 
             // params
