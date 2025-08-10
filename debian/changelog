@@ -1,3 +1,14 @@
+csdr (0.18.35) bullseye jammy; urgency=low
+
+  * Refactored AGC to avoid clipping:
+  * Removed broken alpha-beta gain filter.
+  * Added look-ahead for peaks.
+  * Refactored NoiseFilter to fix clicks:
+  * Fixed length of each processed block.
+  * Fixed blending of processed blocks.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 11 Aug 2025 16:12:00 +0000
+
 csdr (0.18.34) bullseye jammy; urgency=low
 
   * Further NoiseFilter improvements.
