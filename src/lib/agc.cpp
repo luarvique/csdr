@@ -62,10 +62,6 @@ void Agc<T>::process() {
     float input_abs, error, dgain;
 
     for (size_t i = 0; i < work_size; i++) {
-        // Compute the envelope
-        input_abs = this->abs(input[i + ahead_time]);
-        max_abs = max_abs < input_abs? input_abs : max_abs * env_decay;
-
         // The error is the difference between the required gain at
         // the actual sample, and the previous gain value.
         // We actually use an envelope detector.
@@ -119,6 +115,17 @@ void Agc<T>::process() {
 
         // Scale the sample
         output[i] = scale(input[i]);
+
+        // Compute the envelope
+        input_abs = this->abs(input[i + ahead_time]);
+        if (input_abs >= max_abs) {
+            max_abs = input_abs;
+        } else if (this->abs(input[i]) >= max_abs) {
+            max_abs = input_abs;
+            for (size_t j = i + 1; j < i + ahead_time ; j++) {
+                max_abs = std::max(max_abs, this->abs(input[j]));
+            }
+        }
     }
 
     // Advance input and output streams
