@@ -143,11 +143,12 @@ void SnrSquelch<T>::forwardData(T *input, float snr) {
         // Keep forwarding for a while in case signal comes back
         Snr<T>::forwardData(input, snr);
         hangCounter += this->getLength();
-    } else if (flushCounter < flushLength) {
+    } else if (flushCounter < flushLength || flushLength == SIZE_MAX) {
         // Produce some 0s to flush any subsequent modules
         // if they have any overhead (e.g. FIR filter delays)
         T* output = this->writer->getWritePointer();
-        size_t length = std::min(this->getLength(), flushLength - flushCounter);
+        size_t length = flushLength == SIZE_MAX?
+            this->getLength() : std::min(this->getLength(), flushLength - flushCounter);
         std::memset(output, 0, sizeof(T) * length);
         this->writer->advance(length);
         flushCounter += length;
