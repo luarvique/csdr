@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "snr.hpp"
 #include <cstring>
+#include <climits>
 #include <cmath>
 
 using namespace Csdr;
