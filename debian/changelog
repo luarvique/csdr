@@ -1,3 +1,9 @@
+csdr (0.18.36) bullseye jammy; urgency=low
+
+  * Closed SnrSquelch produces silence when flushLength>=UINT_MAX.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 25 Aug 2025 16:12:00 +0000
+
 csdr (0.18.35) bullseye jammy; urgency=low
 
   * Refactored AGC to avoid clipping:
