@@ -45,10 +45,10 @@ void LogPower::process(complex<float>* input, float* output, size_t size) {
     }
 
     for (int i = 0; i < size; i++) {
-        output[i] = log10(output[i]);
+        output[i] = std::log10(output[i]);
     }
 
     for (int i = 0; i < size; i++) {
-        output[i] = 10 * output[i] + add_db;
+        output[i] = 10.0f * output[i] + add_db;
     }
 }

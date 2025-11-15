@@ -64,14 +64,14 @@ void LogAveragePower::process() {
     reader->advance(fftSize);
     if (++collected == avgNumber) {
         float* output = writer->getWritePointer();
-        float correction = add_db - 10.0 * log10(avgNumber);
+        float correction = add_db - 10.0f * std::log10(avgNumber);
 
         for (int i = 0; i < fftSize; i++) {
-            output[i] = log10(collector[i]);
+            output[i] = std::log10(collector[i]);
         }
 
         for (int i = 0; i < fftSize; i++) {
-            output[i] = 10 * output[i] + correction;
+            output[i] = 10.0f * output[i] + correction;
         }
 
         writer->advance(fftSize);
