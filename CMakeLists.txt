@@ -53,35 +53,44 @@ if(NOT DEFINED CSDR_IMA_ADPCM)
     set(CSDR_IMA_ADPCM true)
 endif()
 
+# Always using fast math
+SET(CMAKE_C_FLAGS "-ffast-math -ftree-loop-vectorize")
+
+# Add architecture-specific math flags
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    SET(CMAKE_CXX_FLAGS "-ffast-math -mfpmath=sse")
-    SET(CMAKE_C_FLAGS "-ffast-math -mfpmath=sse")
+    # NEHALEM enables up to SSE4.2
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpmath=sse -march=nehalem")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES ^aarch64.*)
+    # AARCH64 mandates NEON
+    set(HAS_NEON true)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -Wformat=0")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES ^arm.*)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -Wformat=0")
     execute_process(COMMAND "cat" "/proc/cpuinfo" OUTPUT_VARIABLE CPUINFO)
     string(FIND ${CPUINFO} "neon" NEON_POSITION)
     if(NEON_POSITION GREATER_EQUAL 0)
         set(HAS_NEON true)
     endif()
     if (HAS_NEON)
-        SET(CMAKE_CXX_FLAGS "-ffast-math -march=armv7-a -mtune=cortex-a8 -funsafe-math-optimizations -Wformat=0 -mfloat-abi=hard -mfpu=neon -mvectorize-with-neon-quad")
-        SET(CMAKE_C_FLAGS "-ffast-math -march=armv7-a -mtune=cortex-a8 -funsafe-math-optimizations -Wformat=0 -mfloat-abi=hard -mfpu=neon -mvectorize-with-neon-quad")
-    else()
-        SET(CMAKE_CXX_FLAGS "-ffast-math -march=armv7-a -mtune=cortex-a8 -funsafe-math-optimizations -Wformat=0")
-        SET(CMAKE_C_FLAGS "-ffast-math -march=armv7-a -mtune=cortex-a8 -funsafe-math-optimizations -Wformat=0")
+        SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard -mfpu=neon -mvectorize-with-neon-quad")
     endif()
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES ^aarch64.*)
-    # aarch64 mandated neon
-    set(HAS_NEON true)
-    SET(CMAKE_CXX_FLAGS "-ffast-math -march=armv8-a -mtune=cortex-a72 -funsafe-math-optimizations -Wformat=0")
-    SET(CMAKE_C_FLAGS "-ffast-math -march=armv8-a -mtune=cortex-a72 -funsafe-math-optimizations -Wformat=0")
 endif()
 
-SET(CMAKE_CXX_FLAGS_RELEASE "-O3")
+# Ask CLANG to vectorize math functions
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fveclib=libmvec")
+endif()
+
+# Set build-specific flags
 SET(CMAKE_C_FLAGS_RELEASE "-O3")
-SET(CMAKE_CXX_FLAGS_DEBUG "-g -O3")
 SET(CMAKE_C_FLAGS_DEBUG "-g -O3")
-SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O3 -DNDEBUG")
 SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -O3 -DNDEBUG")
+
+# Make C++ flags same as C flags
+SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}")
+SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
