@@ -457,7 +457,7 @@ template <typename T>
 int FaxDecoder<T>::decodeLineType(const unsigned char *buf, unsigned int size)
 {
     // This is pretty arbitrary but works in practice even with lots of noise
-    double threshold = 5.0 * size;
+    const double threshold = 5.0;
     double v1, v2;
     int type;
 
@@ -478,7 +478,7 @@ int FaxDecoder<T>::decodeLineType(const unsigned char *buf, unsigned int size)
     }
 
     // If we are below threshold, assume a regular image scanline
-    return(v2 > threshold? type : TYPE_IMAGE);
+    return(v2 > threshold * size? type : TYPE_IMAGE);
 }
 
 
