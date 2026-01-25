@@ -70,6 +70,7 @@ add_library(csdr++ SHARED
     ccir493.cpp
     navtex.cpp
     snr.cpp
+    fmstereo.cpp
 )
 
 set_target_properties(csdr++ PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
