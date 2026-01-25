@@ -48,4 +48,16 @@ namespace Csdr {
             size_t buffer_size = 1024;
     };
 
+    class BCFmDemod: public AnyLengthModule<complex<float>, float> {
+        public:
+            void process(complex<float>* input, float* output, size_t work_size) override;
+        protected:
+            size_t maxLength() override { return buffer_size; }
+        private:
+            float last_phase = 0;
+            size_t buffer_size = 2048 * 3;
+            float dc_level = 0.0f;
+            float dc_alpha = 0.001f;  // DC removal filter coefficient
+    };
+
 }
