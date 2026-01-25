@@ -4,6 +4,7 @@ Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
 Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2025-2026 Csongor Dobre <csdobre@outlook.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -43,6 +44,27 @@ void FmDemod::process(complex<float>* input, float* output, size_t work_size) {
         while (dphase < -M_PI) dphase += 2 * M_PI;
         while (dphase > M_PI) dphase -= 2 * M_PI;
         output[i] = dphase / M_PI;
+        last_phase = phase;
+    }
+}
+
+void BCFmDemod::process(complex<float>* input, float* output, size_t work_size) {
+    double phase, dphase;
+    for (size_t i = 0; i < work_size; i++) {
+        phase = std::arg(input[i]);
+        dphase = phase - last_phase;
+        
+        // Unwrap phase
+        while (dphase < -M_PI) dphase += 2 * M_PI;
+        while (dphase > M_PI) dphase -= 2 * M_PI;
+        
+        // Convert to audio
+        double sample = dphase / M_PI;
+        
+        // Remove DC component
+        dc_level = (1.0f - dc_alpha) * dc_level + dc_alpha * sample;
+        output[i] = sample - dc_level;
+        
         last_phase = phase;
     }
 }
