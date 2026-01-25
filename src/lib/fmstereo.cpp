@@ -181,7 +181,6 @@ void StereoFractionalDecimator<T>::initializeFilters() {
     filter_lp_lr->setLowpass(15000.0, inputSampleRate, 8);
     filter_lp_mono->setLowpass(15000.0, inputSampleRate, 8);
 
-    // TODO: make it adjustable
     // Deemphasis time constant (50 microseconds)
     deemph_alpha = exp(-(1.0 / inputSampleRate) / deemph_tau);
     deemph_state_L = 0.0;
