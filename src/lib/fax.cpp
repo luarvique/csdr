@@ -457,16 +457,30 @@ template <typename T>
 int FaxDecoder<T>::decodeLineType(const unsigned char *buf, unsigned int size)
 {
     // This is pretty arbitrary but works in practice even with lots of noise
-    const int threshold = 5;
+    const double threshold = 5.0;
+    double v1, v2;
+    int type;
 
-    // Detect special line types (< 0)
-    if(fftSub(buf, size, FREQ_IOC576) / size > threshold) return(TYPE_IOC576);
-    if(fftSub(buf, size, FREQ_IOC288) / size > threshold) return(TYPE_IOC288);
-    if(fftSub(buf, size, FREQ_STOP) / size > threshold)   return(TYPE_STOP);
+    // Detect special line types
+    v1 = fftSub(buf, size, FREQ_IOC576);
+    v2 = fftSub(buf, size, FREQ_IOC288);
+    if(v2 > v1) type = TYPE_IOC288;
+    else
+    {
+        type = TYPE_IOC576;
+        v2   = v1;
+    }
+    v1 = fftSub(buf, size, FREQ_STOP);
+    if (v1 > v2)
+    {
+        type = TYPE_STOP;
+        v2   = v1;
+    }
 
-    // Assume it is an image line
-    return(TYPE_IMAGE);
+    // If we are below threshold, assume a regular image scanline
+    return(v2 > threshold * size? type : TYPE_IMAGE);
 }
+
 
 template <typename T>
 int FaxDecoder<T>::decodeImageLine(const unsigned char *buf, unsigned int size, unsigned char *image, unsigned int width, unsigned int colors)
