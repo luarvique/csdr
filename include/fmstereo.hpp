@@ -2,8 +2,7 @@
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
-Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2025-2026 Csongor Dobre <csdobre@outlook.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -426,7 +425,7 @@ namespace Csdr {
     class StereoFractionalDecimator: public Module<T, T> {
         
         public:
-            StereoFractionalDecimator(float rateMPX, float rate, unsigned int num_poly_points, FirFilter<T, float>* filter = nullptr);
+            StereoFractionalDecimator(float rateMPX, float rate, float tau, unsigned int num_poly_points, FirFilter<T, float>* filter = nullptr);
             ~StereoFractionalDecimator();
             
             bool canProcess() override;
@@ -469,6 +468,7 @@ namespace Csdr {
             double stereo_threshold;
 
             // Deemphasis filter states (50µs time constant)
+            double deemph_tau;
             double deemph_alpha;
             double deemph_state_L;
             double deemph_state_R;

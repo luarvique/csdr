@@ -4,6 +4,7 @@ Software Defined Radio.
 
 Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
 Copyright (c) 2019-2023 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2025-2026 Csongor Dobre <csdobre@outlook.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

@@ -2,8 +2,7 @@
 This software is part of libcsdr, a set of simple DSP routines for
 Software Defined Radio.
 
-Copyright (c) 2014, Andras Retzler <randras@sdr.hu>
-Copyright (c) 2019-2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2025-2026 Csongor Dobre <csdobre@outlook.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -36,6 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <complex>
 #include <cmath>
 #include <iostream>
+
+#define TEST_DIRECTFMINPUT false
 
 using namespace Csdr;
 
@@ -182,8 +183,7 @@ void StereoFractionalDecimator<T>::initializeFilters() {
 
     // TODO: make it adjustable
     // Deemphasis time constant (50 microseconds)
-    double tau = 50e-6;
-    deemph_alpha = exp(-(1.0 / inputSampleRate) / tau);
+    deemph_alpha = exp(-(1.0 / inputSampleRate) / deemph_tau);
     deemph_state_L = 0.0;
     deemph_state_R = 0.0;
 
@@ -232,14 +232,14 @@ void StereoFractionalDecimator<T>::initializeFilters() {
 }
 
 template <typename T>
-StereoFractionalDecimator<T>::StereoFractionalDecimator(float rateMPX, float rate, unsigned int num_poly_points, FirFilter<T, float> *filter):
+StereoFractionalDecimator<T>::StereoFractionalDecimator(float rateMPX, float rate, float tau, unsigned int num_poly_points, FirFilter<T, float> *filter):
     num_poly_points(num_poly_points &~ 1),
     inputSampleRate(rateMPX), outputSampleRate(rateMPX),
     rate(rate),
+    deemph_tau(tau),
     filter(nullptr)
 {
     try {
-
         initializeFilters();
 
         delay_enabled = true;
@@ -502,6 +502,7 @@ void StereoFractionalDecimator<T>::process() {
             i_right++;
         }
 
+#if !TEST_DIRECTFMINPUT
         state_left = left_decimator.process(denomImmutable, denomState_left, input_left, i_left, writeable_stereo_frames, rate);
 
         //denomState_right->where = denomState_left->where;  // Keep in sync
@@ -523,6 +524,18 @@ void StereoFractionalDecimator<T>::process() {
 
         size_t input_samples_consumed = max_input_consumed;  // Convert frames to samples
         size_t output_samples_produced = min_output;         // Convert frames to samples
+#else
+        size_t max_input_consumed = (i_left + i_right) / 2;
+        size_t min_output = i_left + i_right;
+
+        for (size_t i = 0; i < i_left; i++) {
+            output[i * 2] = input_left[i];
+            output[i * 2 + 1] = input_right[i];
+        }
+
+        size_t input_samples_consumed = max_input_consumed;  // Convert frames to samples
+        size_t output_samples_produced = min_output;         // Convert frames to samples
+#endif
         //printf("Advancing: reader by %zu samples, writer by %zu samples\n", input_samples_consumed, output_samples_produced);
         
         this->reader->advance(input_samples_consumed);
