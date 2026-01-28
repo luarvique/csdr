@@ -2,6 +2,7 @@ csdr (0.18.37) bullseye jammy; urgency=low
 
   * Added stereo FM decoder by Csongor Dobre.
   * Insured IOC576 won't take precedence over IOC288.
+  * Raised minimum required CMAKE version to 3.10.
   * Removed XZ requirement from packaging.
   * Fixed log10() types.
 
