@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 3.10)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
