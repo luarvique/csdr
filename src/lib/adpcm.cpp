@@ -200,24 +200,29 @@ void AdpcmEncoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     short* input = reader->getReadPointer();
     unsigned char* output = writer->getWritePointer();
-    // clamp to 1000 samples since canProces() only covers one sync frame for us
-    size_t size = std::min({reader->available() / 2, writer->writeable() - 8, (size_t) 1000});
-    size_t offset = 0;
-    for (int i = 0; i < size; i++) {
+    // clamp to 1000 samples since canProcess() only covers one sync frame for us
+    size_t rsize = reader->available() & ~1;
+    size_t wsize = writer->writeable();
+    size_t ridx, widx;
+    for (ridx = widx = 0; (ridx < rsize) && (widx < wsize) ; ridx+=2, ++widx) {
         if (sync && syncCounter-- <= 0) {
-            std::memcpy(output + i, "SYNC", 4);
-            int16_t* data = (int16_t*) (output + i + 4);
-            data[0] = codec->getIndex();
-            data[1] = codec->getPredictor();
-            offset += 8;
-            syncCounter = 1000;
+            if (widx + 8 >= wsize) {
+                break;
+            } else {
+                std::memcpy(output + widx, "SYNC", 4);
+                int16_t* data = (int16_t*) (output + widx + 4);
+                data[0] = codec->getIndex();
+                data[1] = codec->getPredictor();
+                widx += 8;
+                syncCounter = 1000;
+            }
         }
-        output[i + offset] =
-                codec->encodeSample(input[2 * i]) |
-                codec->encodeSample(input[2 * i + 1]) << 4;
+        output[widx] =
+                codec->encodeSample(input[ridx]) |
+                codec->encodeSample(input[ridx + 1]) << 4;
     }
-    reader->advance(size * 2);
-    writer->advance(size + offset);
+    reader->advance(ridx);
+    writer->advance(widx);
 }
 
 bool AdpcmDecoder::canProcess() {
