@@ -397,6 +397,7 @@ template <typename T>
 int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int size)
 {
     unsigned int xMax, j;
+    double vMax, v;
 
     // Make sure the size makes sense
     if(size<4) return(0);
@@ -411,16 +412,16 @@ int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int s
 
     // Go to magnitudes, find highest magnitude bin
     // Ignore top FFT bins (Scottie does not like these)
-    for(j=0, xMax=0 ; j<size/2 ; ++j)
+    for(j=0, xMax=0, vMax=0.0 ; j<size/2 ; ++j)
     {
-        fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
-        if(fftIn[j]>fftIn[xMax]) xMax=j;
+        v = fftOut[j][0] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+        if(v>vMax) { vMax=v; xMax=j; }
     }
 
     // Interpolate peak frequency
-    double vNext = fftIn[xMax<size-1? xMax+1 : size-1];
-    double vPrev = fftIn[xMax>0? xMax-1:0];
-    double v     = vPrev + fftIn[xMax] + vNext;
+    double vNext = fftOut[xMax<size-1? xMax+1 : size-1][0];
+    double vPrev = fftOut[xMax>0? xMax-1:0][0];
+    v = vPrev + vMax + vNext;
 
     // Can't have all three at 0
     if(v<1.0E-64) return(0);
