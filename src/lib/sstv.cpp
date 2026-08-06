@@ -751,9 +751,9 @@ unsigned char SstvDecoder<T>::luminance(int freq)
 template <typename T>
 unsigned int SstvDecoder<T>::yuv2rgb(unsigned char y, unsigned char u, unsigned char v)
 {
-    int r = y + ((351 * (v-128)) >> 8);
-    int g = y - ((179 * (v-128) + 86 * (u-128)) >> 8);
-    int b = y + ((443 * (u-128)) >> 8);
+    int r = y + ((91882 * (v-128)) >> 16);
+    int g = y - ((46793 * (v-128) + 22545 * (u-128)) >> 16);
+    int b = y + ((116130 * (u-128)) >> 16);
 
     r = r>255? 255 : r<0? 0 : r;
     g = g>255? 255 : g<0? 0 : g;
