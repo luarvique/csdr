@@ -520,11 +520,11 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
 
     // Find sync pulse
     int start = start0 + lineSize <= size?
-        start0 + findSync(mode, buf + start0, lineSize) : 0;
+        findSync(mode, buf + start0, lineSize) : 0;
 
     // If sync found, use it for scanline start, else skip <syncSize>
     // samples left from a previous scanline and assume start there
-    if(start) start -= syncSize; else start = syncSize;
+    if(start) start += start0 - syncSize; else start = syncSize;
 
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
