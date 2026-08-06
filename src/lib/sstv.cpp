@@ -520,7 +520,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
 
     // Find sync pulse
     int start = start0 + lineSize <= size?
-        findSync(mode, buf + start0, lineSize) : 0;
+        start0 + findSync(mode, buf + start0, lineSize) : 0;
 
     // If sync found, use it for scanline start, else skip <syncSize>
     // samples left from a previous scanline and assume start there
