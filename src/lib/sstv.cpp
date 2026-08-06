@@ -137,7 +137,11 @@ template <typename T>
 SstvDecoder<T>::~SstvDecoder() {
     // Destroy all mode-specific FFT plans
     for(int j=0 ; j<128 ; ++j)
-        if(modes[j]) delete modes[j];
+        if(modes[j]) {
+            modes[j]->destroyPlans();
+            delete modes[j];
+        }
+
     fftwf_destroy_plan(fftHeader);
     delete [] fftIn;
     delete [] fftOut;
@@ -799,6 +803,9 @@ void SstvMode::createPlans(unsigned int rate, fftwf_complex *out, float *in)
     syncSize  = round(SYNC_PULSE * 1.4 * rate);
     pixelSize = round(PIXEL_TIME * WINDOW_FACTOR * rate);
     halfpSize = round(HALF_PIXEL_TIME * WINDOW_FACTOR * rate);
+
+    // Destroy old FFT plans
+    destroyPlans();
 
     // Generate new FFT plans
     fftSync  = fftwf_plan_dft_r2c_1d(syncSize, in, out, FFTW_ESTIMATE);
