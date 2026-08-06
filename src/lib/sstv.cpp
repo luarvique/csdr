@@ -138,10 +138,9 @@ SstvDecoder<T>::~SstvDecoder() {
     // Destroy all mode-specific FFT plans
     for(int j=0 ; j<128 ; ++j)
         if(modes[j]) delete modes[j];
-
     fftwf_destroy_plan(fftHeader);
-    fftwf_free(fftIn);
-    fftwf_free(fftOut);
+    delete [] fftIn;
+    delete [] fftOut;
 }
 
 template <typename T>
