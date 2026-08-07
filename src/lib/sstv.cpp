@@ -134,10 +134,12 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
 }
 
 template <typename T>
-SstvDecoder<T>::~SstvDecoder() {
+SstvDecoder<T>::~SstvDecoder()
+{
     // Destroy all mode-specific FFT plans
     for(int j=0 ; j<128 ; ++j)
-        if(modes[j]) {
+        if(modes[j])
+        {
             modes[j]->destroyPlans();
             delete modes[j];
         }
@@ -148,7 +150,8 @@ SstvDecoder<T>::~SstvDecoder() {
 }
 
 template <typename T>
-bool SstvDecoder<T>::canProcess() {
+bool SstvDecoder<T>::canProcess()
+{
     std::lock_guard<std::mutex> lock(this->processMutex);
     return
         (this->reader->available() >= sampleRate*2) &&
@@ -156,7 +159,8 @@ bool SstvDecoder<T>::canProcess() {
 }
 
 template <typename T>
-void SstvDecoder<T>::process() {
+void SstvDecoder<T>::process()
+{
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     const T *buf = this->reader->getReadPointer();
@@ -724,6 +728,9 @@ void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned
         *p++ = (rgb >> 16) & 0xFF;
     }
     writeData(bmp, sizeof(bmp));
+
+    // First line gets duplicated, since there is no previous line yet
+    if(line == 0) writeData(bmp, sizeof(bmp));
 
     // Retain U/V values until the next scanline
     memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
