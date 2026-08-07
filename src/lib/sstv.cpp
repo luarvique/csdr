@@ -266,7 +266,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Drop processed input data
                 skipInput(i);
                 // Go to the next scanline
-                curState += curState>0? curMode->LINE_STEP : 1;
+                curState += curMode->LINE_STEP;
                 if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             // If have not decoded a scanline for a while...
@@ -283,7 +283,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Skip scanline worth of input
                 skipInput(j);
                 // Go to the next scanline
-                curState += curState>0? curMode->LINE_STEP : 1;
+                curState += curMode->LINE_STEP;
                 if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             break;
@@ -697,14 +697,14 @@ template <typename T>
 void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned char *buf[3])
 {
     unsigned char bmp[3 * mode->LINE_WIDTH];
-    unsigned char *p = bmp;
+    unsigned char *p;
     unsigned int px;
 
-    // Use average U/V from two scanlines
-    if((line > 0) && (line < mode->LINE_COUNT-1))
+    // For each line pair except for the first one...
+    if(line > 0)
     {
-        // Draw first scanline
-        for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+        // Draw first scanline by averaging U/V from two scanlines
+        for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
         {
             unsigned char u  = (linebuf[1][px] + buf[2][px]) >> 1;
             unsigned char v  = (linebuf[0][px] + buf[1][px]) >> 1;
@@ -713,31 +713,22 @@ void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned
             *p++ = (rgb >> 8) & 0xFF;
             *p++ = (rgb >> 16) & 0xFF;
         }
-    }
-
-    // Write out first scanline, if drawn above
-    if(p!=bmp)
-    {
         writeData(bmp, sizeof(bmp));
-        p = bmp;
-    }
 
-    // Draw second scanline
-    unsigned char *u = line<mode->LINE_COUNT-1? buf[2] : linebuf[1];
-    unsigned char *v = line<mode->LINE_COUNT-1? buf[1] : linebuf[0];
-    for(px=0 ; px<mode->LINE_WIDTH ; ++px)
-    {
-        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
-        *p++ = rgb & 0xFF;
-        *p++ = (rgb >> 8) & 0xFF;
-        *p++ = (rgb >> 16) & 0xFF;
+        // Draw second scanline
+        for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
+        {
+            unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
+            *p++ = rgb & 0xFF;
+            *p++ = (rgb >> 8) & 0xFF;
+            *p++ = (rgb >> 16) & 0xFF;
+        }
+        writeData(bmp, sizeof(bmp));
     }
 
     // Retain U/V values until the next scanline
     memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
     memcpy(linebuf[1], buf[2], mode->LINE_WIDTH);
-
-    writeData(bmp, sizeof(bmp));
 }
 
 
@@ -749,7 +740,7 @@ unsigned char SstvDecoder<T>::luminance(int freq)
 }
 
 template <typename T>
-unsigned int SstvDecoder<T>::yuv2rgb(unsigned char y, unsigned char u, unsigned char v)
+unsigned int SstvDecoder<T>::yuv2rgb(int y, int u, int v)
 {
     int r = y + ((91882 * (v-128)) >> 16);
     int g = y - ((46793 * (v-128) + 22545 * (u-128)) >> 16);
