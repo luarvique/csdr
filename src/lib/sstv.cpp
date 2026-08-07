@@ -700,10 +700,9 @@ void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned
     unsigned char *p;
     unsigned int px;
 
-    // For each line pair except for the first one...
     if(line > 0)
     {
-        // Draw first scanline by averaging U/V from two scanlines
+        // Draw even scanline by averaging U/V with previous scanline
         for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
         {
             unsigned char u  = (linebuf[1][px] + buf[2][px]) >> 1;
@@ -714,17 +713,17 @@ void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned
             *p++ = (rgb >> 16) & 0xFF;
         }
         writeData(bmp, sizeof(bmp));
-
-        // Draw second scanline
-        for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
-        {
-            unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
-            *p++ = rgb & 0xFF;
-            *p++ = (rgb >> 8) & 0xFF;
-            *p++ = (rgb >> 16) & 0xFF;
-        }
-        writeData(bmp, sizeof(bmp));
     }
+
+    // Draw odd scanline
+    for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
+    {
+        unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
+        *p++ = rgb & 0xFF;
+        *p++ = (rgb >> 8) & 0xFF;
+        *p++ = (rgb >> 16) & 0xFF;
+    }
+    writeData(bmp, sizeof(bmp));
 
     // Retain U/V values until the next scanline
     memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
