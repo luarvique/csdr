@@ -102,6 +102,7 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
   dbgTime(dbgTime)  // Debug printout period (ms)
 {
     phasingPos = new int[phasingLines];
+    lpm        = lpm > 0? lpm : 120;
     blockSize  = sampleRate * colors * 60 / lpm;
 
     // Incoming filters setup
