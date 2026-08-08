@@ -518,7 +518,8 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
             // Frequency in 100Hz increments
             for (i=0 ; i<3 ; ++i) {
                 if (in[i] > 99) {
-                    out[j++] = out[j++] = '-';
+                    out[j++] = '-';
+                    out[j++] = '-';
                 } else if ((in[i]>0) || (j>0)) {
                     out[j++] = '0' + in[i] / 10;
                     out[j++] = '0' + in[i] % 10;
@@ -539,7 +540,8 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
             // Channel number
             for (i=1 ; i<3 ; ++i) {
                 if (in[i] > 99) {
-                    out[j++] = out[j++] = '-';
+                    out[j++] = '-';
+                    out[j++] = '-';
                 } else if ((in[i]>0) || (j>2)) {
                     out[j++] = '0' + in[i] / 10;
                     out[j++] = '0' + in[i] % 10;
@@ -571,8 +573,11 @@ int DscDecoder::parseFrequency(char *out, const unsigned char *in, int size) {
 
     // Skip leading zeros
     for (k=0 ; out[k]=='0' ; ++k);
-    if (k>0) {
-        for (j=0 ; out[k] ; ++j, ++k) out[j] = out[k];
+    if (k > 0) {
+        if (!out[k])
+            j = 1;
+        else
+            for (j=0 ; out[k] ; ++j, ++k) out[j] = out[k];
         out[j] = '\0';
     }
 
