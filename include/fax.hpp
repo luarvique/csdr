@@ -150,6 +150,7 @@ namespace Csdr {
 
             // Demodulator state
             FirFilter filters[2];
+            unsigned int sampleCount;
             double fstep;
             double iFirOld;
             double qFirOld;
