@@ -139,9 +139,8 @@ void FaxDecoder<T>::process() {
     // If not enough space in the current buffer...
     if(!buf || (curSize+size > maxSize))
     {
-        // Create the new buffer, drop out if failed
+        // Create the new buffer
         unsigned char *newBuf = new unsigned char[curSize+size];
-        if(!newBuf) return;
         // Move current data over and delete the old buffer
         if(buf)
         {
