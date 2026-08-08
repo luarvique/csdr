@@ -502,11 +502,13 @@ int FaxDecoder<T>::decodeImageLine(const unsigned char *buf, unsigned int size, 
         {
             int first = n*c + n*i/width;
             int last  = n*c + n*(i+1)/width;
-            int value = 0;
+            int value;
 
-            if(last > first)
+            if(last <= first)
+                value = buf[first];
+            else
             {
-                for(j=first ; j<last ; ++j) value += buf[j];
+                for(j=first, value=0 ; j<last ; ++j) value += buf[j];
                 value /= last - first;
             }
 
