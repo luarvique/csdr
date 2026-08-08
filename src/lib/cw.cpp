@@ -136,7 +136,7 @@ void CwDecoder<T>::process() {
     magnitude = std::max(magH * 0.15, 0.02);
     if(magH - magL < magnitude)
     {
-        madnitude /= 2.0;
+        magnitude /= 2.0;
         magH = magL = (magH + magL)/2.0;
         magH = magH + magnitude;
         magL = std::max(magL - magnitude, 0.0);
