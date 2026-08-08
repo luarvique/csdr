@@ -528,7 +528,7 @@ void FaxDecoder<T>::skipInput(unsigned int size)
     if(size)
     {
         // Move data
-        for(int j=0 ; j<curSize-size ; ++j) buf[j] = buf[j+size];
+        memmove(buf, buf+size, (curSize-size) * sizeof(*buf));
         curSize -= size;
 
         // Update time
