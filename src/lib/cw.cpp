@@ -123,9 +123,24 @@ void CwDecoder<T>::process() {
         magnitude<(magL+range*0.5)? 0 :
         realState0;
 
-    // Keep track of minimal/maximal magnitude
-    magL += magnitude<magL? (magnitude-magL)*attack :  range*decay;
-    magH += magnitude>magH? (magnitude-magH)*attack : -range*decay;
+    // Keep track of minimal/maximal magnitude, only track peak (magH)
+    // inside the mark, only track floor (magL) inside the space, to
+    // prevent long marks/spaces from dragging these values toward
+    // each other
+    if(filtState0)
+        magH += magnitude>magH? (magnitude-magH)*attack : -range*decay;
+    else
+        magL += magnitude<magL? (magnitude-magL)*attack : range*decay;
+
+    // Never let magH/magL become indistinguishable
+    magnitude = std::max(magH * 0.15, 0.02);
+    if(magH - magL < magnitude)
+    {
+        madnitude /= 2.0;
+        magH = magL = (magH + magL)/2.0;
+        magH = magH + magnitude;
+        magL = std::max(magL - magnitude, 0.0);
+    }
 
     // Process input
     processInternal(realState);
