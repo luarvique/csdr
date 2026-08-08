@@ -98,6 +98,7 @@ FaxDecoder<T>::FaxDecoder(unsigned int sampleRate, unsigned int lpm, unsigned in
   tailLines(0),
   iFirOld(0.0),
   qFirOld(0.0),
+  sampleCount(0),
   dbgTime(dbgTime)  // Debug printout period (ms)
 {
     phasingPos = new int[phasingLines];
@@ -159,9 +160,12 @@ void FaxDecoder<T>::process() {
     {
         // Read incoming data and apply FIR filters
         double in = sample2double(ptr[j]);
-        double f  = fstep * j;
+        double f  = fstep * sampleCount;
         double iFirOut = filters[0].process(in * cos(f));
         double qFirOut = filters[1].process(in * sin(f));
+
+        // Keep track of sample index
+        if(++sampleCount >= sampleRate) sampleCount -= sampleRate;
 
         // Demodulate
         if(am)
