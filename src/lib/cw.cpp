@@ -214,9 +214,6 @@ void CwDecoder<T>::processInternal(bool newState) {
                 // Add a DIT to the code
                 code = (code<<1) | 1;
 
-                // Try computing WPM
-                wpm += ((int)(1200.0/duration) - wpm) / 4;
-
                 // Print a DIT
                 if(showCw)
                 {
@@ -229,9 +226,6 @@ void CwDecoder<T>::processInternal(bool newState) {
                 // Add a DAH to the code
                 code = (code<<1) | 0;
 
-                // Try computing WPM
-                wpm += ((int)(3600.0/duration) - wpm) / 4;
-
                 // Print a DAH
                 if(showCw)
                 {
@@ -242,11 +236,17 @@ void CwDecoder<T>::processInternal(bool newState) {
 
             // Keep track of the average DIT duration
             if((duration>20.0) && (duration<0.4*avgDahT))
-                avgDitT += (duration - avgDitT)/4.0;
+            {
+                avgDitT += (duration - avgDitT) / 4.0;
+                wpm = (wpm + (int)(1200.0/avgDitT)) / 2;
+            }
 
             // Keep track of the average DAH duration
             if((duration<500.0) && (duration>2.5*avgDitT))
-                avgDahT += (duration - avgDahT)/4.0;
+            {
+                avgDahT += (duration - avgDahT) / 4.0;
+                wpm = (wpm + (int)(3600.0/avgDahT)) / 2;
+            }
         }
     }
 
