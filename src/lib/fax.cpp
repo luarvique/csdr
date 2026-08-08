@@ -174,21 +174,23 @@ void FaxDecoder<T>::process() {
         }
         else
         {
+            // Compute signal magnitude
             double mag = sqrt(qFirOut*qFirOut + iFirOut*iFirOut);
-            iFirOut /= mag;
-            qFirOut /= mag;
-
-            if(mag<1.0) buf[curSize++] = 0;
+            // If too weak to demodulate reliably, output silence
+            if(mag<1.0)
+                buf[curSize++] = 0;
             else
             {
+                iFirOut /= mag;
+                qFirOut /= mag;
+
                 double x = asin(qFirOld*iFirOut - iFirOld*qFirOut) * coeff;
                 buf[curSize++] = x<-1.0? 0 : x>1.0? 255 : (int)((x/2.0+0.5)*255.0);
+
+                iFirOld = iFirOut;
+                qFirOld = qFirOut;
             }
         }
-
-        // Save previous values
-        iFirOld = iFirOut;
-        qFirOld = qFirOut;
     }
 
     // Advance input pointer
