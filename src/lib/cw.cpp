@@ -57,8 +57,8 @@ const char CwDecoder<T>::cwTable[] =
 template <typename T>
 CwDecoder<T>::CwDecoder(unsigned int sampleRate, bool showCw)
 : sampleRate(sampleRate),
-  quTime(5),      // Quantization step (ms)
   nbTime(20),     // Noise blanking width (ms)
+  quTime(5),      // Quantization step (ms)
   dbgTime(0),     // Debug printout period (ms)
   showCw(showCw)  // TRUE: print DITs/DAHs
 {
