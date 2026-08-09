@@ -70,7 +70,6 @@ void Agc<T>::process() {
         // The error is the difference between the required gain at
         // the actual sample, and the previous gain value.
         // We actually use an envelope detector.
-        //input_abs = this->abs(input[i]);
         error = (max_abs * gain) / reference;
 
         // An AGC is something nonlinear that's easier to implement in
