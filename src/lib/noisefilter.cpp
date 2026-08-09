@@ -77,6 +77,13 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, 
         forwardInput[i][0] = 0.0f;
         forwardInput[i][1] = 0.0f;
     }
+
+    // Fill with zeros to avoid click at start
+    for(size_t i = 0; i < ovrSize; i++)
+    {
+        overlapBuf[i][0] = 0.0f;
+        overlapBuf[i][1] = 0.0f;
+    }
 }
 
 template<typename T>
