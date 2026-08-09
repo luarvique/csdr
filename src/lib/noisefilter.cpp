@@ -175,7 +175,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     // Blend with the overlap
     for(size_t i=0; i<ovrSize; ++i)
     {
-        float f = (float)i/ovrSize;
+        float f = (float)i/(ovrSize - 1);
         result[i] = (result[i]/(float)fftSize)*f + overlap[i]*(1.0f-f);
     }
 
