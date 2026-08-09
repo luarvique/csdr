@@ -118,6 +118,8 @@ NoiseFilter<T>::~NoiseFilter()
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+
     // Using power decibels here (square of amplitude),
     // so in theory it has to be /10.0, but that makes
     // threshold control too rough
