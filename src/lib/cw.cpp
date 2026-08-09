@@ -112,7 +112,7 @@ void CwDecoder<T>::process() {
 
     // Compute overall magnitude
     for(unsigned int i=0 ; i<quStep ; ++i)
-        magnitude += sample2level(data[i]);
+        magnitude += std::abs(data[i]);
 
     this->reader->advance(quStep);
     magnitude /= quStep;
@@ -298,21 +298,9 @@ void CwDecoder<T>::printString(const char *buf)
     if(this->writer->writeable()>=l)
     {
         // Write data then advance pointer
-        memcpy(this->writer->getWritePointer(), buf, l);
+        std::memcpy(this->writer->getWritePointer(), buf, l);
         this->writer->advance(l);
     }
-}
-
-template <>
-inline double CwDecoder<complex<float>>::sample2level(complex<float> input)
-{
-    return sqrt((input.i() * input.i()) + (input.q() * input.q()));
-}
-
-template<>
-inline double CwDecoder<float>::sample2level(float input)
-{
-    return fabs(input);
 }
 
 namespace Csdr {

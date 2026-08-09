@@ -283,7 +283,7 @@ void MFRttyDecoder<T>::printString(const char *buf)
     if(this->writer->writeable()>=l)
     {
         // Write data then advance pointer
-        memcpy(this->writer->getWritePointer(), buf, l);
+        std::memcpy(this->writer->getWritePointer(), buf, l);
         this->writer->advance(l);
     }
 }

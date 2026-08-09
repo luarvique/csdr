@@ -71,7 +71,7 @@ void NavtexDecoder::process() {
     }
 
     // Copy received message content to the output
-    memcpy(writer->getWritePointer(), in, i);
+    std::memcpy(writer->getWritePointer(), in, i);
     writer->advance(i);
     reader->advance(i);
     received += i;

@@ -85,9 +85,6 @@ namespace Csdr {
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
 
-            // Convert input sample into signal level
-            inline double sample2level(T input);
-
             // Get current time in milliseconds
             unsigned long msecs()
             { return(1000*curSeconds + 1000*curSamples/sampleRate); }

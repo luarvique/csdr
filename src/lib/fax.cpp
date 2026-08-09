@@ -144,7 +144,7 @@ void FaxDecoder<T>::process() {
         // Move current data over and delete the old buffer
         if(buf)
         {
-            memcpy(newBuf, buf, curSize*sizeof(buf[0]));
+            std::memcpy(newBuf, buf, curSize*sizeof(buf[0]));
             delete[] buf;
         }
         // Now using the new buffer
@@ -529,7 +529,7 @@ void FaxDecoder<T>::skipInput(unsigned int size)
     if(size)
     {
         // Move data
-        memmove(buf, buf+size, (curSize-size) * sizeof(*buf));
+        std::memmove(buf, buf+size, (curSize-size) * sizeof(*buf));
         curSize -= size;
 
         // Update time
@@ -685,7 +685,7 @@ unsigned int FaxDecoder<T>::printBmpEmptyLines(unsigned int lines)
     memset(buf, 0xFF, size);
 
     // Insert end-mark at the start of each empty line
-    memcpy(buf, endMark, sizeof(endMark));
+    std::memcpy(buf, endMark, sizeof(endMark));
 
     // Compute the number of lines we can write
     todo = lines<todo? lines : todo;
@@ -744,7 +744,7 @@ bool FaxDecoder<T>::writeData(const void *buf, unsigned int size)
     if(this->writer->writeable()<size) return(false);
 
     // Write data then advance pointer
-    memcpy(this->writer->getWritePointer(), buf, size);
+    std::memcpy(this->writer->getWritePointer(), buf, size);
     this->writer->advance(size);
 
     // Done

@@ -18,9 +18,9 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "dsc.hpp"
-#include <string.h>
-#include <stdio.h>
-#include <time.h>
+#include <cstring>
+#include <cstdio>
+#include <ctime>
 
 using namespace Csdr;
 
@@ -639,7 +639,7 @@ void DscDecoder::printString(const char *buf) {
     // If there is enough output buffer available...
     if(writer->writeable()>=l) {
         // Write data then advance pointer
-        memcpy(writer->getWritePointer(), buf, l);
+        std::memcpy(writer->getWritePointer(), buf, l);
         writer->advance(l);
     }
 }

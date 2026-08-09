@@ -19,8 +19,8 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "afc.hpp"
 #include "complex.hpp"
-#include <string.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdlib>
 
 using namespace Csdr;
 
@@ -66,7 +66,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
     {
         // Copy input signal into the buffer
         j = samplePeriod - updateCount - 1;
-        memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
+        std::memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
 
         // If detecting the carrier...
         if(!updateCount)
