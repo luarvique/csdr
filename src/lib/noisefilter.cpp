@@ -89,6 +89,11 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, 
         overlapBuf[i][0] = 0.0f;
         overlapBuf[i][1] = 0.0f;
     }
+
+    // Precompute output window
+    synGain = new float[ovrSize];
+    for(size_t i = 0; i < ovrSize; i++)
+        synGain[i] = 1.0f/(hamming(i, fftSize) + hamming(ovrSize+i, fftSize));
 }
 
 template<typename T>
@@ -101,6 +106,7 @@ NoiseFilter<T>::~NoiseFilter()
     fftwf_free(inverseInput);
     fftwf_free(inverseOutput);
     fftwf_free(overlapBuf);
+    delete [] synGain;
 }
 
 template <typename T>
@@ -200,10 +206,7 @@ size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
 
     // Blend with the overlap
     for(size_t i=0; i<ovrSize; ++i)
-    {
-        float f = (float)i/(ovrSize - 1);
-        result[i] = (result[i]/(float)fftSize)*f + overlap[i]*(1.0f-f);
-    }
+        result[i] = (result[i]/(float)fftSize + overlap[i]) * synGain[i];
 
     // Normalize the rest
     for(size_t i=ovrSize; i<fftSize; ++i)

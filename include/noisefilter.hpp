@@ -54,6 +54,7 @@ namespace Csdr {
             fftwf_complex* inverseOutput;
             fftwf_plan inversePlan;
             fftwf_complex* overlapBuf;
+            float* synGain;
 
             // Process one frame of input
             size_t processFrame(T *input, T *output, size_t size);
