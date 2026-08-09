@@ -37,7 +37,7 @@ namespace Csdr {
             virtual void setDecay(float decay_rate) = 0;
             virtual void setMaxGain(float max_gain) = 0;
             virtual void setInitialGain(float initial_gain) = 0;
-            virtual void setHangTime(unsigned long int hang_time) = 0;
+            virtual void setHangTime(unsigned int hang_time) = 0;
     };
 
     template <typename T>
@@ -51,7 +51,7 @@ namespace Csdr {
             void setDecay(float decay_rate) override;
             void setMaxGain(float max_gain) override;
             void setInitialGain(float initial_gain) override;
-            void setHangTime(unsigned long int hang_time) override;
+            void setHangTime(unsigned int hang_time) override;
 
         private:
             float abs(T in);
@@ -67,7 +67,7 @@ namespace Csdr {
             unsigned int ahead_time = 100;
             // state
             float gain = 1.0;
-            float max_abs = 0.0;
+            float max_abs = -1.0; // will be computed at first run
             unsigned int hang_counter = 0;
     };
 
