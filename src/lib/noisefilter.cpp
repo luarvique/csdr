@@ -175,7 +175,7 @@ size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
     power = (power - maxPower) / (fftSize - 1);
 
     // Track the peak average power over multiple FFTs
-    avgPower += (power - avgPower) / (power>avgPower? attack : decay);
+    avgPower += (power - avgPower) / (power>avgPower? decay : attack);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
