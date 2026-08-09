@@ -1,3 +1,20 @@
+csdr (0.18.38) bullseye jammy; urgency=low
+
+  * Added Hamming window and 50% overlap to NoiseFilter.
+  * Fixed sound pop when NoiseFilter is engaged.
+  * Fixed noise floor tracking in NoiseFilter.
+  * Fixed noise floor tracking in CwDecoder.
+  * Fixed CW codes table in CwDecoder.
+  * Fixed WPM computation in CwDecoder.
+  * Fixed zero magnitude handling in the FaxDecoder.
+  * Fixed color computation in the FaxDecoder.
+  * Fixed phase tracking in the FaxDecoder.
+  * Fixed coordinate parsing in the DscDecoder.
+  * Fixed frequency parsing in the DscDecoder.
+  * Fixed phone number parsing in the DscDecoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 10 Aug 2026 16:12:00 +0000
+
 csdr (0.18.37) bullseye jammy; urgency=low
 
   * Added stereo FM decoder by Csongor Dobre.
