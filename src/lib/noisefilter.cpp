@@ -108,6 +108,9 @@ void NoiseFilter<T>::setThreshold(int dBthreshold)
 template<typename T>
 size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 {
+    // Need at least fftSize input samples
+    if(size < fftSize) return 0;
+
     // Copy input
     auto* data = (complex<float>*) forwardInput;
     for(size_t i=0; i<fftSize; ++i)
