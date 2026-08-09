@@ -55,6 +55,9 @@ namespace Csdr {
             fftwf_plan inversePlan;
             fftwf_complex* overlapBuf;
 
+            // Process one frame of input
+            size_t processFrame(T *input, T *output, size_t size);
+
             // Convert output complex into a sample
             inline T complex2sample(complex<float> input);
     };

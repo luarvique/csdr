@@ -101,14 +101,32 @@ NoiseFilter<T>::~NoiseFilter()
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
-    // Using power decibels here (square of amplitude)
+    // Using power decibels here (square of amplitude),
+    // so in theory it has to be /10.0, but that makes
+    // threshold control too rough
     this->threshold = pow(10.0, (double)dBthreshold/20.0);
 }
 
 template<typename T>
 size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 {
-    // Need at least fftSize input samples
+    size_t result, done;
+
+    for(result=0; size>=fftSize; size-=done)
+    {
+        done = processFrame(input, output, fftSize);
+        input  += done;
+        output += done;
+        result += done;
+    }
+
+    return result;
+}
+
+template<typename T>
+size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
+{
+    // Must have at least one frame
     if(size < fftSize) return 0;
 
     // Copy input
