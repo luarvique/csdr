@@ -59,6 +59,13 @@ void Agc<T>::process() {
 
     float input_abs, error, dgain;
 
+    // Initialize max_abs at the first run
+    if (max_abs < 0.0) {
+        for (size_t i = 0; i < ahead_time; i++) {
+            max_abs = std::max(max_abs, this->abs(input[i]));
+        }
+    }
+
     for (size_t i = 0; i < work_size; i++) {
         // The error is the difference between the required gain at
         // the actual sample, and the previous gain value.
@@ -198,7 +205,7 @@ void Agc<T>::setInitialGain(float initial_gain) {
 }
 
 template <typename T>
-void Agc<T>::setHangTime(unsigned long int hang_time) {
+void Agc<T>::setHangTime(unsigned int hang_time) {
     this->hang_time = hang_time;
 }
 

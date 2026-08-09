@@ -171,7 +171,7 @@ CLI::Option* Command::addFifoOption() {
 AgcCommand::AgcCommand(): Command("agc", "Automatic gain control") {
     add_set("-f,--format", format, {"s16", "float", "complex"}, "Data format", true);
     add_set("-p,--profile", profile, {"fast", "slow"}, "AGC profile", true);
-    add_option("-a,--attack", attack, "AGC attack rate (slow: 0.1; fast: 0.01)");
+    add_option("-a,--attack", attack, "AGC attack rate (slow: 0.01; fast: 0.1)");
     add_option("-d,--decay", decay, "AGC decay rate (slow: 0.0001; fast: 0.001)");
     add_option("-t,--hangtime", hangtime, "AGC hang time (slow: 600; fast: 200)");
     add_option("-m,--max", max_gain, "Maximum gain", true);
