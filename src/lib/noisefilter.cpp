@@ -40,12 +40,17 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size) {
+    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+}
+
 template <typename T>
 NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, unsigned int attack)
 {
     // Keep FFT and overlap sizes reasonable
     this->fftSize = fftSize = fftSize>=32? fftSize : 32;
-    this->ovrSize = fftSize>=8? (fftSize>>3) : 1;
+    this->ovrSize = fftSize>>1;
 
     // Make sure window does not exceed half of the FFT size
     wndSize = wndSize>fftSize/2? fftSize/2 : wndSize;
@@ -72,11 +77,28 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, 
     inversePlan   = fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS);
 
     // Fill with zeros so that the padding works
-    for(size_t i = 0; i < fftSize; i++)
+    for(size_t i=0; i < fftSize; i++)
     {
         forwardInput[i][0] = 0.0f;
         forwardInput[i][1] = 0.0f;
     }
+
+    // Fill with zeros to avoid click at start
+    for(size_t i=0; i < ovrSize; i++)
+    {
+        overlapBuf[i][0] = 0.0f;
+        overlapBuf[i][1] = 0.0f;
+    }
+
+    // Precompute input window
+    hamWindow = new float[fftSize];
+    for(size_t i=0; i < fftSize; i++)
+        hamWindow[i] = hamming(i, fftSize);
+
+    // Precompute output window
+    synGain = new float[ovrSize];
+    for(size_t i=0; i < ovrSize; i++)
+        synGain[i] = 1.0f / (hamming(i, fftSize) + hamming(ovrSize+i, fftSize));
 }
 
 template<typename T>
@@ -89,22 +111,45 @@ NoiseFilter<T>::~NoiseFilter()
     fftwf_free(inverseInput);
     fftwf_free(inverseOutput);
     fftwf_free(overlapBuf);
+    delete [] hamWindow;
+    delete [] synGain;
 }
 
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
-    // Using power decibels here (square of amplitude)
+    // Using power decibels here (square of amplitude),
+    // so in theory it has to be /10.0, but that makes
+    // threshold control too rough
     this->threshold = pow(10.0, (double)dBthreshold/20.0);
 }
 
 template<typename T>
 size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 {
-    // Copy input
+    size_t result, done;
+
+    for(result=0; size>=fftSize; size-=done)
+    {
+        done = processFrame(input, output, fftSize);
+        input  += done;
+        output += done;
+        result += done;
+    }
+
+    return result;
+}
+
+template<typename T>
+size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
+{
+    // Must have at least one frame
+    if(size<fftSize) return 0;
+
+    // Copy data into the input buffer
     auto* data = (complex<float>*) forwardInput;
     for(size_t i=0; i<fftSize; ++i)
-        data[i] = input[i];
+        data[i] = input[i] * hamWindow[i];
 
     // Calculate FFT on input buffer
     fftwf_execute(forwardPlan);
@@ -130,7 +175,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
     power = (power - maxPower) / (fftSize - 1);
 
     // Track the peak average power over multiple FFTs
-    avgPower += (power - avgPower) / (power>avgPower? attack : decay);
+    avgPower += (power - avgPower) / (power>avgPower? decay : attack);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;
@@ -167,10 +212,7 @@ size_t NoiseFilter<T>::apply(T *input, T *output, size_t size)
 
     // Blend with the overlap
     for(size_t i=0; i<ovrSize; ++i)
-    {
-        float f = (float)i/ovrSize;
-        result[i] = (result[i]/(float)fftSize)*f + overlap[i]*(1.0f-f);
-    }
+        result[i] = (result[i]/(float)fftSize + overlap[i]) * synGain[i];
 
     // Normalize the rest
     for(size_t i=ovrSize; i<fftSize; ++i)
