@@ -172,10 +172,8 @@ float Agc<complex<float>>::abs(complex<float> in) {
 template <>
 complex<float> Agc<complex<float>>::scale(complex<float> in) {
     complex<float> val = in * gain;
-    if (val.i() > 1.0f) val.i(1.0f);
-    if (val.q() > 1.0f) val.q(1.0f);
-    if (val.i() < -1.0f) val.i(-1.0f);
-    if (val.q() < -1.0f) val.q(-1.0f);
+    float mag = std::abs(val);
+    if (mag > 1.0f) val /= mag;
     return val;
 }
 
