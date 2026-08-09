@@ -77,23 +77,28 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, 
     inversePlan   = fftwf_plan_dft_1d(fftSize, inverseInput, inverseOutput, FFTW_BACKWARD, CSDR_FFTW_FLAGS);
 
     // Fill with zeros so that the padding works
-    for(size_t i = 0; i < fftSize; i++)
+    for(size_t i=0; i < fftSize; i++)
     {
         forwardInput[i][0] = 0.0f;
         forwardInput[i][1] = 0.0f;
     }
 
     // Fill with zeros to avoid click at start
-    for(size_t i = 0; i < ovrSize; i++)
+    for(size_t i=0; i < ovrSize; i++)
     {
         overlapBuf[i][0] = 0.0f;
         overlapBuf[i][1] = 0.0f;
     }
 
+    // Precompute input window
+    hamWindow = new float[fftSize];
+    for(size_t i=0; i < fftSize; i++)
+        hamWindow[i] = hamming(i, fftSize);
+
     // Precompute output window
     synGain = new float[ovrSize];
-    for(size_t i = 0; i < ovrSize; i++)
-        synGain[i] = 1.0f/(hamming(i, fftSize) + hamming(ovrSize+i, fftSize));
+    for(size_t i=0; i < ovrSize; i++)
+        synGain[i] = 1.0f / (hamming(i, fftSize) + hamming(ovrSize+i, fftSize));
 }
 
 template<typename T>
@@ -106,6 +111,7 @@ NoiseFilter<T>::~NoiseFilter()
     fftwf_free(inverseInput);
     fftwf_free(inverseOutput);
     fftwf_free(overlapBuf);
+    delete [] hamWindow;
     delete [] synGain;
 }
 
@@ -143,7 +149,7 @@ size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
     // Copy data into the input buffer
     auto* data = (complex<float>*) forwardInput;
     for(size_t i=0; i<fftSize; ++i)
-        data[i] = input[i] * hamming(i, fftSize);
+        data[i] = input[i] * hamWindow[i];
 
     // Calculate FFT on input buffer
     fftwf_execute(forwardPlan);
