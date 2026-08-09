@@ -40,6 +40,11 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size) {
+    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+}
+
 template <typename T>
 NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, unsigned int attack)
 {
@@ -127,12 +132,12 @@ template<typename T>
 size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
 {
     // Must have at least one frame
-    if(size < fftSize) return 0;
+    if(size<fftSize) return 0;
 
-    // Copy input
+    // Copy data into the input buffer
     auto* data = (complex<float>*) forwardInput;
     for(size_t i=0; i<fftSize; ++i)
-        data[i] = input[i];
+        data[i] = input[i] * hamming(i, fftSize);
 
     // Calculate FFT on input buffer
     fftwf_execute(forwardPlan);
