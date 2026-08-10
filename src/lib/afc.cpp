@@ -97,7 +97,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
 
             // Update frequency shift, if the change is large enough
             double newShift = (double)i / fftSize;
-            if(fabs(newShift-curShift)>0.0001) setRate(curShift = newShift);
+            if(std::abs(newShift-curShift)>0.001) setRate(curShift = newShift);
         }
     }
 
