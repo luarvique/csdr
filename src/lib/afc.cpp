@@ -30,11 +30,6 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
-// Hamming window function
-static inline float hamming(unsigned int x, unsigned int size) {
-    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
-}
-
 Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
 {
     // Verify and initialize configuration
@@ -88,10 +83,10 @@ void Afc::process(complex<float>* input, complex<float>* output)
             fftwf_execute(fftPlan);
 
             unsigned int fftSize = size * samplePeriod;
-            float maxMag = mag2(fftOut[2]);
+            float maxMag = mag2(fftOut[0]);
 
-            // Find the carrier frequency, skip DC bins
-            for(j=3, i=2 ; j<fftSize-2 ; ++j)
+            // Find the carrier frequency
+            for(j=1, i=0 ; j<fftSize ; ++j)
             {
                 float mag = mag2(fftOut[j]);
                 if(mag>maxMag) { i=j;maxMag=mag; }
@@ -102,7 +97,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
 
             // Update frequency shift, if the change is large enough
             double newShift = (double)i / fftSize;
-            if(std::abs(newShift-curShift)>0.0001) setRate(curShift = newShift);
+            if(fabs(newShift-curShift)>0.0001) setRate(curShift = newShift);
         }
     }
 
