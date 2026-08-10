@@ -32,8 +32,26 @@ using namespace Csdr;
 #endif
 
 // Hamming window function
-static inline float hamming(unsigned int x, unsigned int size) {
+static inline float hamming(unsigned int x, unsigned int size)
+{
     return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+}
+
+// Squared magnitude of a complex value
+static float mag2(const fftwf_complex &v)
+{
+    return v[0] * v[0] + v[1] * v[1];
+}
+
+// FFT peak interpolation
+static double interpolate(const fftwf_complex *fft, unsigned int fftSize, unsigned int k)
+{
+    float vPrev = std::log10(mag2(fft[(k+fftSize-1)%fftSize]) + 1e-20f);
+    float vCurr = std::log10(mag2(fft[k])                     + 1e-20f);
+    float vNext = std::log10(mag2(fft[(k+1)%fftSize])         + 1e-20f);
+    float denom = vPrev - 2.0f * vCurr + vNext;
+
+    return std::abs(denom) >= 1e-12f? 0.5 * (vPrev - vNext) / denom : 0.0;
 }
 
 Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
@@ -61,8 +79,8 @@ Afc::~Afc()
 
 void Afc::process(complex<float>* input, complex<float>* output)
 {
-    size_t size = getLength();
-    size_t j, i;
+    unsigned int size = getLength();
+    unsigned int j, i;
 
     // Count updates
     updateCount--;
@@ -99,7 +117,8 @@ void Afc::process(complex<float>* input, complex<float>* output)
             }
 
             // Take negative shifts into account
-            double newShift = i>=fftSize/2? (double)(fftSize-i) : -(double)i;
+            double newShift = (double)i + interpolate(fftOut, fftSize, i);
+            newShift = newShift>=fftSize/2.0? (fftSize-newShift) : -newShift;
             newShift /= fftSize;
 
             // Update frequency shift, if the change is large enough
