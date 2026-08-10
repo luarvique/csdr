@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "complex.hpp"
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 
 using namespace Csdr;
 
@@ -29,6 +30,11 @@ using namespace Csdr;
 #else
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
+
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size) {
+    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+}
 
 Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
 {
@@ -55,8 +61,9 @@ Afc::~Afc()
 
 void Afc::process(complex<float>* input, complex<float>* output)
 {
-    unsigned int size = getLength();
-    int j, i;
+    size_t size = getLength();
+    size_t j;
+    int i;
 
     // Count updates
     updateCount--;
