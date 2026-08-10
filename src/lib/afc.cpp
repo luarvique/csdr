@@ -107,10 +107,10 @@ void Afc::process(complex<float>* input, complex<float>* output)
             fftwf_execute(fftPlan);
 
             unsigned int fftSize = size * samplePeriod;
-            float maxMag = mag2(fftOut[0]);
+            float maxMag = mag2(fftOut[2]);
 
-            // Find the carrier frequency
-            for(j=1, i=0 ; j<fftSize ; ++j)
+            // Find the carrier frequency, skip DC bins
+            for(j=3, i=2 ; j<fftSize-2 ; ++j)
             {
                 float mag = mag2(fftOut[j]);
                 if(mag>maxMag) { i=j;maxMag=mag; }
