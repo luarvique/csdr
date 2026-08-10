@@ -62,8 +62,7 @@ Afc::~Afc()
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     size_t size = getLength();
-    size_t j;
-    int i;
+    size_t j, i;
 
     // Count updates
     updateCount--;
@@ -72,12 +71,12 @@ void Afc::process(complex<float>* input, complex<float>* output)
     if(updateCount<samplePeriod)
     {
         // Copy input signal into the buffer
-        j = (samplePeriod - updateCount - 1) * size;
-        for(i=0 ; i<size ; ++i)
+        i = (samplePeriod - updateCount - 1) * size;
+        for(j=0 ; j<size ; ++j)
         {
-            std::complex<float> v = input[i] * hamming(i, size);
-            fftIn[j + i][0] = v.real();
-            fftIn[j + i][0] = v.imag();
+            std::complex<float> v = input[j] * hamming(j, size);
+            fftIn[i + j][0] = v.real();
+            fftIn[i + j][1] = v.imag();
         }
 
         // If detecting the carrier...
@@ -100,10 +99,10 @@ void Afc::process(complex<float>* input, complex<float>* output)
             }
 
             // Take negative shifts into account
-            i = i>=fftSize/2? fftSize-i : -i;
+            double newShift = i>=fftSize/2? (double)(fftSize-i) : -(double)i;
+            newShift /= fftSize;
 
             // Update frequency shift, if the change is large enough
-            double newShift = (double)i / fftSize;
             if(std::abs(newShift-curShift)>0.001) setRate(curShift = newShift);
         }
     }
