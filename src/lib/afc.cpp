@@ -70,8 +70,9 @@ void Afc::process(complex<float>* input, complex<float>* output)
     if(updateCount<samplePeriod)
     {
         // Copy input signal into the buffer
-        j = samplePeriod - updateCount - 1;
-        std::memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
+        j = (samplePeriod - updateCount - 1) * size;
+        for(i=0 ; i<size ; ++i)
+            fftIn[j + i] = input[i] * hamming(i, size);
 
         // If detecting the carrier...
         if(!updateCount)
