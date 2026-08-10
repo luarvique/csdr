@@ -72,7 +72,11 @@ void Afc::process(complex<float>* input, complex<float>* output)
         // Copy input signal into the buffer
         j = (samplePeriod - updateCount - 1) * size;
         for(i=0 ; i<size ; ++i)
-            fftIn[j + i] = input[i] * hamming(i, size);
+        {
+            std::complex<float> v = input[i] * hamming(i, size);
+            fftIn[j + i][0] = v.real();
+            fftIn[j + i][0] = v.imag();
+        }
 
         // If detecting the carrier...
         if(!updateCount)
