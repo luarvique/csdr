@@ -10,6 +10,10 @@ csdr (0.18.38) bullseye jammy; urgency=low
   * Fixed phase tracking in the FaxDecoder.
   * Fixed zero magnitude handling in the FaxDecoder.
   * Fixed color computation in the FaxDecoder.
+  * Fixed buffer deletion in SstvDecoder.
+  * Fixed YUV to RGB conversion in SstvDecoder.
+  * Fixed intra-scanline sync in SstvDecoder.
+  * Fixed PD scanline sequence in SstvDecoder.
   * Fixed coordinate parsing in the DscDecoder.
   * Fixed frequency parsing in the DscDecoder.
   * Fixed phone number parsing in the DscDecoder.
