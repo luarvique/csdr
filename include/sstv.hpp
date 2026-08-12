@@ -622,7 +622,7 @@ namespace Csdr {
             unsigned char luminance(int freq);
 
             // Convert YUV to RGB values
-            unsigned int yuv2rgb(unsigned char y, unsigned char u, unsigned char v);
+            unsigned int yuv2rgb(int y, int u, int v);
 
             // Write output data
             bool writeData(const void *buf, unsigned int size);

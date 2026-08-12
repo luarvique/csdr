@@ -134,18 +134,24 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
 }
 
 template <typename T>
-SstvDecoder<T>::~SstvDecoder() {
+SstvDecoder<T>::~SstvDecoder()
+{
     // Destroy all mode-specific FFT plans
     for(int j=0 ; j<128 ; ++j)
-        if(modes[j]) delete modes[j];
+        if(modes[j])
+        {
+            modes[j]->destroyPlans();
+            delete modes[j];
+        }
 
     fftwf_destroy_plan(fftHeader);
-    fftwf_free(fftIn);
-    fftwf_free(fftOut);
+    delete [] fftIn;
+    delete [] fftOut;
 }
 
 template <typename T>
-bool SstvDecoder<T>::canProcess() {
+bool SstvDecoder<T>::canProcess()
+{
     std::lock_guard<std::mutex> lock(this->processMutex);
     return
         (this->reader->available() >= sampleRate*2) &&
@@ -153,7 +159,8 @@ bool SstvDecoder<T>::canProcess() {
 }
 
 template <typename T>
-void SstvDecoder<T>::process() {
+void SstvDecoder<T>::process()
+{
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     const T *buf = this->reader->getReadPointer();
@@ -263,7 +270,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Drop processed input data
                 skipInput(i);
                 // Go to the next scanline
-                curState += curState>0? curMode->LINE_STEP : 1;
+                curState += curMode->LINE_STEP;
                 if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             // If have not decoded a scanline for a while...
@@ -280,7 +287,7 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Skip scanline worth of input
                 skipInput(j);
                 // Go to the next scanline
-                curState += curState>0? curMode->LINE_STEP : 1;
+                curState += curMode->LINE_STEP;
                 if(curState>=curMode->LINE_COUNT) finishFrame();
             }
             break;
@@ -398,6 +405,7 @@ template <typename T>
 int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int size)
 {
     unsigned int xMax, j;
+    double vMax, v;
 
     // Make sure the size makes sense
     if(size<4) return(0);
@@ -412,16 +420,16 @@ int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int s
 
     // Go to magnitudes, find highest magnitude bin
     // Ignore top FFT bins (Scottie does not like these)
-    for(j=0, xMax=0 ; j<size/2 ; ++j)
+    for(j=0, xMax=0, vMax=0.0 ; j<size/2 ; ++j)
     {
-        fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
-        if(fftIn[j]>fftIn[xMax]) xMax=j;
+        v = fftOut[j][0] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+        if(v>vMax) { vMax=v; xMax=j; }
     }
 
     // Interpolate peak frequency
-    double vNext = fftIn[xMax<size-1? xMax+1 : size-1];
-    double vPrev = fftIn[xMax>0? xMax-1:0];
-    double v     = vPrev + fftIn[xMax] + vNext;
+    double vNext = fftOut[xMax<size-1? xMax+1 : size-1][0];
+    double vPrev = fftOut[xMax>0? xMax-1:0][0];
+    v = vPrev + vMax + vNext;
 
     // Can't have all three at 0
     if(v<1.0E-64) return(0);
@@ -520,7 +528,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
 
     // If sync found, use it for scanline start, else skip <syncSize>
     // samples left from a previous scanline and assume start there
-    if(start) start -= syncSize; else start = syncSize;
+    if(start) start += start0 - syncSize; else start = syncSize;
 
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
@@ -693,14 +701,13 @@ template <typename T>
 void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned char *buf[3])
 {
     unsigned char bmp[3 * mode->LINE_WIDTH];
-    unsigned char *p = bmp;
+    unsigned char *p;
     unsigned int px;
 
-    // Use average U/V from two scanlines
-    if((line > 0) && (line < mode->LINE_COUNT-1))
+    if(line > 0)
     {
-        // Draw first scanline
-        for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+        // Draw even scanline by averaging U/V with previous scanline
+        for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
         {
             unsigned char u  = (linebuf[1][px] + buf[2][px]) >> 1;
             unsigned char v  = (linebuf[0][px] + buf[1][px]) >> 1;
@@ -709,31 +716,25 @@ void SstvDecoder<T>::convertPD(const SstvMode *mode, unsigned int line, unsigned
             *p++ = (rgb >> 8) & 0xFF;
             *p++ = (rgb >> 16) & 0xFF;
         }
-    }
-
-    // Write out first scanline, if drawn above
-    if(p!=bmp)
-    {
         writeData(bmp, sizeof(bmp));
-        p = bmp;
     }
 
-    // Draw second scanline
-    unsigned char *u = line<mode->LINE_COUNT-1? buf[2] : linebuf[1];
-    unsigned char *v = line<mode->LINE_COUNT-1? buf[1] : linebuf[0];
-    for(px=0 ; px<mode->LINE_WIDTH ; ++px)
+    // Draw odd scanline
+    for(px=0, p=bmp ; px<mode->LINE_WIDTH ; ++px)
     {
-        unsigned int rgb = yuv2rgb(buf[0][px], u[px], v[px]);
+        unsigned int rgb = yuv2rgb(buf[0][px], buf[2][px], buf[1][px]);
         *p++ = rgb & 0xFF;
         *p++ = (rgb >> 8) & 0xFF;
         *p++ = (rgb >> 16) & 0xFF;
     }
+    writeData(bmp, sizeof(bmp));
+
+    // First line gets duplicated, since there is no previous line yet
+    if(line == 0) writeData(bmp, sizeof(bmp));
 
     // Retain U/V values until the next scanline
     memcpy(linebuf[0], buf[1], mode->LINE_WIDTH);
     memcpy(linebuf[1], buf[2], mode->LINE_WIDTH);
-
-    writeData(bmp, sizeof(bmp));
 }
 
 
@@ -745,11 +746,11 @@ unsigned char SstvDecoder<T>::luminance(int freq)
 }
 
 template <typename T>
-unsigned int SstvDecoder<T>::yuv2rgb(unsigned char y, unsigned char u, unsigned char v)
+unsigned int SstvDecoder<T>::yuv2rgb(int y, int u, int v)
 {
-    int r = y + ((351 * (v-128)) >> 8);
-    int g = y - ((179 * (v-128) + 86 * (u-128)) >> 8);
-    int b = y + ((443 * (u-128)) >> 8);
+    int r = y + ((91882 * (v-128)) >> 16);
+    int g = y - ((46793 * (v-128) + 22545 * (u-128)) >> 16);
+    int b = y + ((116130 * (u-128)) >> 16);
 
     r = r>255? 255 : r<0? 0 : r;
     g = g>255? 255 : g<0? 0 : g;
@@ -799,6 +800,9 @@ void SstvMode::createPlans(unsigned int rate, fftwf_complex *out, float *in)
     syncSize  = round(SYNC_PULSE * 1.4 * rate);
     pixelSize = round(PIXEL_TIME * WINDOW_FACTOR * rate);
     halfpSize = round(HALF_PIXEL_TIME * WINDOW_FACTOR * rate);
+
+    // Destroy old FFT plans
+    destroyPlans();
 
     // Generate new FFT plans
     fftSync  = fftwf_plan_dft_r2c_1d(syncSize, in, out, FFTW_ESTIMATE);
