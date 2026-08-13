@@ -118,10 +118,8 @@ NoiseFilter<T>::~NoiseFilter()
 template <typename T>
 void NoiseFilter<T>::setThreshold(int dBthreshold)
 {
-    // Using power decibels here (square of amplitude),
-    // so in theory it has to be /10.0, but that makes
-    // threshold control too rough
-    this->threshold = pow(10.0, (double)dBthreshold/20.0);
+    // Using power decibels here (square of amplitude)
+    this->threshold = pow(10.0, (double)dBthreshold/10.0);
 }
 
 template<typename T>

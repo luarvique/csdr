@@ -4,6 +4,7 @@ csdr (0.18.38) bullseye jammy; urgency=low
   * Added 50% output overlap to NoiseFilter.
   * Fixed sound pop when NoiseFilter is engaged.
   * Fixed noise floor tracking in NoiseFilter.
+  * Fixed NoiseFilter threshold to use proper dB.
   * Added initial peak computation to Agc.
   * Fixed complex magnitude clamping in Agc.
   * Fixed setHangTime() argument type in Agc.
