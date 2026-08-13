@@ -59,11 +59,17 @@ void Agc<T>::process() {
 
     float input_abs, error, dgain;
 
+    // Initialize max_abs at the first run
+    if (max_abs < 0.0) {
+        for (size_t i = 0; i < ahead_time; i++) {
+            max_abs = std::max(max_abs, this->abs(input[i]));
+        }
+    }
+
     for (size_t i = 0; i < work_size; i++) {
         // The error is the difference between the required gain at
         // the actual sample, and the previous gain value.
         // We actually use an envelope detector.
-        //input_abs = this->abs(input[i]);
         error = (max_abs * gain) / reference;
 
         // An AGC is something nonlinear that's easier to implement in
@@ -165,10 +171,8 @@ float Agc<complex<float>>::abs(complex<float> in) {
 template <>
 complex<float> Agc<complex<float>>::scale(complex<float> in) {
     complex<float> val = in * gain;
-    if (val.i() > 1.0f) val.i(1.0f);
-    if (val.q() > 1.0f) val.q(1.0f);
-    if (val.i() < -1.0f) val.i(-1.0f);
-    if (val.q() < -1.0f) val.q(-1.0f);
+    float mag = std::abs(val);
+    if (mag > 1.0f) val /= mag;
     return val;
 }
 
@@ -198,7 +202,7 @@ void Agc<T>::setInitialGain(float initial_gain) {
 }
 
 template <typename T>
-void Agc<T>::setHangTime(unsigned long int hang_time) {
+void Agc<T>::setHangTime(unsigned int hang_time) {
     this->hang_time = hang_time;
 }
 
