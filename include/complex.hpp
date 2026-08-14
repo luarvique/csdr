@@ -20,6 +20,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include <complex>
+#include <cmath>
 
 namespace Csdr {
 
@@ -36,4 +37,8 @@ namespace Csdr {
             void q(T value) { std::complex<T>::imag(value); }
     };
 
+    // Hamming window function
+    static inline float hamming(unsigned int x, unsigned int size) {
+        return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+    }
 }
