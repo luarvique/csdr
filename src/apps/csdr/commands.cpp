@@ -758,8 +758,8 @@ ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise")
     addFifoOption();
     add_option("-f,--fft_size", fftSize, "Number of FFT bins");
     add_option("-w,--wnd_size", wndSize, "Filter window size");
-    add_option("-a,--attack", attack, "Attack rate in FFTs");
-    add_option("-d,--decay", decay, "Decay rate in FFTs");
+    add_option("-a,--attack", attack, "Attack rate (slow: 0.1, fast: 0.5)");
+    add_option("-d,--decay", decay, "Decay rate (slow: 0.1, fast: 0.5)");
     add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
     callback( [this] () {
         auto filter = new AFNoiseFilter(fftSize, wndSize, decay, attack);

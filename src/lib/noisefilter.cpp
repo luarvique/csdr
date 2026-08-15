@@ -46,7 +46,7 @@ static inline float hamming(unsigned int x, unsigned int size) {
 }
 
 template <typename T>
-NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, unsigned int attack)
+NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, float decayRate, float attackRate)
 {
     // Keep FFT and overlap sizes reasonable
     this->fftSize = fftSize = fftSize>=32? fftSize : 32;
@@ -62,8 +62,8 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, unsigned int decay, 
     this->wndSize = wndSize>>1;
 
     // Keep attack and decay positive
-    this->attack    = attack>0? attack : 1;
-    this->decay     = decay>0? decay : 1;
+    this->attack    = std::min(1.0f, std::max(0.0f, attackRate));
+    this->decay     = std::min(1.0f, std::max(0.0f, decayRate));
     this->threshold = 1.0;
     this->avgPower  = 0.0;
 
@@ -116,10 +116,10 @@ NoiseFilter<T>::~NoiseFilter()
 }
 
 template <typename T>
-void NoiseFilter<T>::setThreshold(int dBthreshold)
+void NoiseFilter<T>::setThreshold(float dBthreshold)
 {
     // Using power decibels here (square of amplitude)
-    this->threshold = pow(10.0, (double)dBthreshold/10.0);
+    this->threshold = std::pow(10.0, dBthreshold / 10.0);
 }
 
 template<typename T>
@@ -173,7 +173,7 @@ size_t NoiseFilter<T>::processFrame(T *input, T *output, size_t size)
     power = (power - maxPower) / (fftSize - 1);
 
     // Track the peak average power over multiple FFTs
-    avgPower += (power - avgPower) / (power>avgPower? decay : attack);
+    avgPower += (power - avgPower) * (power>avgPower? decay : attack);
 
     // Calculate the effective threshold to compare against
     power = avgPower * threshold;

@@ -360,9 +360,9 @@ namespace Csdr {
             ReduceNoiseCommand();
             unsigned int fftSize = 1024;
             unsigned int wndSize = 16;
-            unsigned int attack  = 2;
-            unsigned int decay   = 10;
-            int dBthreshold = 0;
+            float attack = 0.5f;
+            float decay = 0.1f;
+            float dBthreshold = 0.0f;
             FilterModule<float>* module;
     };
 
