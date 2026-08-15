@@ -41,6 +41,11 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size) {
+    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+}
+
 template <typename T>
 Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
 : callback(std::move(callback))
