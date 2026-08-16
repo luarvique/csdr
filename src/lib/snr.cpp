@@ -43,7 +43,7 @@ using namespace Csdr;
 
 // Hamming window function
 static inline float hamming(unsigned int x, unsigned int size) {
-    return 0.54 - 0.46 * cos((2.0 * M_PI * x) / (size - 1));
+    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
 }
 
 template <typename T>
@@ -56,6 +56,11 @@ Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
     fftInput  = fftwf_alloc_complex(fftSize);
     fftOutput = fftwf_alloc_complex(fftSize);
     fftPlan   = fftwf_plan_dft_1d(fftSize, fftInput, fftOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+
+    // Precompute input window
+    hamWindow = new float[fftSize];
+    for(size_t i=0; i < fftSize; i++)
+        hamWindow[i] = hamming(i, fftSize);
 }
 
 template<typename T>
@@ -63,6 +68,7 @@ Snr<T>::~Snr() {
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftInput);
     fftwf_free(fftOutput);
+    delete [] hamWindow;
 }
 
 template <typename T>
@@ -83,7 +89,7 @@ void Snr<T>::process() {
     // Copy data into the input buffer
     auto* data = (complex<float>*) fftInput;
     for (j=0 ; j < fftSize ; ++j)
-      data[j] = input[j] * hamming(j, fftSize);
+      data[j] = input[j] * hamWindow[j];
 
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
