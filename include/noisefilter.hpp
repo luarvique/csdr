@@ -29,7 +29,7 @@ namespace Csdr {
     template <typename T>
     class NoiseFilter: public Filter<T> {
         public:
-            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, float decayRate = 0.1f, float attackRate = 0.5f);
+            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, float decayRate = 0.05f, float attackRate = 0.2f);
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
