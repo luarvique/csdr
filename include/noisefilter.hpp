@@ -66,7 +66,7 @@ namespace Csdr {
 
     class AFNoiseFilter: public NoiseFilter<float> {
         public:
-            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, unsigned int decay = 10, unsigned int attack = 2):
-                NoiseFilter<float>(fftSize, wndSize, decay, attack) {}
+            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, float decayRate = 0.1f, float attackRate = 0.5f):
+                NoiseFilter<float>(fftSize, wndSize, decayRate, attackRate) {}
     };
 }
