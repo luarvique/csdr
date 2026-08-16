@@ -66,6 +66,7 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, float decayRate, flo
     this->decay     = std::min(1.0f, std::max(0.0f, decayRate));
     this->threshold = 1.0;
     this->avgPower  = 0.0;
+fprintf(stderr, "Attack = %f->%lf, Decay = %f->%lf, Threshold = %lf\n", attackRate, this->attack, decayRate, this->decay, this->threshold);
 
     // Allocate FFT buffers and plans
     overlapBuf    = fftwf_alloc_complex(ovrSize);
@@ -120,6 +121,7 @@ void NoiseFilter<T>::setThreshold(float dBthreshold)
 {
     // Using power decibels here (square of amplitude)
     this->threshold = std::pow(10.0, dBthreshold / 10.0);
+fprintf(stderr, "Threshold = %fdB -> %lf\n", dBthreshold, this->threshold);
 }
 
 template<typename T>
