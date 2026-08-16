@@ -762,7 +762,7 @@ ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise")
     add_option("-d,--decay", decay, "Decay rate (slow: 0.1, fast: 0.5)");
     add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
     callback( [this] () {
-        auto filter = new AFNoiseFilter(fftSize, wndSize, decay, attack);
+        auto filter = new NoiseFilter<float>(fftSize, wndSize, decay, attack);
         module = new FilterModule<float>(filter);
         filter->setThreshold(dBthreshold);
         runModule(module);

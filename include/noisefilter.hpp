@@ -63,10 +63,4 @@ namespace Csdr {
             // Convert output complex into a sample
             inline T complex2sample(complex<float> input);
     };
-
-    class AFNoiseFilter: public NoiseFilter<float> {
-        public:
-            AFNoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, float decayRate = 0.1f, float attackRate = 0.5f):
-                NoiseFilter<float>(fftSize, wndSize, decayRate, attackRate) {}
-    };
 }
