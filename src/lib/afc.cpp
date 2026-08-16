@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "complex.hpp"
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 
 using namespace Csdr;
 
@@ -29,6 +30,18 @@ using namespace Csdr;
 #else
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
+
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size)
+{
+    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+}
+
+// Squared magnitude of a complex value
+static float mag2(const fftwf_complex &v)
+{
+    return v[0] * v[0] + v[1] * v[1];
+}
 
 Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
 {
@@ -65,8 +78,13 @@ void Afc::process(complex<float>* input, complex<float>* output)
     if(updateCount<samplePeriod)
     {
         // Copy input signal into the buffer
-        j = samplePeriod - updateCount - 1;
-        std::memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
+        i = (samplePeriod - updateCount - 1) * size;
+        for(j=0 ; j<size ; ++j)
+        {
+            std::complex<float> v = input[j] * hamming(j, size);
+            fftIn[i + j][0] = v.real();
+            fftIn[i + j][1] = v.imag();
+        }
 
         // If detecting the carrier...
         if(!updateCount)
@@ -92,7 +110,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
 
             // Update frequency shift, if the change is large enough
             double newShift = (double)i / fftSize;
-            if(fabs(newShift-curShift)>0.0001) setRate(curShift = newShift);
+            if(std::abs(newShift-curShift)>0.0001) setRate(curShift = newShift);
         }
     }
 
