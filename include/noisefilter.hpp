@@ -54,7 +54,7 @@ namespace Csdr {
             fftwf_complex* inverseOutput;
             fftwf_plan inversePlan;
             fftwf_complex* overlapBuf;
-            float* hamWindow;
+            float* inputWindow;
             float* synGain;
 
             // Process one frame of input

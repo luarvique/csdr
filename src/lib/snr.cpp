@@ -41,9 +41,9 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
-// Hamming window function
-static inline float hamming(unsigned int x, unsigned int size) {
-    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+// Hann window function
+static inline float hann(unsigned int x, unsigned int size) {
+    return 0.5f - 0.5f * std::cos((2.0 * M_PI * x) / size);
 }
 
 template <typename T>
@@ -59,9 +59,9 @@ Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
     fftPlan   = fftwf_plan_dft_1d(fftSize, fftInput, fftOutput, FFTW_FORWARD, CSDR_FFTW_FLAGS);
 
     // Precompute input window
-    hamWindow = new float[fftSize];
+    inputWindow = new float[fftSize];
     for(size_t i=0; i < fftSize; i++)
-        hamWindow[i] = hamming(i, fftSize);
+        inputWindow[i] = hann(i, fftSize);
 }
 
 template<typename T>
@@ -69,7 +69,7 @@ Snr<T>::~Snr() {
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftInput);
     fftwf_free(fftOutput);
-    delete [] hamWindow;
+    delete [] inputWindow;
 }
 
 template <typename T>
@@ -90,7 +90,7 @@ void Snr<T>::process() {
     // Copy data into the input buffer
     auto* data = (complex<float>*) fftInput;
     for (j=0 ; j < fftSize ; ++j)
-        data[j] = input[j] * hamWindow[j];
+        data[j] = input[j] * inputWindow[j];
 
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);

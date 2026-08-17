@@ -31,10 +31,9 @@ using namespace Csdr;
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
 
-// Hamming window function
-static inline float hamming(unsigned int x, unsigned int size)
-{
-    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+// Hann window function
+static inline float hann(unsigned int x, unsigned int size) {
+    return 0.5f - 0.5f * std::cos((2.0 * M_PI * x) / size);
 }
 
 // Squared magnitude of a complex value
@@ -57,10 +56,10 @@ Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0
     fftOut  = fftwf_alloc_complex(fftSize);
     fftPlan = fftwf_plan_dft_1d(fftSize, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
 
-    // Precompute Hamming window
-    hamWindow = new float[fftSize];
+    // Precompute input window
+    inputWindow = new float[fftSize];
     for(size_t i=0; i < fftSize; i++)
-        hamWindow[i] = hamming(i, fftSize);
+        inputWindow[i] = hann(i, fftSize);
 }
 
 Afc::~Afc()
@@ -69,7 +68,7 @@ Afc::~Afc()
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftIn);
     fftwf_free(fftOut);
-    delete [] hamWindow;
+    delete [] inputWindow;
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
@@ -87,7 +86,7 @@ void Afc::process(complex<float>* input, complex<float>* output)
         i = (samplePeriod - updateCount - 1) * size;
         for(j=0 ; j<size ; ++j, ++i)
         {
-            std::complex<float> v = input[j] * hamWindow[i];
+            std::complex<float> v = input[j] * inputWindow[i];
             fftIn[i][0] = v.real();
             fftIn[i][1] = v.imag();
         }

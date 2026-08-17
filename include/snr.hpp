@@ -58,7 +58,7 @@ namespace Csdr {
             fftwf_complex* fftInput;
             fftwf_complex* fftOutput;
             fftwf_plan fftPlan;
-            float *hamWindow;
+            float *inputWindow;
     };
 
     template <typename T>
