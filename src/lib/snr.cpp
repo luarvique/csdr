@@ -50,8 +50,9 @@ template <typename T>
 Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
 : callback(std::move(callback))
 {
-    this->fftSize = fftSize = fftSize >= 64? fftSize: 64;
-    this->length  = length >= fftSize? length : fftSize;
+    // If no fftSize, default to length, else require minimal fftSize
+    this->fftSize = std::max(fftSize? fftSize : length, 64UL);
+    this->length  = std::max(length, fftSize);
 
     fftInput  = fftwf_alloc_complex(fftSize);
     fftOutput = fftwf_alloc_complex(fftSize);
@@ -75,7 +76,7 @@ template <typename T>
 bool Snr<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     size_t length = this->getLength();
-    return (this->reader->available() > length && this->writer->writeable() > length);
+    return (this->reader->available() >= length && this->writer->writeable() >= length);
 }
 
 template <typename T>
@@ -83,26 +84,26 @@ void Snr<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     T *input = this->reader->getReadPointer();
-    float avg, snr;
+    double avg, snr;
     size_t j;
 
     // Copy data into the input buffer
     auto* data = (complex<float>*) fftInput;
     for (j=0 ; j < fftSize ; ++j)
-      data[j] = input[j] * hamWindow[j];
+        data[j] = input[j] * hamWindow[j];
 
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
 
     for (avg=snr=0.0, j=0 ; j < fftSize ; ++j) {
-        float v = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
+        double v = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
         snr  = std::max(v, snr);
         avg += v;
     }
 
     // Compute average and peak power
     avg = (avg - snr) / (fftSize - 1);
-    snr /= avg;
+    snr = avg > 0.0? snr / avg : 1.0;
 
     // Report peak power over average
     if (callback) callback(snr);
@@ -131,8 +132,7 @@ template <typename T>
 SnrSquelch<T>::SnrSquelch(size_t length, size_t fftSize, size_t hangLength, size_t flushLength, std::function<void(float)> callback)
 : Snr<T>(length, fftSize, callback),
   hangLength(hangLength),
-  flushLength(flushLength),
-  callback(std::move(callback))
+  flushLength(flushLength)
 {}
 
 template <typename T>

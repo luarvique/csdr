@@ -39,7 +39,7 @@ namespace Csdr {
     template <typename T>
     class Snr: public Module<T, T> {
         public:
-            Snr(size_t length, size_t fftSize = 256, std::function<void(float)> callback = 0);
+            Snr(size_t length, size_t fftSize = 0, std::function<void(float)> callback = 0);
             ~Snr() override;
 
             size_t getLength();
@@ -64,15 +64,13 @@ namespace Csdr {
     template <typename T>
     class SnrSquelch: public Snr<T> {
         public:
-            SnrSquelch(size_t length, size_t fftSize = 256, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
+            SnrSquelch(size_t length, size_t fftSize = 0, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
             void setSquelch(float squelchLevel);
 
         protected:
             void forwardData(T* input, float snr) override;
 
         private:
-            std::function<void(float)> callback;
-            size_t length;
             size_t hangLength;
             size_t flushLength;
 
