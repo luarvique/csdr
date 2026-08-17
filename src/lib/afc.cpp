@@ -21,6 +21,7 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "complex.hpp"
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 
 using namespace Csdr;
 
@@ -29,6 +30,18 @@ using namespace Csdr;
 #else
 #define CSDR_FFTW_FLAGS (FFTW_DESTROY_INPUT | FFTW_MEASURE)
 #endif
+
+// Hamming window function
+static inline float hamming(unsigned int x, unsigned int size)
+{
+    return 0.54 - 0.46 * std::cos((2.0 * M_PI * x) / (size - 1));
+}
+
+// Squared magnitude of a complex value
+static float mag2(const fftwf_complex &v)
+{
+    return v[0] * v[0] + v[1] * v[1];
+}
 
 Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0)
 {
@@ -43,6 +56,11 @@ Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0
     fftIn   = fftwf_alloc_complex(fftSize);
     fftOut  = fftwf_alloc_complex(fftSize);
     fftPlan = fftwf_plan_dft_1d(fftSize, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+
+    // Precompute Hamming window
+    hamWindow = new float[fftSize];
+    for(size_t i=0; i < fftSize; i++)
+        hamWindow[i] = hamming(i, fftSize);
 }
 
 Afc::~Afc()
@@ -51,6 +69,7 @@ Afc::~Afc()
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftIn);
     fftwf_free(fftOut);
+    delete [] hamWindow;
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
@@ -62,11 +81,16 @@ void Afc::process(complex<float>* input, complex<float>* output)
     updateCount--;
 
     // If sampling input signal...
-    if(updateCount<samplePeriod)
+    if(updateCount < samplePeriod)
     {
         // Copy input signal into the buffer
-        j = samplePeriod - updateCount - 1;
-        std::memcpy(&fftIn[size * j], input, size * sizeof(fftIn[0]));
+        i = (samplePeriod - updateCount - 1) * size;
+        for(j=0 ; j<size ; ++j, ++i)
+        {
+            std::complex<float> v = input[j] * hamWindow[i];
+            fftIn[i][0] = v.real();
+            fftIn[i][1] = v.imag();
+        }
 
         // If detecting the carrier...
         if(!updateCount)
@@ -92,7 +116,9 @@ void Afc::process(complex<float>* input, complex<float>* output)
 
             // Update frequency shift, if the change is large enough
             double newShift = (double)i / fftSize;
-            if(fabs(newShift-curShift)>0.0001) setRate(curShift = newShift);
+            double minShift = 1.0 / fftSize;
+            if(std::abs(newShift-curShift) >= minShift)
+                setRate(curShift = newShift);
         }
     }
 
