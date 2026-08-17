@@ -56,6 +56,11 @@ Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0
     fftIn   = fftwf_alloc_complex(fftSize);
     fftOut  = fftwf_alloc_complex(fftSize);
     fftPlan = fftwf_plan_dft_1d(fftSize, fftIn, fftOut, FFTW_FORWARD, CSDR_FFTW_FLAGS);
+
+    // Precompute Hamming window
+    hamWindow = new float[fftSize];
+    for(size_t i=0; i < fftSize; i++)
+        hamWindow[i] = hamming(i, fftSize);
 }
 
 Afc::~Afc()
@@ -64,6 +69,7 @@ Afc::~Afc()
     fftwf_destroy_plan(fftPlan);
     fftwf_free(fftIn);
     fftwf_free(fftOut);
+    delete [] hamWindow;
 }
 
 void Afc::process(complex<float>* input, complex<float>* output)
@@ -75,15 +81,15 @@ void Afc::process(complex<float>* input, complex<float>* output)
     updateCount--;
 
     // If sampling input signal...
-    if(updateCount<samplePeriod)
+    if(updateCount < samplePeriod)
     {
         // Copy input signal into the buffer
         i = (samplePeriod - updateCount - 1) * size;
-        for(j=0 ; j<size ; ++j)
+        for(j=0 ; j<size ; ++j, ++i)
         {
-            std::complex<float> v = input[j] * hamming(j, size);
-            fftIn[i + j][0] = v.real();
-            fftIn[i + j][1] = v.imag();
+            std::complex<float> v = input[j] * hamWindow[i];
+            fftIn[i][0] = v.real();
+            fftIn[i][1] = v.imag();
         }
 
         // If detecting the carrier...

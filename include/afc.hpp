@@ -47,5 +47,6 @@ namespace Csdr {
             fftwf_complex *fftIn;
             fftwf_complex *fftOut;
             fftwf_plan fftPlan;
+            float *hamWindow;
     };
 }
