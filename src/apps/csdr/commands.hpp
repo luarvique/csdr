@@ -214,7 +214,7 @@ namespace Csdr {
         private:
             std::string outFifoName;
             unsigned int length = 1024;
-            unsigned int fftSize = 256;
+            unsigned int fftSize = 1024;
             unsigned int reportInterval = 1;
     };
 
@@ -227,7 +227,7 @@ namespace Csdr {
             SnrSquelch<complex<float>>* squelch;
             std::string outFifoName;
             unsigned int length = 1024;
-            unsigned int fftSize = 256;
+            unsigned int fftSize = 1024;
             unsigned int hangLength = 0;
             unsigned int flushLength = 5 * 1024;
             unsigned int reportInterval = 1;
