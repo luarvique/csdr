@@ -102,21 +102,22 @@ void Afc::process(complex<float>* input, complex<float>* output)
             fftwf_execute(fftPlan);
 
             unsigned int fftSize = size * samplePeriod;
-            double curMag = mag2(fftOut[0]) + mag2(fftOut[1]) + mag2(fftOut[2]);
+            double curMag = mag2(fftOut[fftSize-1]) + mag2(fftOut[0]) + mag2(fftOut[1]);
             double maxMag = curMag;
 
             // Find the carrier frequency, searching by the combined
             // magnitude of three adjacent bins
-            for(j=2, i=1 ; j<fftSize-1 ; ++j)
+            for(j=1, i=0 ; j<fftSize ; ++j)
             {
-                curMag += mag2(fftOut[j + 1]) - mag2(fftOut[j - 2]);
+                curMag += mag2(fftOut[j<fftSize-1? j+1 : 0]);
+                curMag -= mag2(fftOut[j>1? j-2 : fftSize-1]);
                 if(curMag > maxMag) { i=j; maxMag=curMag; }
             }
 
             // Refine the peak location with parabolic interpolation
             // over the peak bin and its two immediate neighbors.
-            double magL  = mag2(fftOut[i - 1]);
-            double magR  = mag2(fftOut[i + 1]);
+            double magL  = mag2(fftOut[i>0? i-1 : fftSize-1]);
+            double magR  = mag2(fftOut[i<fftSize-1? i+1 : 0]);
             double delta = magL - 2.0 * mag2(fftOut[i]) + magR;
             delta = delta!=0.0? 0.5 * (magL - magR) / delta : 0.0;
 
