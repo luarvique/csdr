@@ -102,16 +102,17 @@ void Afc::process(complex<float>* input, complex<float>* output)
             fftwf_execute(fftPlan);
 
             unsigned int fftSize = size * samplePeriod;
-            double curMag = mag2(fftOut[fftSize-1]) + mag2(fftOut[0]) + mag2(fftOut[1]);
-            double maxMag = curMag;
+            double maxMag = mag2(fftOut[fftSize-1]) + mag2(fftOut[0]) + mag2(fftOut[1]);
 
             // Find the carrier frequency, searching by the combined
             // magnitude of three adjacent bins
             for(j=1, i=0 ; j<fftSize ; ++j)
             {
-                curMag += mag2(fftOut[j<fftSize-1? j+1 : 0]);
-                curMag -= mag2(fftOut[j>1? j-2 : fftSize-1]);
-                if(curMag > maxMag) { i=j; maxMag=curMag; }
+                double mag =
+                    mag2(fftOut[j-1])
+                  + mag2(fftOut[j])
+                  + mag2(fftOut[j<fftSize-1? j+1:0]);
+                if(mag > maxMag) { i=j; maxMag=mag; }
             }
 
             // Refine the peak location with parabolic interpolation
@@ -128,8 +129,9 @@ void Afc::process(complex<float>* input, complex<float>* output)
             if(shift >= fftSize/2.0) shift -= fftSize;
 
             // Update frequency shift, if the change is large enough
-            shift /= fftSize;
-            if(std::abs(shift-curShift) >= 0.0001) setRate(curShift = shift);
+            shift = curShift + 0.25 * (shift / fftSize - curShift);
+            if(std::abs(shift - curShift) >= 0.25 / fftSize)
+                setRate(curShift = shift);
         }
     }
 
