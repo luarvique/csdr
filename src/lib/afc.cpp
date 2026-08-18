@@ -32,12 +32,13 @@ using namespace Csdr;
 #endif
 
 // Hann window function
-static inline float hann(unsigned int x, unsigned int size) {
+static inline float hann(unsigned int x, unsigned int size)
+{
     return 0.5f - 0.5f * std::cos((2.0 * M_PI * x) / size);
 }
 
 // Squared magnitude of a complex value
-static float mag2(const fftwf_complex &v)
+static double mag2(const fftwf_complex &v)
 {
     return v[0] * v[0] + v[1] * v[1];
 }
@@ -74,7 +75,7 @@ Afc::~Afc()
 void Afc::process(complex<float>* input, complex<float>* output)
 {
     unsigned int size = getLength();
-    int j, i;
+    unsigned int j, i;
 
     // Count updates
     updateCount--;
@@ -101,23 +102,33 @@ void Afc::process(complex<float>* input, complex<float>* output)
             fftwf_execute(fftPlan);
 
             unsigned int fftSize = size * samplePeriod;
-            float maxMag = mag2(fftOut[0]);
+            double curMag = mag2(fftOut[0]) + mag2(fftOut[1]) + mag2(fftOut[2]);
+            double maxMag = curMag;
 
-            // Find the carrier frequency
-            for(j=1, i=0 ; j<fftSize ; ++j)
+            // Find the carrier frequency, searching by the combined
+            // magnitude of three adjacent bins
+            for(j=2, i=1 ; j<fftSize-1 ; ++j)
             {
-                float mag = mag2(fftOut[j]);
-                if(mag>maxMag) { i=j;maxMag=mag; }
+                curMag += mag2(fftOut[j + 1]) - mag2(fftOut[j - 2]);
+                if(curMag > maxMag) { i=j; maxMag=curMag; }
             }
 
-            // Take negative shifts into account
-            i = i>=fftSize/2? fftSize-i : -i;
+            // Refine the peak location with parabolic interpolation
+            // over the peak bin and its two immediate neighbors.
+            double magL  = mag2(fftOut[i - 1]);
+            double magR  = mag2(fftOut[i + 1]);
+            double delta = magL - 2.0 * mag2(fftOut[i]) + magR;
+            delta = delta!=0.0? 0.5 * (magL - magR) / delta : 0.0;
+
+            // Clamp to +/-0.5 bin, take negative shifts into account
+            double shift = (double)i + std::max(std::min(delta, 0.5), -0.5);
+            if(shift < 0.0)          shift += fftSize;
+            if(shift >= fftSize)     shift -= fftSize;
+            if(shift >= fftSize/2.0) shift -= fftSize;
 
             // Update frequency shift, if the change is large enough
-            double newShift = (double)i / fftSize;
-            double minShift = 1.0 / fftSize;
-            if(std::abs(newShift-curShift) >= minShift)
-                setRate(curShift = newShift);
+            shift /= fftSize;
+            if(std::abs(shift-curShift) >= 0.0001) setRate(curShift = shift);
         }
     }
 
