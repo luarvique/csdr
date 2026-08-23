@@ -48,7 +48,7 @@ namespace Csdr {
             //                 and, roughly, the pull-in range
             // dampingFactor:  loop damping factor; 0.707 (critically
             //                 damped) is the standard default
-            explicit AfcPll(float sampleRate, float bandwidthHz = 20.0f, float dampingFactor = 0.707f);
+            explicit AfcPll(float sampleRate, float bandwidthHz = 100.0f, float dampingFactor = 0.3f);
 
             // Current frequency estimate, in Hz (positive = carrier above center)
             float getFrequency() const;
