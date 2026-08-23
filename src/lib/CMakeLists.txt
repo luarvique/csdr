@@ -59,7 +59,7 @@ add_library(csdr++ SHARED
     exec.cpp
     throttle.cpp
     afc.cpp
-    afcpll.cpp
+    fftafc.cpp
     noisefilter.cpp
     mfrtty.cpp
     cw.cpp

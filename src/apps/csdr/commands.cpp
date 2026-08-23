@@ -47,7 +47,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "mfrtty.hpp"
 #include "sstv.hpp"
 #include "fax.hpp"
-#include "afc.hpp"
+#include "fftafc.hpp"
 #include "cw.hpp"
 #include "noisefilter.hpp"
 #include "sitorb.hpp"
@@ -774,7 +774,7 @@ AfcCommand::AfcCommand(): Command("afc", "Automatic frequency control") {
     add_option("sample_period", samplePeriod, "Sample period (>= 1)");
 
     callback( [this] () {
-        runModule(new Afc(updatePeriod, samplePeriod));
+        runModule(new FftAfc(updatePeriod, samplePeriod));
     });
 }
 

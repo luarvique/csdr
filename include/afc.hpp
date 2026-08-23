@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Marat Fayzullin <luarvique@gmail.com>
+Copyright (c) 2026 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 
@@ -20,33 +20,69 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "module.hpp"
-#include "shift.hpp"
-
-#include <fftw3.h>
+#include "complex.hpp"
 
 namespace Csdr {
 
-    class Afc: public ShiftAddfast {
+    // Costas/PLL-style continuous carrier tracker: an alternative to the
+    // FFT-based Afc for phase-sensitive consumers such as synchronous AM
+    // (SAm), where a small residual frequency error produces an audible,
+    // periodic amplitude ("volume") oscillation in RealPart()-based
+    // detection.
+    //
+    // Unlike Afc, this corrects both frequency AND phase, every single
+    // sample, via a standard second-order PI loop, rather than measuring
+    // frequency periodically from a block FFT and leaving phase
+    // uncontrolled between updates.
+    //
+    // Trade-off: limited pull-in range. It only locks onto a carrier that
+    // starts out within roughly its loop bandwidth of true center, so it's
+    // best used for *fine* tracking after a coarse acquisition step (e.g.
+    // one pass of the existing FFT-based Afc, or accurate-enough manual
+    // tuning) has already gotten close. It is not a search tool.
+    class Afc: public FixedLengthModule<complex<float>, complex<float>> {
         public:
-            Afc(unsigned int updatePeriod = 4, unsigned int samplePeriod = 1);
-            ~Afc();
+            // sampleRate:     sample rate of the input signal, Hz
+            // bandwidthHz:    loop (noise) bandwidth, Hz - controls the
+            //                 tracking-speed vs. noise-rejection tradeoff
+            //                 and, roughly, the pull-in range
+            // dampingFactor:  loop damping factor; 0.707 (critically
+            //                 damped) is the standard default
+            explicit Afc(float sampleRate, float bandwidthHz = 100.0f, float dampingFactor = 0.3f);
+
+            // Current frequency estimate, in Hz (positive = carrier above center)
+            float getFrequency() const;
+
+            // Smoothed lock-quality indicator in [0,1]; approaches 1.0 when
+            // phase error is small and consistent (i.e. actually locked).
+            // Useful for UI/telemetry or for gating a squelch/mute.
+            float getLockQuality() const { return lockIndicator; }
 
         protected:
             void process(complex<float>* input, complex<float>* output) override;
+            size_t getLength() override { return 1024; }
 
         private:
-            // Configuration
-            unsigned int updatePeriod; // Update period
-            unsigned int samplePeriod; // Sampling period (<=updatePeriod)
+            float sampleRate;
 
-            // State
-            unsigned int updateCount;  // Update counter
-            double curShift;           // Current frequency correction
+            // Loop filter gains, derived from bandwidthHz / dampingFactor
+            // at construction time (standard 2nd-order PLL design).
+            float alpha;   // proportional gain
+            float beta;    // integral gain
 
-            // FFT setup
-            fftwf_complex *fftIn;
-            fftwf_complex *fftOut;
-            fftwf_plan fftPlan;
-            float *inputWindow;
+            // NCO / loop state (persists across process() calls, i.e.
+            // across block boundaries -- this is what gives phase
+            // continuity, analogous to Afc's curShift but updated every
+            // sample instead of every updatePeriod blocks).
+            float phase = 0.0f;   // current NCO phase, radians, wrapped to [-pi, pi]
+            float freq  = 0.0f;   // current NCO frequency, radians/sample
+
+            // Running magnitude estimate, used to gate the phase detector
+            // during deep AM modulation nulls where phase information is
+            // unreliable (dominated by noise rather than carrier phase).
+            float magAvg = 1e-6f;
+
+            // Smoothed lock-quality indicator
+            float lockIndicator = 0.0f;
     };
 }
