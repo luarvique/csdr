@@ -50,6 +50,7 @@ Afc::Afc(unsigned int updatePeriod, unsigned int samplePeriod): ShiftAddfast(0.0
     this->updatePeriod = updatePeriod = updatePeriod>samplePeriod? updatePeriod : samplePeriod;
     updateCount = updatePeriod;
     curShift    = 0.0;
+    newShift    = 0.0;
 
     // Set up FFT
     unsigned int fftSize = samplePeriod * getLength();
@@ -129,9 +130,9 @@ void Afc::process(complex<float>* input, complex<float>* output)
             if(shift >= fftSize/2.0) shift -= fftSize;
 
             // Update frequency shift, if the change is large enough
-            shift = curShift + 0.25 * (shift / fftSize - curShift);
-            if(std::abs(shift - curShift) >= 0.25 / fftSize)
-                setRate(curShift = shift);
+            newShift += 0.25 * (shift / fftSize - newShift);
+            if(std::abs(newShift - curShift) >= 0.25 / fftSize)
+                setRate(curShift = newShift);
         }
     }
 

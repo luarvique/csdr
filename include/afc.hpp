@@ -42,6 +42,7 @@ namespace Csdr {
             // State
             unsigned int updateCount;  // Update counter
             double curShift;           // Current frequency correction
+            double newShift;           // Frequency correction being computed
 
             // FFT setup
             fftwf_complex *fftIn;
