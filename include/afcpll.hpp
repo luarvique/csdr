@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2026
+Copyright (c) 2026 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 
