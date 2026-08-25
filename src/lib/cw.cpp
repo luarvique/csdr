@@ -283,7 +283,7 @@ void CwDecoder<T>::printDebug()
     char buf[256];
 
     // Create complete string to print
-    sprintf(buf, "[%d-%d .%ld -%ld _%ldms WPM%d]\n", (int)magL, (int)magH, (int)avgDitT, (int)avgDahT, (int)avgBrkT, wpm);
+    sprintf(buf, "[%d-%d .%d -%d _%dms WPM%d]\n", (int)magL, (int)magH, (int)avgDitT, (int)avgDahT, (int)avgBrkT, wpm);
 
     // Print
     printString(buf);
