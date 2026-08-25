@@ -51,7 +51,7 @@ Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
 : callback(std::move(callback))
 {
     // If no fftSize, default to length, else require minimal fftSize
-    this->fftSize = std::max(fftSize? fftSize : length, 64UL);
+    this->fftSize = std::max(fftSize? fftSize : length, (size_t)64);
     this->length  = std::max(length, fftSize);
 
     fftInput  = fftwf_alloc_complex(fftSize);
