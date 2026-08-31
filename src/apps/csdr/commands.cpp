@@ -762,8 +762,9 @@ ReduceNoiseCommand::ReduceNoiseCommand(): Command("reducenoise", "Reduce noise")
     add_option("-d,--decay", decay, "Decay rate (slow: 0.001, fast: 0.1)");
     add_option("-t,--threshold", dBthreshold, "Suppression threshold in dB");
     callback( [this] () {
-        auto filter = new NoiseFilter<float>(fftSize, wndSize, decay, attack);
+        auto filter = new NoiseFilter<float>(fftSize, wndSize);
         module = new FilterModule<float>(filter);
+        filter->setAttackDecay(attack, decay);
         filter->setThreshold(dBthreshold);
         runModule(module);
     });
