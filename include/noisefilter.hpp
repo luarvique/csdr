@@ -29,12 +29,13 @@ namespace Csdr {
     template <typename T>
     class NoiseFilter: public Filter<T> {
         public:
-            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16, float decayRate = 0.05f, float attackRate = 0.2f);
+            NoiseFilter(size_t fftSize = 1024, size_t wndSize = 16);
             ~NoiseFilter() override;
 
             size_t apply(T* input, T* output, size_t size) override;
             size_t getMinProcessingSize() override { return fftSize; }
 
+            void setAttackDecay(float attack, float decay);
             void setThreshold(float dBthreshold);
 
         protected:

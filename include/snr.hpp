@@ -46,14 +46,22 @@ namespace Csdr {
             bool canProcess() override;
             void process() override;
 
+            void setAttackDecay(float attack, float decay);
+
         protected:
             // to be overridden by the squelch implementation
             virtual void forwardData(T* input, float snr);
 
         private:
-            size_t length;
-            size_t fftSize;
+            size_t length;        // Length of data to measure over
+            size_t fftSize;       // Number of FFT bins (<= length)
+
             std::function<void(float)> callback;
+
+            double attack = 0.3;  // Noise floor and signal peak attack rate
+            double decay  = 0.05; // Noise floor and signal peak decay rate
+            double peak   = 0.0;  // Current signal peak
+            double floor  = 0.0;  // Current noise floor
 
             fftwf_complex* fftInput;
             fftwf_complex* fftOutput;
@@ -65,17 +73,18 @@ namespace Csdr {
     class SnrSquelch: public Snr<T> {
         public:
             SnrSquelch(size_t length, size_t fftSize = 0, size_t hangLength = 0, size_t flushLength = 0, std::function<void(float)> callback = 0);
+            void setThreshold(float dBthreshold);
             void setSquelch(float squelchLevel);
 
         protected:
             void forwardData(T* input, float snr) override;
 
         private:
-            size_t hangLength;
-            size_t flushLength;
+            size_t hangLength;  // Number of samples to keep after signal stops
+            size_t flushLength; // Number of empty samples after signal stops
 
-            float squelchLevel = 0.0f;
-            size_t hangCounter = 0;
+            float  squelchLevel = 0.0f; // SNR level that opens squelch
+            size_t hangCounter  = 0;
             size_t flushCounter = 0;
     };
 }

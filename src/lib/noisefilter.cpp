@@ -46,24 +46,24 @@ static inline float hann(unsigned int x, unsigned int size) {
 }
 
 template <typename T>
-NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize, float decayRate, float attackRate)
+NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize)
 {
     // Keep FFT and overlap sizes reasonable
-    this->fftSize = fftSize = fftSize>=32? fftSize : 32;
+    this->fftSize = fftSize = std::max(fftSize, (size_t)32);
     this->ovrSize = fftSize>>1;
 
     // Make sure window does not exceed half of the FFT size
-    wndSize = wndSize>fftSize/2? fftSize/2 : wndSize;
+    wndSize = std::min(wndSize, fftSize/2);
 
     // Make sure window does not exceed unsigned char resolution
-    wndSize = wndSize<2? 2 : wndSize>254? 254 : wndSize;
+    wndSize = std::min(std::max(wndSize, (size_t)2), (size_t)254);
 
     // We are really interested in half-a-window
     this->wndSize = wndSize>>1;
 
-    // Keep attack and decay positive
-    this->attack    = std::min(1.0f, std::max(0.0f, attackRate));
-    this->decay     = std::min(1.0f, std::max(0.0f, decayRate));
+    // Initialize default parameters
+    this->attack    = 0.2
+    this->decay     = 0.05;
     this->threshold = 1.0;
     this->avgPower  = 0.0;
 
@@ -116,9 +116,15 @@ NoiseFilter<T>::~NoiseFilter()
 }
 
 template <typename T>
+void NoiseFilter<T>::setAttackDecay(float attack, float decay)
+{
+    this->attack = std::min(std::max(attack, 0.0001f), 1.0f);
+    this->decay  = std::min(std::max(decay, 0.0001f), 1.0f);
+}
+
+template <typename T>
 void NoiseFilter<T>::setThreshold(float dBthreshold)
 {
-    // Using power decibels here (square of amplitude)
     this->threshold = std::pow(10.0, dBthreshold / 10.0);
 }
 
