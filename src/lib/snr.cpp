@@ -145,18 +145,13 @@ SnrSquelch<T>::SnrSquelch(size_t length, size_t fftSize, size_t hangLength, size
 
 template <typename T>
 void SnrSquelch<T>::setThreshold(float dBthreshold) {
-    this->squelchLevel = std::pow(10.0f, dBthreshold / 10.0f);
-}
-
-template <typename T>
-void SnrSquelch<T>::setSquelch(float squelchLevel) {
-    this->squelchLevel = squelchLevel;
+    this->threshold = std::pow(10.0f, dBthreshold / 10.0f);
 }
 
 template <typename T>
 void SnrSquelch<T>::forwardData(T *input, float snr) {
-//fprintf(stderr, "@@@ SNR = %f, SQL = %f\n", snr, squelchLevel);
-    if (squelchLevel == 0.0f || snr >= squelchLevel) {
+//fprintf(stderr, "@@@ SNR = %f, SQL = %f\n", snr, threshold);
+    if (threshold == 0.0f || snr >= threshold) {
         Snr<T>::forwardData(input, snr);
         flushCounter = hangCounter = 0;
     } else if (hangCounter < hangLength) {
