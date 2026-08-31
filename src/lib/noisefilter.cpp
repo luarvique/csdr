@@ -62,7 +62,7 @@ NoiseFilter<T>::NoiseFilter(size_t fftSize, size_t wndSize)
     this->wndSize = wndSize>>1;
 
     // Initialize default parameters
-    this->attack    = 0.2
+    this->attack    = 0.2;
     this->decay     = 0.05;
     this->threshold = 1.0;
     this->avgPower  = 0.0;
