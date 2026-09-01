@@ -1,3 +1,11 @@
+csdr (0.18.40) bullseye jammy; urgency=low
+
+  * Added window to SNR implementation.
+  * Improved NoiseFilter and SNR implementation.
+  * SnrSquelch now takes threshold in decibels.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Wed, 2 Sep 2026 16:12:00 +0000
+
 csdr (0.18.39) bullseye jammy; urgency=low
 
   * Added PLL-based AFC implementation.
