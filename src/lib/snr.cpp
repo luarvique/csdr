@@ -97,32 +97,28 @@ void Snr<T>::process() {
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
 
-    // Compute power
-    for (j=0 ; j < fftSize ; ++j) {
-        fftOutput[j][0] = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
+    // Compute power, including the average
+    for (j=0, avg=0.0 ; j < fftSize ; ++j) {
+        avg += fftOutput[j][0] = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
     }
 
-    // Compute initial gain for the first entry
-    for(j=0, v=0.0 ; j<wndSize ; ++j)
-        v += fftOutput[j][0] + fftOutput[fftSize - j - 1][0];
-
-    // These are initial max / avg
-    avg = max = v;
+    // Compute window peak for the first entry
+    for(j=0, max=0.0 ; j<wndSize ; ++j)
+        max += fftOutput[j][0] + fftOutput[fftSize - j - 1][0];
 
     // Incrementally compute max / avg by moving window over FFT
     int prev = fftSize - wndSize;
     int next = wndSize;
-    for(j=1 ; j<fftSize; ++j) {
+    for(j=1, v=max ; j<fftSize; ++j) {
         v += fftOutput[next][0] - fftOutput[prev][0];
         if(++prev>=fftSize) prev = 0;
         if(++next>=fftSize) next = 0;
-        max  = std::max(v, max);
-        avg += v;
+        max = std::max(v, max);
     }
 
     // Keep floor level low, peak level high
-    avg    = (avg - max) / (fftSize - 1) / wndSize;
-    max   /= wndSize;
+    max   /= wndSize * 2;
+    avg    = (avg - max) / (fftSize - 1);
     floor += (avg - floor) * (avg > floor? decay : attack);
     peak  += (max - peak) * (max > peak? attack : decay);
     snr    = floor > 0.0? peak / floor : 1.0;
