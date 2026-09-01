@@ -550,7 +550,7 @@ SnrSquelchCommand::SnrSquelchCommand(): Command("snrsquelch", "Measure signal-to
 }
 
 void SnrSquelchCommand::processFifoData(std::string data) {
-    squelch->setSquelch(std::stof(data));
+    squelch->setThreshold(std::stof(data));
 }
 
 DeemphasisCommand::DeemphasisCommand(): Command("deemphasis", "Deemphasis for FM applications") {

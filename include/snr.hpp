@@ -55,6 +55,7 @@ namespace Csdr {
         private:
             size_t length;        // Length of data to measure over
             size_t fftSize;       // Number of FFT bins (<= length)
+            size_t wndSize;       // FFT window width (<= fftSize/2)
 
             std::function<void(float)> callback;
 

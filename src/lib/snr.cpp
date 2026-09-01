@@ -52,6 +52,7 @@ Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
 {
     // If no fftSize, default to length, else require minimal fftSize
     this->fftSize = std::max(fftSize? fftSize : length, (size_t)64);
+    this->wndSize = std::max(fftSize >> 6, (size_t)1);
     this->length  = std::max(length, fftSize);
 
     fftInput  = fftwf_alloc_complex(fftSize);
@@ -84,7 +85,7 @@ void Snr<T>::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
 
     T *input = this->reader->getReadPointer();
-    double avg, max, snr;
+    double avg, max, snr, v;
     size_t j;
 
     // Copy data into the input buffer
@@ -95,14 +96,32 @@ void Snr<T>::process() {
     // Calculate FFT on input buffer
     fftwf_execute(fftPlan);
 
-    for (avg=max=0.0, j=0 ; j < fftSize ; ++j) {
-        double v = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
+    // Compute power
+    for (j=0 ; j < fftSize ; ++j) {
+        fftOutput[j][0] = fftOutput[j][0]*fftOutput[j][0] + fftOutput[j][1]*fftOutput[j][1];
+    }
+
+    // Compute initial gain for the first entry
+    for(j=0, v=0.0 ; j<wndSize ; ++j)
+        v += fftOutput[j][0] + fftOutput[fftSize - j - 1][0];
+
+    // These are initial max / avg
+    avg = max = v;
+
+    // Incrementally compute max / avg by moving window over FFT
+    int prev = fftSize - wndSize;
+    int next = wndSize;
+    for(j=1 ; j<fftSize; ++j) {
+        v += fftOutput[next][0] - fftOutput[prev][0];
+        if(++prev>=fftSize) prev = 0;
+        if(++next>=fftSize) next = 0;
         max  = std::max(v, max);
         avg += v;
     }
 
     // Keep floor level low, peak level high
-    avg    = (avg - max) / (fftSize - 1);
+    avg    = (avg - max) / (fftSize - 1) / wndSize;
+    max   /= wndSize;
     floor += (avg - floor) * (avg > floor? decay : attack);
     peak  += (max - peak) * (max > peak? attack : decay);
     snr    = floor > 0.0? peak / floor : 1.0;
