@@ -54,7 +54,7 @@ Snr<T>::Snr(size_t length, size_t fftSize, std::function<void(float)> callback)
     this->fftSize = std::max(fftSize? fftSize : length, (size_t)64);
     this->length  = std::max(length, fftSize);
     // This is actually half a window
-    this->wndSize = std::max(fftSize >> 7, (size_t)1);
+    this->wndSize = std::max(fftSize >> 9, (size_t)1);
 
     fftInput  = fftwf_alloc_complex(fftSize);
     fftOutput = fftwf_alloc_complex(fftSize);
