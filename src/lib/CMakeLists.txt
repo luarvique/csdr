@@ -55,6 +55,7 @@ add_library(csdr++ SHARED
     noise.cpp
     phasedemod.cpp
     rtty.cpp
+    fskuart.cpp
     baudot.cpp
     exec.cpp
     throttle.cpp
