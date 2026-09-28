@@ -1,13 +1,27 @@
 /*
-This file is part of libcsdr, licensed under the GNU General Public License,
-version 3 or (at your option) any later version. See LICENSE-GPL for details.
+This file is part of libcsdr.
+
+libcsdr is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+libcsdr is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 */
+
 #include "fskuart.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <numeric>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 
 using namespace Csdr;
