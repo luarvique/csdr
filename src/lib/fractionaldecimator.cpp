@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "fractionaldecimator.hpp"
+#include <cmath>
 
 using namespace Csdr;
 
@@ -65,9 +66,9 @@ FractionalDecimator<T>::~FractionalDecimator() {
 template <typename T>
 bool FractionalDecimator<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t size = std::min(this->reader->available(), (size_t) ceilf(this->writer->writeable() / rate));
+    size_t size = std::min(this->reader->available(), (size_t) ceil(this->writer->writeable() / rate));
     size_t filterLen = filter != nullptr ? filter->getOverhead() : 0;
-    return ceilf(where) + num_poly_points + filterLen < size;
+    return ceil(where) + num_poly_points + filterLen < size;
 }
 
 template <typename T>
@@ -78,16 +79,16 @@ void FractionalDecimator<T>::process() {
     //The pre-filter can be switched off by applying filter = nullptr.
     int oi = 0; //output index
     int index_high, index;
-    size_t size = std::min(this->reader->available(), (size_t) ceilf(this->writer->writeable() / rate));
+    size_t size = std::min(this->reader->available(), (size_t) ceil(this->writer->writeable() / rate));
     size_t filterLen = filter != nullptr ? filter->getOverhead() : 0;
     T* input = this->reader->getReadPointer();
     T* output = this->writer->getWritePointer();
-    //we optimize to calculate ceilf(where) only once every iteration, so we do it here:
-    while ((index_high = ceilf(where)) + num_poly_points + filterLen < size) {
+    //we optimize to calculate ceil(where) only once every iteration, so we do it here:
+    while ((index_high = ceil(where)) + num_poly_points + filterLen < size) {
         // num_poly_points above is theoretically more than we could have here, but this makes the spectrum look good
         index = index_high - 1;
         int id = 0;
-        float xwhere = where - index;
+        float xwhere = (float) (where - index);
         for (int xi = xifirst; xi <= xilast; xi++) {
             coeffs_buf[id] = 1;
             for (int xj = xifirst; xj <= xilast; xj++) {

@@ -45,13 +45,13 @@ namespace Csdr {
             bool canProcess() override;
             void process() override;
         private:
-            float where;
+            double where; // double: float32 loses the low bits of `rate` once where reaches the thousands, biasing the resampling ratio
             unsigned int num_poly_points; //number of samples that the Lagrange interpolator will use
             float* poly_precalc_denomiator; //while we don't precalculate coefficients here as in a Farrow structure, because it is a fractional interpolator, but we rather precaculate part of the interpolator expression
             float* coeffs_buf;
             int xifirst;
             int xilast;
-            float rate;
+            double rate;
             FirFilter<T, float>* filter;
     };
 
