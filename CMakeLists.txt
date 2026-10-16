@@ -86,3 +86,14 @@ SET(CMAKE_C_FLAGS_RELWITHDEBINFO "-g -O3 -DNDEBUG")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(src)
+
+option(BUILD_TESTING "Build decoder tests (requires Python 3)" OFF)
+include(CTest)
+if(BUILD_TESTING)
+    find_package(PythonInterp 3 REQUIRED)
+    add_executable(fskuart-stream-test tests/fskuart_stream.cpp)
+    target_link_libraries(fskuart-stream-test csdr++)
+    add_test(NAME fskuart COMMAND ${PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fskuart.py
+        $<TARGET_FILE:fskuart-stream-test> $<TARGET_FILE:csdr-bin>)
+endif()

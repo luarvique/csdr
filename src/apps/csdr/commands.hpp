@@ -294,6 +294,16 @@ namespace Csdr {
             Phasedemodcommand();
     };
 
+    class FskUartDecodeCommand: public Command {
+        public:
+            FskUartDecodeCommand();
+        private:
+            unsigned int sampleRate = 12000;
+            double baudRate = 1200;
+            double markFreq = 1300;
+            double spaceFreq = 2100;
+    };
+
     class RttyDecodeCommand: public Command {
         public:
             RttyDecodeCommand();

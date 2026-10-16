@@ -43,6 +43,7 @@ along with csdr.  If not, see <https://www.gnu.org/licenses/>.
 #include "noise.hpp"
 #include "phasedemod.hpp"
 #include "rtty.hpp"
+#include "fskuart.hpp"
 #include "baudot.hpp"
 #include "mfrtty.hpp"
 #include "sstv.hpp"
@@ -667,6 +668,20 @@ NoiseCommand::NoiseCommand(): Command("noise", "Noise generator") {
 Phasedemodcommand::Phasedemodcommand(): Command("phasedemod", "Phase demodulation") {
     callback([this] () {
         runModule(new PhaseDemod());
+    });
+}
+
+FskUartDecodeCommand::FskUartDecodeCommand(): Command("fskuartdecode", "Audio FSK to timestamped UART runs") {
+    add_option("--sample-rate", sampleRate, "Audio sample rate (Hz)")->capture_default_str();
+    add_option("--baud-rate", baudRate, "Baud rate")->capture_default_str();
+    add_option("--mark", markFreq, "Mark tone (Hz)")->capture_default_str();
+    add_option("--space", spaceFreq, "Space tone (Hz)")->capture_default_str();
+    callback([this]() {
+        try {
+            runModule(new FskUartDecoder(sampleRate, baudRate, markFreq, spaceFreq));
+        } catch (const std::invalid_argument& error) {
+            throw CLI::ValidationError("fskuartdecode", error.what());
+        }
     });
 }
 
