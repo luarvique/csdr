@@ -419,16 +419,21 @@ int SstvDecoder<T>::fftPeakFreq(fftwf_plan fft, const float *buf, unsigned int s
     fftwf_execute(fft);
 
     // Go to magnitudes, find highest magnitude bin
-    // Ignore top FFT bins (Scottie does not like these)
-    for(j=0, xMax=0, vMax=0.0 ; j<size/2 ; ++j)
+    // Ignore bottom FFT bin to avoid DC peak
+    // Ignore top half since it reflects the bottom
+    for(j=1, xMax=1, vMax=0.0 ; j<size/2-1 ; ++j)
     {
         v = fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
         if(v>vMax) { vMax=v; xMax=j; }
     }
 
+    // Compute edge magnitudes, in case we need them for interpolation
+    fftIn[0] = fftOut[0][0]*fftOut[0][0] + fftOut[0][1]*fftOut[0][1];
+    fftIn[j] = fftOut[j][0]*fftOut[j][0] + fftOut[j][1]*fftOut[j][1];
+
     // Interpolate peak frequency
-    double vNext = fftIn[xMax<size-1? xMax+1 : size-1];
-    double vPrev = fftIn[xMax>0? xMax-1:0];
+    double vNext = fftIn[xMax + 1];
+    double vPrev = fftIn[xMax - 1];
     v = vPrev + vMax + vNext;
 
     // Can't have all three at 0

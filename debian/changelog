@@ -1,3 +1,10 @@
+csdr (0.18.42) bullseye jammy; urgency=low
+
+  * Reverted earlier SSTV peak search change.
+  * Improved SSTV peak search algorithm.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 19 Oct 2026 16:12:00 +0000
+
 csdr (0.18.41) bullseye jammy; urgency=low
 
   * Narrowed SNR window to 1/256 of total bandwidth.
