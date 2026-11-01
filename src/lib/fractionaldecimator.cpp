@@ -37,16 +37,16 @@ using namespace Csdr;
 template <typename T>
 FractionalDecimator<T>::FractionalDecimator(float rate, unsigned int num_poly_points, FirFilter<T, float> *filter):
     num_poly_points(num_poly_points &~ 1),
-    poly_precalc_denomiator((float*) malloc(this->num_poly_points * sizeof(float))),
+    poly_precalc_denomiator((double*) malloc(this->num_poly_points * sizeof(double))),
     xifirst(-(this->num_poly_points / 2) + 1),
     xilast(this->num_poly_points / 2),
-    coeffs_buf((float*) malloc(this->num_poly_points * sizeof(float))),
+    coeffs_buf((double*) malloc(this->num_poly_points * sizeof(double))),
     rate(rate),
     filter(filter)
 {
     int id = 0; //index in poly_precalc_denomiator
     for (int xi = xifirst; xi <= xilast; xi++) {
-        poly_precalc_denomiator[id] = 1;
+        poly_precalc_denomiator[id] = 1.0;
         for(int xj = xifirst; xj <= xilast; xj++) {
             //poly_precalc_denomiator could be integer as well. But that would later add a necessary conversion.
             if (xi != xj) poly_precalc_denomiator[id] *= (xi - xj);
@@ -66,9 +66,9 @@ FractionalDecimator<T>::~FractionalDecimator() {
 template <typename T>
 bool FractionalDecimator<T>::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
-    size_t size = std::min(this->reader->available(), (size_t) ceil(this->writer->writeable() / rate));
+    size_t size = std::min(this->reader->available(), (size_t) std::ceil(this->writer->writeable() / rate));
     size_t filterLen = filter != nullptr ? filter->getOverhead() : 0;
-    return ceil(where) + num_poly_points + filterLen < size;
+    return std::ceil(where) + num_poly_points + filterLen < size;
 }
 
 template <typename T>
@@ -79,18 +79,18 @@ void FractionalDecimator<T>::process() {
     //The pre-filter can be switched off by applying filter = nullptr.
     int oi = 0; //output index
     int index_high, index;
-    size_t size = std::min(this->reader->available(), (size_t) ceil(this->writer->writeable() / rate));
+    size_t size = std::min(this->reader->available(), (size_t) std::ceil(this->writer->writeable() / rate));
     size_t filterLen = filter != nullptr ? filter->getOverhead() : 0;
     T* input = this->reader->getReadPointer();
     T* output = this->writer->getWritePointer();
     //we optimize to calculate ceil(where) only once every iteration, so we do it here:
-    while ((index_high = ceil(where)) + num_poly_points + filterLen < size) {
+    while ((index_high = std::ceil(where)) + num_poly_points + filterLen < size) {
         // num_poly_points above is theoretically more than we could have here, but this makes the spectrum look good
         index = index_high - 1;
         int id = 0;
-        float xwhere = (float) (where - index);
+        double xwhere = where - index;
         for (int xi = xifirst; xi <= xilast; xi++) {
-            coeffs_buf[id] = 1;
+            coeffs_buf[id] = 1.0;
             for (int xj = xifirst; xj <= xilast; xj++) {
                 if (xi != xj) coeffs_buf[id] *= (xwhere - xj);
             }
