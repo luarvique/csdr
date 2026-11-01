@@ -37,16 +37,16 @@ using namespace Csdr;
 template <typename T>
 FractionalDecimator<T>::FractionalDecimator(float rate, unsigned int num_poly_points, FirFilter<T, float> *filter):
     num_poly_points(num_poly_points &~ 1),
-    poly_precalc_denomiator((double*) malloc(this->num_poly_points * sizeof(double))),
+    poly_precalc_denomiator((float*) malloc(this->num_poly_points * sizeof(float))),
     xifirst(-(this->num_poly_points / 2) + 1),
     xilast(this->num_poly_points / 2),
-    coeffs_buf((double*) malloc(this->num_poly_points * sizeof(double))),
+    coeffs_buf((float*) malloc(this->num_poly_points * sizeof(float))),
     rate(rate),
     filter(filter)
 {
     int id = 0; //index in poly_precalc_denomiator
     for (int xi = xifirst; xi <= xilast; xi++) {
-        poly_precalc_denomiator[id] = 1.0;
+        poly_precalc_denomiator[id] = 1.0f;
         for(int xj = xifirst; xj <= xilast; xj++) {
             //poly_precalc_denomiator could be integer as well. But that would later add a necessary conversion.
             if (xi != xj) poly_precalc_denomiator[id] *= (xi - xj);
@@ -88,9 +88,9 @@ void FractionalDecimator<T>::process() {
         // num_poly_points above is theoretically more than we could have here, but this makes the spectrum look good
         index = index_high - 1;
         int id = 0;
-        double xwhere = where - index;
+        float xwhere = (float) (where - index);
         for (int xi = xifirst; xi <= xilast; xi++) {
-            coeffs_buf[id] = 1.0;
+            coeffs_buf[id] = 1.0f;
             for (int xj = xifirst; xj <= xilast; xj++) {
                 if (xi != xj) coeffs_buf[id] *= (xwhere - xj);
             }
