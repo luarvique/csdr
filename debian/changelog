@@ -1,3 +1,9 @@
+csdr (0.18.43) bullseye jammy; urgency=low
+
+  * Moved FractionalDecimator to doubles [Isaac Evans].
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Mon, 9 Nov 2026 16:12:00 +0000
+
 csdr (0.18.42) bullseye jammy; urgency=low
 
   * Reverted earlier SSTV peak search change.
