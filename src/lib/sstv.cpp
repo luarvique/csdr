@@ -75,9 +75,10 @@ typedef struct
 } BMPHeader;
 
 template <typename T>
-SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int dbgTime)
+SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
   curState(STATE_HEADER),
+  options(options),
   dbgTime(dbgTime)
 {
     // Total sizes and 2msec step
@@ -838,6 +839,10 @@ print(" [VIS %d %s]", mode&0x7F, i? "BAD":"OK");
 
     // Check parity (must be even)
     if(i) return(0);
+
+    // Resolve conflict between ScottieDX and Wraase SC2 120
+    if((mode==VIS_SC2_120) && (options & OPT_VIS63_SCOTTIEDX))
+        mode = VIS_SCOTTIEDX;
 
     // Delete parity bit and get SSTV mode definition
     return modes[mode & 0x7F];

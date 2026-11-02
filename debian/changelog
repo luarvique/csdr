@@ -1,6 +1,7 @@
 csdr (0.18.43) bullseye jammy; urgency=low
 
   * Moved FractionalDecimator to doubles [Isaac Evans].
+  * Added SSTV option to prefer ScottieDX to Wraase SC2.
 
  -- Marat Fayzullin <luarvique@gmail.com>  Mon, 9 Nov 2026 16:12:00 +0000
 

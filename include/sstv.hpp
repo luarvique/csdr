@@ -526,19 +526,25 @@ namespace Csdr {
     template <typename T>
     class SstvDecoder: public Module<T, unsigned char> {
         public:
-            SstvDecoder(unsigned int sampleRate=44100, unsigned int dbgTime=0);
+            enum {
+                // Treat VIS=63 as ScottieDX, not Wraase SC2-120
+                OPT_VIS63_SCOTTIEDX = 0x0001,
+
+                // Maximum scanline width
+                MAX_LINE_WIDTH = 640
+            };
+
+            SstvDecoder(unsigned int sampleRate=44100, unsigned int options=0, unsigned int dbgTime=0);
             ~SstvDecoder();
 
             bool canProcess() override;
             void process() override;
 
         private:
-            // Maximum scanline width
-            enum { MAX_LINE_WIDTH = 640 };
-
             // Configurable input parameters
-            unsigned int sampleRate;   // Input sampling rate (Hz)
-            unsigned int dbgTime;      // Debug printout time (ms)
+            unsigned int sampleRate;     // Input sampling rate (Hz)
+            unsigned int dbgTime;        // Debug printout time (ms)
+            unsigned int options;        // OPT_* values, ORed
 
             // Time counting
             unsigned long curSeconds = 0; // Current time in seconds
