@@ -21,15 +21,16 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Csdr;
 
-AudioResampler::AudioResampler(double rate):
-    rate(rate)
+AudioResampler::AudioResampler(double rate, unsigned int channels):
+    rate(rate),
+    channels(channels)
 {
     int error = 0;
-    srcState = src_new(SRC_SINC_MEDIUM_QUALITY, 1, &error);
+    srcState = src_new(SRC_SINC_MEDIUM_QUALITY, (int) channels, &error);
 }
 
-AudioResampler::AudioResampler(unsigned int inputRate, unsigned int outputRate):
-    AudioResampler((double) outputRate / inputRate)
+AudioResampler::AudioResampler(unsigned int inputRate, unsigned int outputRate, unsigned int channels):
+    AudioResampler((double) outputRate / inputRate, channels)
 {}
 
 AudioResampler::~AudioResampler() {
@@ -43,18 +44,20 @@ bool AudioResampler::canProcess() {
 
 void AudioResampler::process() {
     std::lock_guard<std::mutex> lock(processMutex);
+    long input_frames = (long) (reader->available() / channels);
+    long output_frames = (long) (writer->writeable() / channels);
     SRC_DATA data = {
         .data_in = reader->getReadPointer(),
         .data_out = writer->getWritePointer(),
-        .input_frames = (long) reader->available(),
-        .output_frames = (long) writer->writeable(),
+        .input_frames = input_frames,
+        .output_frames = output_frames,
         .end_of_input = 0,
         .src_ratio = rate
     };
 
     src_process(srcState, &data);
 
-    reader->advance(data.input_frames_used);
-    writer->advance(data.output_frames_gen);
+    reader->advance(data.input_frames_used * channels);
+    writer->advance(data.output_frames_gen * channels);
 }
 

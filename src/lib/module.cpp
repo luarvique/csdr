@@ -100,6 +100,7 @@ void FixedLengthModule<T, U>::process () {
 namespace Csdr {
     template class Module<short, short>;
     template class Module<float, float>;
+    template class Module<float, complex<float>>;
     template class Module<complex<float>, float>;
     template class Module<short, float>;
     template class Module<float, short>;

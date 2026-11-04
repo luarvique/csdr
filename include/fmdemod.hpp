@@ -56,7 +56,7 @@ namespace Csdr {
             size_t maxLength() override { return buffer_size; }
         private:
             float last_phase = 0;
-            size_t buffer_size = 2048 * 3;
+            size_t buffer_size = 2048 * 2;
             float dc_level = 0.0f;
             float dc_alpha = 0.001f;  // DC removal filter coefficient
     };

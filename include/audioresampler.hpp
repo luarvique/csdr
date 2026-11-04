@@ -27,13 +27,14 @@ namespace Csdr {
 
     class AudioResampler: public Module<float, float> {
         public:
-            AudioResampler(unsigned int inputRate, unsigned int outputRate);
-            explicit AudioResampler(double rate);
+            AudioResampler(unsigned int inputRate, unsigned int outputRate, unsigned int channels = 1);
+            explicit AudioResampler(double rate, unsigned int channels = 1);
             ~AudioResampler() override;
             bool canProcess() override;
             void process() override;
         private:
             double rate;
+            unsigned int channels;
             SRC_STATE* srcState;
     };
 
