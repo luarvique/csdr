@@ -433,7 +433,7 @@ FftAdpcmCommand::FftAdpcmCommand(): Command("fftadpcm", "Specialized ADPCM for F
 LimitCommand::LimitCommand(): Command("limit", "Limit stream values to maximum amplitude") {
     add_option("max_amplitude", maxAmplitude, "Maximum amplitude", true);
     callback( [this] () {
-        runModule(new Limit(maxAmplitude));
+        runModule(new Limit<float>(maxAmplitude));
     });
 }
 

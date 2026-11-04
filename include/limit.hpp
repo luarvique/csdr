@@ -23,12 +23,14 @@ along with libcsdr.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace Csdr {
 
-    class Limit: public AnyLengthModule<float, float> {
+    template<typename T>
+    class Limit: public AnyLengthModule<T, T> {
         public:
             explicit Limit(float maxAmplitude);
-            void process(float* input, float* output, size_t size) override;
+            void process(T* input, T* output, size_t size) override;
         private:
             float maxAmplitude;
+            T limit(T in);
     };
 
 }
