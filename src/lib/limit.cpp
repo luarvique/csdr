@@ -1,6 +1,7 @@
 
 /*
 Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2026 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 

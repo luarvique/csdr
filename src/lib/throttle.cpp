@@ -1,5 +1,6 @@
 /*
 Copyright (c) 2024 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2026 Marat Fayzullin <luarvique@gmail.com>
 
 This file is part of libcsdr.
 
@@ -96,4 +97,6 @@ void Throttle<T>::loop() {
 namespace Csdr {
     template class Throttle<short>;
     template class Throttle<float>;
+    template class Throttle<complex<short>>;
+    template class Throttle<complex<float>>;
 }
