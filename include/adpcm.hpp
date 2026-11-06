@@ -159,4 +159,15 @@ namespace Csdr {
             unsigned int fftSize;
     };
 
+    // Stereo ADPCM encoding interleaves two output streams
+    class StereoAdpcmEncoder: public Module<complex<short>, unsigned char> {
+        public:
+            explicit StereoAdpcmEncoder(bool sync = false);
+            bool canProcess() override;
+            void process() override;
+        private:
+            bool sync;
+            int syncCounter = 0;
+            AdpcmCodec codec[2];
+    };
 }

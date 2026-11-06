@@ -5,6 +5,7 @@ Software Defined Radio.
 
 Copyright (c) 2015, Andras Retzler <randras@sdr.hu>
 Copyright (c) 2021 Jakob Ketterl <jakob.ketterl@gmx.de>
+Copyright (c) 2026 Marat Fayzullin <luarvique@gmail.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -189,6 +190,10 @@ AdpcmCoder::~AdpcmCoder() {
     delete codec;
 }
 
+//
+// AdpcmEncoder
+//
+
 AdpcmEncoder::AdpcmEncoder(bool sync): sync(sync) {}
 
 bool AdpcmEncoder::canProcess() {
@@ -200,7 +205,7 @@ void AdpcmEncoder::process() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     short* input = reader->getReadPointer();
     unsigned char* output = writer->getWritePointer();
-    // clamp to 1000 samples since canProces() only covers one sync frame for us
+    // clamp to 1000 samples since canProcess() only covers one sync frame for us
     size_t size = std::min({reader->available() / 2, writer->writeable() - 8, (size_t) 1000});
     size_t offset = 0;
     for (int i = 0; i < size; i++) {
@@ -220,6 +225,10 @@ void AdpcmEncoder::process() {
     writer->advance(size + offset);
 }
 
+//
+// AdpcmDecoder
+//
+
 bool AdpcmDecoder::canProcess() {
     std::lock_guard<std::mutex> lock(this->processMutex);
     return reader->available() > 0 && writer->writeable() >= 10;
@@ -237,6 +246,10 @@ void AdpcmDecoder::process() {
     reader->advance(size);
     writer->advance(size * 2);
 }
+
+//
+// FftAdpcmEncoder
+//
 
 FftAdpcmEncoder::FftAdpcmEncoder(unsigned int fftSize): fftSize(fftSize) {}
 
@@ -265,4 +278,44 @@ void FftAdpcmEncoder::process() {
     }
     reader->advance(fftSize);
     writer->advance((COMPRESS_FFT_PAD_N + fftSize) / 2);
+}
+
+//
+// StereoAdpcmEncoder
+//
+
+StereoAdpcmEncoder::StereoAdpcmEncoder(bool sync): sync(sync) {}
+
+bool StereoAdpcmEncoder::canProcess() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+    return reader->available() >= 2 && writer->writeable() >= 14;
+}
+
+void StereoAdpcmEncoder::process() {
+    std::lock_guard<std::mutex> lock(this->processMutex);
+    complex<short>* input = reader->getReadPointer();
+    unsigned char* output = writer->getWritePointer();
+    // clamp to 1000 samples since canProcess() only covers one sync frame for us
+    size_t size = ~1U & std::min({reader->available(), writer->writeable() - 12, (size_t) 1000});
+    size_t offset = 0;
+    for (int i = 0; i < size; i+=2) {
+        if (sync && syncCounter-- <= 0) {
+            std::memcpy(output + offset + i, "SYNC", 4);
+            int16_t* data = (int16_t*) (output + offset + i + 4);
+            data[0] = codec[0].getIndex();
+            data[1] = codec[0].getPredictor();
+            data[2] = codec[1].getIndex();
+            data[3] = codec[1].getPredictor();
+            offset += 12;
+            syncCounter = 500;
+        }
+        output[i + offset] =
+                codec[0].encodeSample(input[i].i()) |
+                codec[0].encodeSample(input[i + 1].i()) << 4;
+        output[i + offset + 1] =
+                codec[1].encodeSample(input[i].q()) |
+                codec[1].encodeSample(input[i + 1].q()) << 4;
+    }
+    reader->advance(size);
+    writer->advance(size + offset);
 }
