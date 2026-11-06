@@ -296,9 +296,9 @@ void StereoAdpcmEncoder::process() {
     complex<short>* input = reader->getReadPointer();
     unsigned char* output = writer->getWritePointer();
     // clamp to 1000 samples since canProcess() only covers one sync frame for us
-    size_t size = ~1U & std::min({reader->available(), writer->writeable() - 12, (size_t) 1000});
-    size_t offset = 0;
-    for (int i = 0; i < size; i+=2) {
+    size_t size = std::min({reader->available(), writer->writeable() - 12, (size_t) 1000});
+    size_t offset, i;
+    for (i = 0, offset = 0, size &= ~1U; i < size; i+=2) {
         if (sync && syncCounter-- <= 0) {
             std::memcpy(output + offset + i, "SYNC", 4);
             int16_t* data = (int16_t*) (output + offset + i + 4);
@@ -307,7 +307,7 @@ void StereoAdpcmEncoder::process() {
             data[2] = codec[1].getIndex();
             data[3] = codec[1].getPredictor();
             offset += 12;
-            syncCounter = 500;
+            syncCounter = 1000;
         }
         output[i + offset] =
                 codec[0].encodeSample(input[i].i()) |
