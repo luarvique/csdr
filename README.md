@@ -3,6 +3,9 @@ CSDR
 
 `csdr` is a command line tool to carry out DSP tasks for Software Defined Radio.
 
+The native [audio FSK/UART decoder](docs/fskuart.md) provides timestamped octet
+runs for telemetry protocol parsers, also exposed by `csdr fskuartdecode`.
+
 It can be used to build simple signal processing flow graphs, right from the command line. 
 
 The included `libcsdr` library contains the DSP functions that `csdr` makes use of. It was designed to use auto-vectorization available in `gcc`.
