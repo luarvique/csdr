@@ -33,7 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <cstdarg>
 #include <cstdio>
-#include <algorithm>
 
 using namespace Csdr;
 
@@ -49,16 +48,24 @@ using namespace Csdr;
 #define HDR_TUNE_SPREAD (70)    // Largest disagreement between header tones (Hz)
 
 // Scanline sync tracker
-#define TRK_ALPHA       (0.20)  // Position gain
+//#define TRK_ALPHA       (0.20)  // Position gain
 #define TRK_BETA        (0.02)  // Period gain
 #define TRK_MAX_MISS    (4)     // Re-lock after this many rejected syncs
-#define TRK_GATE_PIXELS (1.5)   // Largest accepted jump, in pixels
+//#define TRK_GATE_PIXELS (1.5)   // Largest accepted jump, in pixels
+
+#define TRK_ALPHA       (0.10)  // Position gain
+#define TRK_GATE_PIXELS (1.0)   // Largest accepted jump, in pixels
 
 // Decoding states
 #define STATE_HEADER    (-3)
 #define STATE_VIS       (-2)
 #define STATE_SYNC      (-1)
 #define STATE_LINE0     (0)
+
+// Tracking states
+#define TRACK_NONE      (0)
+#define TRACK_INIT      (1)    // Tracker got reference position
+#define TRACK_LOCK      (2)    // Two consecutive scanlines agreed
 
 //
 // BMP file header
@@ -87,6 +94,8 @@ template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
   curState(STATE_HEADER),
+  trkState(TRACK_NONE),
+  freqOffset(0),
   options(options),
   dbgTime(dbgTime)
 {
@@ -213,12 +222,9 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 // Receiving scanline next
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
+                trkState  = TRACK_NONE;
                 // Clear odd/even component buffer, just in case
                 memset(linebuf, 0, sizeof(linebuf));
-                // Scanline sync tracker starts unlocked
-                trkInit = false;
-                trkLock = false;
-                trkMiss = 0;
                 // Output BMP file header
                 printBmpHeader(curMode);
                 // Drop processed input data
@@ -371,11 +377,11 @@ void SstvDecoder<T>::finishFrame()
             printBmpEmptyLines(curMode, curMode->LINE_COUNT - curState);
     }
 
-    curState = STATE_HEADER;
     curMode  = 0;
-    trkInit  = false;
-    trkLock  = false;
-    freqOffs = 0;
+    curState = STATE_HEADER;
+    trkState = TRACK_NONE;
+    freqOffset = 0;
+
 print(" [FINISH-FRAME]");
 }
 
@@ -485,7 +491,7 @@ unsigned int SstvDecoder<T>::findHeader(const float *buf, unsigned int size)
         if(dMax - dMin >= HDR_TUNE_SPREAD) continue;
 
         // Header found, remember tuning error
-        freqOffs = (d1 + d2 + d3 + d4) / 4;
+        freqOffset = (d1 + d2 + d3 + d4) / 4;
         return(j + hdrSize);
     }
 
@@ -503,11 +509,11 @@ unsigned int SstvDecoder<T>::findSync(const SstvMode *mode, const float *buf, un
     for(unsigned int j=0 ; j+3*mode->syncSize/2<=size ; ++j)
     {
         // Make sure we are at the sync signal
-        if(abs(fftPeakFreq(mode->fftSync, buf + j, mode->syncSize) - freqOffs - 1200) >= 50)
+        if(abs(fftPeakFreq(mode->fftSync, buf + j, mode->syncSize) - freqOffset - 1200) >= 50)
             continue;
 
         // Look ahead for the end of sync
-        if(fftPeakFreq(mode->fftSync, buf + mode->syncSize/2 + j, mode->syncSize) - freqOffs > 1350)
+        if(fftPeakFreq(mode->fftSync, buf + mode->syncSize/2 + j, mode->syncSize) - freqOffset > 1350)
             return(j + mode->syncSize);
     }
 
@@ -604,7 +610,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
 
             // Decode valid pixels, blank non-existant pixels
             out[ch][px] = (pxPos>=0) && (pxPos+pxWindow<=size)?
-                luminance(fftPeakFreq(fftPlan, buf + pxPos, pxWindow) - freqOffs) : 0;
+                luminance(fftPeakFreq(fftPlan, buf + pxPos, pxWindow) - freqOffset) : 0;
         }
     }
 
@@ -663,13 +669,13 @@ int SstvDecoder<T>::trackSync(bool have, double measStart, unsigned int lineSize
     double absNow = (double)curSeconds * sampleRate + curSamples;
 
     // First scanline: nothing to predict from yet
-    if(!trkInit)
+    if(trkState == TRACK_NONE)
     {
-        double s = have? measStart : (double)syncSize;
+        double s  = have? measStart : (double)syncSize;
         trkAbs    = absNow + s;
         trkPeriod = lineSize;
+        trkState  = have? TRACK_INIT : TRACK_NONE;
         trkMiss   = 0;
-        trkInit   = have;
         return((int)round(s));
     }
 
@@ -681,16 +687,16 @@ int SstvDecoder<T>::trackSync(bool have, double measStart, unsigned int lineSize
     {
         double r = measStart - (pred - absNow);
 
-        if(!trkLock && (fabs(r) > gate))
+        if((trkState != TRACK_LOCK) && (std::abs(r) > gate))
         {
             // Not locked yet (the first scanline may differ from the rest):
             // follow the raw measurement until two scanlines agree
             trkAbs  = absNow + measStart;
             trkMiss = 0;
         }
-        else if(fabs(r) <= gate)
+        else if(std::abs(r) <= gate)
         {
-            trkLock = true;
+            trkState = TRACK_LOCK;
             // Consistent with prediction: update position and period
             trkAbs     = pred + TRK_ALPHA * r;
             trkPeriod += TRK_BETA * r;
@@ -924,7 +930,7 @@ SstvMode *SstvDecoder<T>::decodeVIS(const float *buf, unsigned int size)
     for(j=0, i=0, mode=0 ; j<8 ; ++j)
     {
         int peak = fftPeakFreq(fftHeader, buf + bitSize*j, wndSize);
-        if(peak - freqOffs <= 1200)
+        if(peak - freqOffset <= 1200)
         {
             mode |= 1<<j;
             i ^= 1;

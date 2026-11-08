@@ -578,14 +578,11 @@ namespace Csdr {
             unsigned char linebuf[2][MAX_LINE_WIDTH];
 
             // Scanline sync tracker (absolute sample positions)
-            bool   trkInit   = false;    // True when tracker has a reference position
-            bool   trkLock   = false;    // True when two consecutive scanlines agreed
-            double trkAbs    = 0.0;      // Filtered absolute position of last scanline start
-            double trkPeriod = 0.0;      // Filtered scanline period, in samples
-            int    trkMiss   = 0;        // Number of consecutive rejected/missing syncs
-
-            // Receiver tuning error (Hz) estimated from the frame header
-            int freqOffs = 0;
+            int    trkState;             // Current tracker state
+            double trkAbs;               // Filtered absolute position of last scanline start
+            double trkPeriod;            // Filtered scanline period, in samples
+            int    trkMiss;              // Number of consecutive rejected/missing syncs
+            int    freqOffset;           // Tuning error (Hz) estimated from the frame header
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
