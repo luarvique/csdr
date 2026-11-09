@@ -48,13 +48,13 @@ using namespace Csdr;
 #define HDR_TUNE_SPREAD (70)    // Largest disagreement between header tones (Hz)
 
 // Scanline sync tracker
-//#define TRK_ALPHA       (0.20)  // Position gain
+#define TRK_ALPHA       (0.20)  // Position gain
 #define TRK_BETA        (0.02)  // Period gain
 #define TRK_MAX_MISS    (4)     // Re-lock after this many rejected syncs
-//#define TRK_GATE_PIXELS (1.5)   // Largest accepted jump, in pixels
+#define TRK_GATE_PIXELS (1.5)   // Largest accepted jump, in pixels
 
-#define TRK_ALPHA       (0.10)  // Position gain
-#define TRK_GATE_PIXELS (1.0)   // Largest accepted jump, in pixels
+//#define TRK_ALPHA       (0.10)  // Position gain
+//#define TRK_GATE_PIXELS (1.0)   // Largest accepted jump, in pixels
 
 // Decoding states
 #define STATE_HEADER    (-3)
