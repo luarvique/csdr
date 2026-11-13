@@ -33,6 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <cstdarg>
 #include <cstdio>
+#include <algorithm>
+#include <vector>
 
 using namespace Csdr;
 
@@ -48,13 +50,11 @@ using namespace Csdr;
 #define HDR_TUNE_SPREAD (70)    // Largest disagreement between header tones (Hz)
 
 // Scanline sync tracker
-#define TRK_ALPHA       (0.20)  // Position gain
+#define TRK_ALPHA       (0.25)  // Position gain
 #define TRK_BETA        (0.02)  // Period gain
-#define TRK_MAX_MISS    (4)     // Re-lock after this many rejected syncs
-#define TRK_GATE_PIXELS (1.5)   // Largest accepted jump, in pixels
-
-//#define TRK_ALPHA       (0.10)  // Position gain
-//#define TRK_GATE_PIXELS (1.0)   // Largest accepted jump, in pixels
+#define TRK_CLIP_PIXELS (3.0)   // Largest correction taken from one scanline, in pixels
+#define TRK_PERIOD_TOL  (0.005) // Largest drift of the scanline period (0.5%)
+#define TRK_MAX_MISS    (4)     // Give up and calibrate again after this many bad scanlines
 
 // Decoding states
 #define STATE_HEADER    (-3)
@@ -223,6 +223,8 @@ print(" [VIS %d %dx%d %s]", curMode->ID, curMode->LINE_WIDTH, curMode->LINE_COUN
                 curState  = curMode->HAS_START_SYNC? STATE_SYNC : STATE_LINE0;
                 lastLineT = msecs(visSize);
                 trkState  = TRACK_NONE;
+                trkCnt    = 0;
+                trkMiss   = 0;
                 // Clear odd/even component buffer, just in case
                 memset(linebuf, 0, sizeof(linebuf));
                 // Output BMP file header
@@ -380,6 +382,8 @@ void SstvDecoder<T>::finishFrame()
     curMode  = 0;
     curState = STATE_HEADER;
     trkState = TRACK_NONE;
+    trkCnt   = 0;
+    trkMiss  = 0;
     freqOffset = 0;
 
 print(" [FINISH-FRAME]");
@@ -567,10 +571,9 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
     // Scanline start measured from this sync pulse (if any)
     double measStart = found? (double)found - (double)syncSize : 0.0;
 
-    // Filter it against the scanline start predicted from previous
-    // scanlines. A missing or inconsistent sync no longer throws the
-    // line off, the predicted position is used instead.
-    int start = trackSync(found != 0, measStart, lineSize, syncSize, mode->PIXEL_TIME * sampleRate);
+    // Smooth it using the scanline starts seen before, which removes
+    // sync detection jitter. A missing sync is replaced by prediction.
+    int start = trackSync(found != 0, measStart, syncSize, mode->PIXEL_TIME * sampleRate, line / mode->LINE_STEP);
 
     // For each channel...
     for(unsigned int ch=0 ; ch<mode->CHAN_COUNT ; ++ch)
@@ -663,67 +666,90 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
 }
 
 template <typename T>
-int SstvDecoder<T>::trackSync(bool have, double measStart, unsigned int lineSize, unsigned int syncSize, double pxSamples)
+int SstvDecoder<T>::trackSync(bool have, double measStart, unsigned int syncSize, double pxSamples, int x)
 {
     // Absolute position of the start of the input buffer, in samples
     double absNow = (double)curSeconds * sampleRate + curSamples;
 
-    // First scanline: nothing to predict from yet
-    if(trkState == TRACK_NONE)
+    if(trkState != TRACK_LOCK)
     {
-        double s  = have? measStart : (double)syncSize;
-        trkAbs    = absNow + s;
-        trkPeriod = lineSize;
-        trkState  = have? TRACK_INIT : TRACK_NONE;
-        trkMiss   = 0;
-        return((int)round(s));
+        // Calibration. Use sync detection as is for a few scanlines and
+        // measure the scanline period from them. The period includes the
+        // clock error between transmitter and receiver.
+        if(!have) return((int)syncSize);
+
+        // The very first scanline may differ from the rest, skip it
+        if(trkState == TRACK_NONE)
+        {
+            trkState = TRACK_INIT;
+            trkCnt   = 0;
+            return((int)round(measStart));
+        }
+
+        trkCalX[trkCnt] = x;
+        trkCalY[trkCnt] = absNow + measStart;
+
+        if(++trkCnt >= TRK_CAL)
+        {
+            // Median of all pairwise slopes is not fooled by a few bad syncs
+            std::vector<double> v;
+            for(int i=0 ; i<trkCnt ; ++i)
+                for(int j=i+1 ; j<trkCnt ; ++j)
+                    v.push_back((trkCalY[j]-trkCalY[i]) / (trkCalX[j]-trkCalX[i]));
+            std::nth_element(v.begin(), v.begin() + v.size()/2, v.end());
+            double slope = v[v.size()/2];
+
+            v.clear();
+            for(int i=0 ; i<trkCnt ; ++i) v.push_back(trkCalY[i] - slope * trkCalX[i]);
+            std::nth_element(v.begin(), v.begin() + v.size()/2, v.end());
+            double icpt = v[v.size()/2];
+
+            // Most scanlines must agree with the line, else try again
+            int n = 0;
+            for(int i=0 ; i<trkCnt ; ++i)
+                if(std::abs(trkCalY[i] - icpt - slope * trkCalX[i]) <= 3.0 * pxSamples) ++n;
+
+            if(n * 4 >= trkCnt * 3)
+            {
+                trkP0     = slope;
+                trkMiss   = 0;
+                trkPeriod = slope;
+                trkAbs    = icpt + slope * x;
+                trkState  = TRACK_LOCK;
+            }
+            else trkCnt = 0;
+        }
+
+        return((int)round(measStart));
     }
 
-    // Where we expect this scanline to start
+    // Predict where this scanline starts. If sync was found, pull the
+    // prediction towards it (limiting the pull, so that a single bad sync
+    // can not do much harm) and learn how the scanline period drifts.
     double pred = trkAbs + trkPeriod;
-    double gate = std::max(3.0, TRK_GATE_PIXELS * pxSamples);
+    double clip = TRK_CLIP_PIXELS * pxSamples;
+
+    // If sync is missing or keeps disagreeing with the prediction, the
+    // prediction is wrong (timing jump, lost lock). Do not keep following
+    // it: go back to calibration, which uses plain sync detection.
+    if(!have || (std::abs(absNow + measStart - pred) > clip)) ++trkMiss; else trkMiss = 0;
+    if(trkMiss >= TRK_MAX_MISS)
+    {
+        trkState = TRACK_NONE;
+        trkCnt   = 0;
+        trkMiss  = 0;
+        return(have? (int)round(measStart) : (int)syncSize);
+    }
 
     if(have)
     {
-        double r = measStart - (pred - absNow);
-
-        if((trkState != TRACK_LOCK) && (std::abs(r) > gate))
-        {
-            // Not locked yet (the first scanline may differ from the rest):
-            // follow the raw measurement until two scanlines agree
-            trkAbs  = absNow + measStart;
-            trkMiss = 0;
-        }
-        else if(std::abs(r) <= gate)
-        {
-            trkState = TRACK_LOCK;
-            // Consistent with prediction: update position and period
-            trkAbs     = pred + TRK_ALPHA * r;
-            trkPeriod += TRK_BETA * r;
-            trkMiss    = 0;
-            // Period can not drift far from nominal (2000ppm)
-            double lim = lineSize * 0.002;
-            trkPeriod  = std::max((double)lineSize - lim, std::min((double)lineSize + lim, trkPeriod));
-        }
-        else if(trkMiss >= TRK_MAX_MISS)
-        {
-            // Many inconsistent syncs in a row, believe the measurements
-            trkAbs  = absNow + measStart;
-            trkMiss = 0;
-        }
-        else
-        {
-            // Outlier, coast on prediction
-            trkAbs = pred;
-            ++trkMiss;
-        }
+        double r = std::max(-clip, std::min(clip, absNow + measStart - pred));
+        trkAbs     = pred + TRK_ALPHA * r;
+        trkPeriod += TRK_BETA * r;
+        double lim = trkP0 * TRK_PERIOD_TOL;
+        trkPeriod  = std::max(trkP0 - lim, std::min(trkP0 + lim, trkPeriod));
     }
-    else
-    {
-        // No sync, coast on prediction
-        trkAbs = pred;
-        ++trkMiss;
-    }
+    else trkAbs = pred;
 
     return((int)round(trkAbs - absNow));
 }

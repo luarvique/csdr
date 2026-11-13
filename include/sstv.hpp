@@ -531,7 +531,7 @@ namespace Csdr {
                 OPT_VIS63_SCOTTIEDX = 0x0001,
 
                 // Maximum scanline width
-                MAX_LINE_WIDTH = 640
+                MAX_LINE_WIDTH = 800
             };
 
             SstvDecoder(unsigned int sampleRate=44100, unsigned int options=0, unsigned int dbgTime=0);
@@ -578,10 +578,15 @@ namespace Csdr {
             unsigned char linebuf[2][MAX_LINE_WIDTH];
 
             // Scanline sync tracker (absolute sample positions)
+            enum { TRK_CAL = 8 };        // Scanlines used for calibration
             int    trkState;             // Current tracker state
+            int    trkCnt;               // Number of calibration scanlines so far
+            double trkCalX[TRK_CAL];     // Calibration: scanline numbers
+            double trkCalY[TRK_CAL];     // Calibration: measured scanline starts
+            double trkP0;                // Scanline period measured by calibration
             double trkAbs;               // Filtered absolute position of last scanline start
             double trkPeriod;            // Filtered scanline period, in samples
-            int    trkMiss;              // Number of consecutive rejected/missing syncs
+            int    trkMiss;              // Consecutive scanlines that disagree with the prediction
             int    freqOffset;           // Tuning error (Hz) estimated from the frame header
 
             // Debugging data
@@ -623,7 +628,7 @@ namespace Csdr {
             unsigned int findSync(const SstvMode *mode, const float *buf, unsigned int size);
 
             // Filter scanline start position using previous scanlines
-            int trackSync(bool have, double measStart, unsigned int lineSize, unsigned int syncSize, double pxSamples);
+            int trackSync(bool have, double measStart, unsigned int syncSize, double pxSamples, int x);
 
             // Decode single scanline
             unsigned int decodeLine(const SstvMode *mode, unsigned int line, const float *buf, unsigned int size);
