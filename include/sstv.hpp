@@ -531,7 +531,7 @@ namespace Csdr {
                 OPT_VIS63_SCOTTIEDX = 0x0001,
 
                 // Maximum scanline width
-                MAX_LINE_WIDTH = 640
+                MAX_LINE_WIDTH = 800
             };
 
             SstvDecoder(unsigned int sampleRate=44100, unsigned int options=0, unsigned int dbgTime=0);
