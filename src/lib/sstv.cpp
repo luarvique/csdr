@@ -93,11 +93,12 @@ typedef struct
 template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
-  options(options),
   dbgTime(dbgTime),
+  options(options),
   curState(STATE_HEADER),
+  freqOffset(0),
   trkState(TRACK_NONE),
-  freqOffset(0)
+  trkTime(0)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
@@ -398,7 +399,7 @@ void SstvDecoder<T>::printBmpEmptyLines(const SstvMode *mode, unsigned int lines
     if(this->writer->writeable() >= lines*size)
     {
         char buf[size] = {0};
-        for(int i=0 ; i<lines ; ++i) writeData(buf, size);
+        for(unsigned int i=0 ; i<lines ; ++i) writeData(buf, size);
     }
 }
 
@@ -535,6 +536,9 @@ void SstvDecoder<T>::skipInput(unsigned int size)
     // Advance read pointer
     this->reader->advance(size);
 
+    // Update relative time used by sync tracker
+    if(trkState!=TRACK_NONE) trkTime += size;
+
     // Update time
     curSamples += size;
     if(curSamples>=sampleRate)
@@ -622,7 +626,7 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
     if(this->writer->writeable()>=mode->LINE_WIDTH*mode->LINE_STEP)
     {
         unsigned char *outPtr[3];
-        for(int j=0 ; j<3 ; j++)
+        for(unsigned int j=0 ; j<3 ; j++)
             outPtr[j] = j<mode->CHAN_COUNT? out[j] : 0;
 
         switch(mode->ID)
@@ -663,20 +667,14 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
     // Return the number of input samples consumed, but leave
     // <syncSize> samples to start looking for sync in
     start += lineSize - syncSize;
-    start  = start<0? 0 : start<size? start : size;
-
-    // Update relative time used by sync tracker
-    if(trkState != TRACK_NONE) trkTime += start;
-
-    // Done
-    return(start);
+    return(start<0? 0 : (unsigned int)start<size? start : size);
 }
 
 template <typename T>
 int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned int syncFound)
 {
+    unsigned int i, j, n, x;
     double pred, clip;
-    int i, j, n, x;
 
     // Samples per pixel
     double pxSamples = mode->PIXEL_TIME * sampleRate;
