@@ -93,11 +93,11 @@ typedef struct
 template <typename T>
 SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int options, unsigned int dbgTime)
 : sampleRate(sampleRate),
+  options(options),
+  dbgTime(dbgTime),
   curState(STATE_HEADER),
   trkState(TRACK_NONE),
-  freqOffset(0),
-  options(options),
-  dbgTime(dbgTime)
+  freqOffset(0)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
@@ -184,7 +184,7 @@ void SstvDecoder<T>::process()
 
     const T *buf = this->reader->getReadPointer();
     unsigned int size = this->reader->available();
-    unsigned int j, i, lines;
+    unsigned int j, i;
 
     // Depending on the current state...
     switch(curState)
@@ -660,10 +660,16 @@ unsigned int SstvDecoder<T>::decodeLine(const SstvMode *mode, unsigned int line,
         }
     }
 
-    // Done, return the number of input samples consumed, but leave
+    // Return the number of input samples consumed, but leave
     // <syncSize> samples to start looking for sync in
     start += lineSize - syncSize;
-    return(start<0? 0 : start<size? start : size);
+    start  = start<0? 0 : start<size? start : size;
+
+    // Update relative time used by sync tracker
+    if(trkState != TRACK_NONE) trkTime += start;
+
+    // Done
+    return(start);
 }
 
 template <typename T>
@@ -671,9 +677,6 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
 {
     double pred, clip;
     int i, j, n, x;
-
-    // Absolute position of the start of the input buffer, in samples
-    double absNow = (double)curSeconds * sampleRate + curSamples;
 
     // Samples per pixel
     double pxSamples = mode->PIXEL_TIME * sampleRate;
@@ -686,6 +689,7 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
         {
             trkState = TRACK_INIT;
             trkCnt   = 0;
+            trkTime  = 0;
         }
         break;
 
@@ -698,7 +702,7 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
         // receiver.
         x = line / mode->LINE_STEP;
         trkCalX[trkCnt] = x;
-        trkCalY[trkCnt] = absNow + syncFound;
+        trkCalY[trkCnt] = trkTime + syncFound;
         if(++trkCnt >= TRK_CAL)
         {
             // Median of all pairwise slopes is not fooled by a few bad syncs
@@ -731,7 +735,7 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
                 trkCalP   = slope;
                 trkMiss   = 0;
                 trkPeriod = slope;
-                trkAbs    = icpt + slope * x;
+                trkPos    = icpt + slope * x;
             }
         }
         break;
@@ -740,13 +744,13 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
         // Predict where this scanline starts. If sync was found, pull the
         // prediction towards it (limiting the pull, so that a single bad sync
         // can not do much harm) and learn how the scanline period drifts.
-        pred = trkAbs + trkPeriod;
+        pred = trkPos + trkPeriod;
         clip = TRK_CLIP_PIXELS * pxSamples;
 
         // If sync is missing or keeps disagreeing with the prediction, the
         // prediction is wrong (timing jump, lost lock). Do not keep following
         // it: go back to calibration, which uses plain sync detection.
-        if(syncFound && std::abs(absNow + syncFound - pred) <= clip)
+        if(syncFound && std::abs(trkTime + syncFound - pred) <= clip)
         {
             // Sync tracking maintained
             trkMiss = 0;
@@ -763,20 +767,20 @@ int SstvDecoder<T>::trackSync(const SstvMode *mode, unsigned int line, unsigned 
         if(!syncFound)
         {
             // We do not have sync, so let's use tracked prediction
-            trkAbs = pred;
+            trkPos = pred;
         }
         else
         {
             // We have sync, perform another prediction
-            double r   = std::max(-clip, std::min(clip, absNow + syncFound - pred));
+            double r   = std::max(-clip, std::min(clip, trkTime + syncFound - pred));
             double lim = trkCalP * TRK_PERIOD_TOL;
-            trkAbs     = pred + TRK_ALPHA * r;
+            trkPos     = pred + TRK_ALPHA * r;
             trkPeriod += TRK_BETA * r;
             trkPeriod  = std::max(trkCalP - lim, std::min(trkCalP + lim, trkPeriod));
         }
 
         // Going to return predicted value
-        syncFound = round(trkAbs - absNow);
+        syncFound = round(trkPos - trkTime);
         break;
     }
 

@@ -77,13 +77,13 @@ namespace Csdr {
         public:
             const char *NAME = "Invalid";
 
-            int ID         = VIS_UNKNOWN;
-            int COLOR      = 0;
-            int LINE_WIDTH = 320;
-            int LINE_COUNT = 256;
-            int LINE_STEP  = 1;
-            int CHAN_COUNT = 3;
-            int CHAN_SYNC  = 0;
+            unsigned int ID         = VIS_UNKNOWN;
+            unsigned int COLOR      = 0;
+            unsigned int LINE_WIDTH = 320;
+            unsigned int LINE_COUNT = 256;
+            unsigned int LINE_STEP  = 1;
+            unsigned int CHAN_COUNT = 3;
+            unsigned int CHAN_SYNC  = 0;
 
             double SCAN_TIME  = 0.0;
             double SYNC_PULSE = 0.0;
@@ -580,14 +580,15 @@ namespace Csdr {
 
             // Scanline sync tracker
             enum { TRK_CAL = 8 };        // Scanlines used for calibration
-            int    trkState;             // Current tracker state
-            int    trkCnt;               // Number of calibration scanlines so far
+            unsigned long trkTime;       // Samples since sync was first obtained (while tracking)
+            unsigned int trkState;       // Current tracker state
+            unsigned int trkCnt;         // Number of calibration scanlines so far
+            unsigned int trkMiss;        // Consecutive scanlines that disagree with the prediction
             double trkCalX[TRK_CAL];     // Calibration: scanline numbers
             double trkCalY[TRK_CAL];     // Calibration: measured scanline starts
             double trkCalP;              // Scanline period measured by calibration
-            double trkAbs;               // Filtered absolute position of last scanline start
+            double trkPos;               // Filtered position of last scanline start (in trkTime samples)
             double trkPeriod;            // Filtered scanline period, in samples
-            int    trkMiss;              // Consecutive scanlines that disagree with the prediction
 
             // Debugging data
             unsigned long lastDebugT = 0; // Time of the last debug printout (ms)
