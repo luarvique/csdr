@@ -97,8 +97,8 @@ SstvDecoder<T>::SstvDecoder(unsigned int sampleRate, unsigned int options, unsig
   options(options),
   curState(STATE_HEADER),
   freqOffset(0),
-  trkState(TRACK_NONE),
-  trkTime(0)
+  trkTime(0),
+  trkState(TRACK_NONE)
 {
     // Total sizes and 2msec step
     hdrSize = (HDR_SIZE * sampleRate) / 1000;
