@@ -304,6 +304,7 @@ namespace Csdr {
     template class ExecModule<unsigned char, unsigned char>;
     template class ExecModule<unsigned char, float>;
     template class ExecModule<unsigned char, short>;
+    template class ExecModule<unsigned char, complex<float>>;
     template class ExecModule<float, unsigned char>;
     template class ExecModule<float, float>;
     template class ExecModule<complex<short>, unsigned char>;
