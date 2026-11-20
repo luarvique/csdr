@@ -3,7 +3,7 @@ csdr (0.18.44) bullseye jammy; urgency=low
   * Greatly improved SSTV synchronization.
   * Fixed SSTV memory corruption after decoding PD290.
 
- -- Marat Fayzullin <luarvique@gmail.com>  Mon, 23 Nov 2026 16:12:00 +0000
+ -- Marat Fayzullin <luarvique@gmail.com>  Fri, 20 Nov 2026 16:12:00 +0000
 
 csdr (0.18.43) bullseye jammy; urgency=low
 
