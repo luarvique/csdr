@@ -111,7 +111,6 @@ namespace Csdr {
     template class Module<float, unsigned char>;
     template class Module<unsigned char, float>;
     template class Module<unsigned char, complex<short>>;
-    template class Module<unsigned char, complex<float>>;
     template class Module<complex<float>, unsigned char>;
     template class Module<unsigned char, unsigned char>;
     template class Module<complex<float>, complex<short>>;
