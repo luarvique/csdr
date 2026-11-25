@@ -299,6 +299,7 @@ bool ExecModule<T, U>::isPipeWriteable() {
 
 namespace Csdr {
     template class ExecModule<complex<short>, short>;
+    template class ExecModule<complex<short>, complex<short>>;
     template class ExecModule<short, short>;
     template class ExecModule<short, unsigned char>;
     template class ExecModule<unsigned char, unsigned char>;
