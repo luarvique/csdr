@@ -1,3 +1,10 @@
+csdr (0.18.45) bullseye jammy; urgency=low
+
+  * Added CS16->CS16 stereo path for Dream DRM decoder.
+  * Added U8->CS16 stereo path for Dablin DAB decoder.
+
+ -- Marat Fayzullin <luarvique@gmail.com>  Fri, 27 Nov 2026 16:12:00 +0000
+
 csdr (0.18.44) bullseye jammy; urgency=low
 
   * Greatly improved SSTV synchronization.
